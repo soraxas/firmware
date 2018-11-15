@@ -71,3 +71,21 @@ If you wish to add some functionality, preferably fork the repo, implement it an
 ## Adding new features
 
 See `macros.c`, namely `processCommandAction(...)`.
+
+## Building the firmware
+
+If you want to try the firmware out, just download the tar in releases and flash it via Agent. 
+
+If you wish to make changes into the source code, please follow the official repository guide. Basically, you will need:
+
+- Clone the repo with `--recursive` flag.
+- Build agent in lib/agent (that is, unmodified official agent), via `npm install && npm run build` in repository root. While doing so, you may run into some problems:
+  - You may need to install some packages globally (I am afraid I no longer remember which ones).
+  - You may need to downgrade npm: `sudo npm install -g n && sudo n 8.12.0`
+  - You will need to commit changes made by npm in this repo, otherwise, make-release.js will be faililng later.
+- Then you can setup mcuxpressoide according to the official firmware README guide.
+- Now you can build and flash firmware either:
+  - Via mcuxpressoide (debugging probes are not needed, see official firmware README).
+  - Or via running scripts/make-release.js (run by `node make-release.js`) and flashing the resulting tar.bz2 through agent.
+  
+If you have any problems with the build procedure, please create issue in the official agent repository. I made no changes into the proccedure and I will not be able to help with them.
