@@ -479,7 +479,6 @@ bool processSwitchLayerCommand(const char* arg1, const char* arg1End)
     static uint8_t lastLayerIdx = 0;
     uint8_t tmpLayerIdx = ToggledLayer;
     if(tokenMatches(arg1, arg1End, "previous")) {
-        reportErrorStatusString("activating previous\n", NULL);
         if(layerIdxStackSize > 0) {
             layerIdxStackTop = (layerIdxStackTop + LAYER_STACK_SIZE - 1) % LAYER_STACK_SIZE;
             layerIdxStackSize--;
@@ -492,7 +491,6 @@ bool processSwitchLayerCommand(const char* arg1, const char* arg1End)
     else {
         layerIdxStackTop = (layerIdxStackTop + 1) % LAYER_STACK_SIZE;
         if(tokenMatches(arg1, arg1End, "fn")) {
-            reportErrorStatusString("activating fn\n", NULL);
             layerIdxStack[layerIdxStackTop] = LayerId_Fn;
         }
         else if(tokenMatches(arg1, arg1End, "mouse")) {
@@ -572,10 +570,6 @@ bool processCommandAction(void)
             return processSwitchKeymapCommand(arg1, cmdEnd);
         }
         else if(tokenMatches(cmd, cmdEnd, "switchLayer")) {
-            reportErrorStatusString("switching layer with arg '", NULL);
-            reportErrorStatusString(arg1, cmdEnd);
-            reportErrorStatusString("' + ", NULL);
-            reportErrorStatusString(cmdEnd, cmdEnd+1);
             return processSwitchLayerCommand(arg1, cmdEnd);
         }
         else if(tokenMatches(cmd, cmdEnd, "delayUntilRelease")) {
