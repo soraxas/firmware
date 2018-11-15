@@ -1,4 +1,4 @@
-# Ultimate Hacking Keyboard firmware with custom actions
+# Ultimate Hacking Keyboard firmware with extended macro support
 
 This is a fork of [UHK firmware](https://github.com/UltimateHackingKeyboard/firmware). This custom firmware provides extended macro action support. Namely, we allow a set of simple commands to be used in text macro actions. Commands are denoted by a single dolar sign  as a prefix. Currently, only oneliners are supported (since we need to respect action indexing of macro player).
 
@@ -63,3 +63,7 @@ The following grammar is supported:
 ## Contributing
 
 If you wish to add some functionality, preferably fork the repo, implement it and post PR. Alternatively, feel free to fire tickets with feature requests... 
+
+## Adding new features
+
+See `macros.c`, namely `processCommandAction(...)`.
