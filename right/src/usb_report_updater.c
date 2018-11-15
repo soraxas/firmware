@@ -253,6 +253,7 @@ static void applyKeyAction(key_state_t *keyState, key_action_t *action)
 
     switch (action->type) {
         case KeyActionType_Keystroke:
+            MacroInterrupted = true;
             if (action->keystroke.scancode) {
                 if (!keyState->previous) {
                     stickyModifiers = action->keystroke.modifiers;

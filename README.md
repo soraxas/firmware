@@ -22,6 +22,14 @@ Creating double-shift-to-caps may look like:
     $ifNotDoubletap break
     <tap CapsLock>
 
+Smart switch (if tapped, locks layer; if used with a key, acts as a secondary role):
+
+    $switchLayer mouse
+    $delayUntilRelease
+    $switchLayer previous
+    $ifNotInterrupted switchLayer mouse
+    
+
 ## Reference manual
 
 The following grammar is supported:
@@ -34,9 +42,13 @@ The following grammar is supported:
     COMMAND = break
     COMMAND = errorStatus
     COMMAND = reportError <custom text>
+    COMMAND = goTo <index>
     CONDITION = ifDoubletap | ifNotDoubletap
+    CONDITION = ifInterrupted | ifNotInterrupted
 
-- `ifDoubletap/ifNotDoubletap` - is true if previous played macro had the same index and finished at most 250ms ago
+- `ifDoubletap/ifNotDoubletap` is true if previous played macro had the same index and finished at most 250ms ago
+
+- `ifInterrupted/ifNotInterrupted` is true if a keystroke action was triggered during macro runtime. Allows fake implementation of secondary roles. Also allows interruption of cycles.
 
 - `switchLayer` toggles layer. We keep a stack of size 5, which can be used for nested toggling and/or holds.
 
@@ -44,7 +56,7 @@ The following grammar is supported:
 
   - `previous` will pop the stack
 
-- `switchKeymap` will toggle the keymap by its abbreviation. Last will toggle last keymap toggled via this command.
+- `switchKeymap` will toggle the keymap by its abbreviation. Last will toggle the last keymap toggled via this command.
 
 - `delayUntilRelease` sleeps the macro until its activation key is released. Can be used to set action on key release. This is set to at least 50ms in order to prevent debouncing issues.
 
@@ -53,6 +65,9 @@ The following grammar is supported:
 - `errorStatus` will "type" content of error status buffer (256 chars) on the keyboard. Mainly for debug purposes.
 
 - `reportError <custom text>` will append <custom text> to the error report buffer, if there is enough space for that
+
+- `goTo <int>` will go to action index int. Actions are indexed from zero.
+
 
 ## Known issues
 

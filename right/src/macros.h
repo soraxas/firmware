@@ -71,6 +71,7 @@
     extern macro_reference_t AllMacros[MAX_MACRO_NUM];
     extern uint8_t AllMacrosCount;
     extern bool MacroPlaying;
+    extern bool MacroInterrupted;
     extern usb_mouse_report_t MacroMouseReport;
     extern usb_basic_keyboard_report_t MacroBasicKeyboardReport;
     extern usb_media_keyboard_report_t MacroMediaKeyboardReport;

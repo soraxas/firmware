@@ -7,6 +7,7 @@
 macro_reference_t AllMacros[MAX_MACRO_NUM];
 uint8_t AllMacrosCount;
 bool MacroPlaying = false;
+bool MacroInterrupted = false;
 usb_mouse_report_t MacroMouseReport;
 usb_basic_keyboard_report_t MacroBasicKeyboardReport;
 usb_media_keyboard_report_t MacroMediaKeyboardReport;
@@ -457,6 +458,16 @@ const char* nextTok(const char* cmd, const char *cmdEnd)
     return cmd;
 }
 
+uint8_t parseUInt8(const char *a, const char *aEnd)
+{
+    uint8_t n = 0;
+    while(*a > 32 && a < aEnd) {
+        n = n*10 + ((uint8_t)(*a))-48;
+        a++;
+    }
+    return n;
+}
+
 bool processSwitchKeymapCommand(const char* arg1, const char* arg1End)
 {
     static uint8_t lastKeymapIdx = 0;    int tmpKeymapIdx = CurrentKeymapIndex;
@@ -536,6 +547,11 @@ bool processIfDoubletapCommand(bool negate)
     return false != negate;
 }
 
+bool processIfInterruptedCommand(bool negate)
+{
+   return MacroInterrupted != negate;
+}
+
 bool processBreakCommand()
 {
     wantBreak = true;
@@ -554,6 +570,17 @@ bool processErrorStatusCommand()
 bool processReportErrorCommand(const char* arg, const char *argEnd)
 {
     reportErrorStatusString(arg, argEnd);
+    return false;
+}
+
+bool processGoToCommand(const char* arg, const char *argEnd)
+{
+    uint8_t address = parseUInt8(arg, argEnd);
+    currentMacroActionIndex = address - 1;
+    ValidatedUserConfigBuffer.offset = AllMacros[currentMacroIndex].firstMacroActionOffset;
+    for(uint8_t i = 0; i < address; i++) {
+        ParseMacroAction(&ValidatedUserConfigBuffer, &currentMacroAction);
+    }
     return false;
 }
 
@@ -581,6 +608,9 @@ bool processCommandAction(void)
         else if(tokenMatches(cmd, cmdEnd, "reportError")) {
             return processReportErrorCommand(arg1, cmdEnd);
         }
+        else if(tokenMatches(cmd, cmdEnd, "goTo")) {
+            return processGoToCommand(arg1, cmdEnd);
+        }
         else if(tokenMatches(cmd, cmdEnd, "ifDoubletap")) {
             if(!processIfDoubletapCommand(false)) {
                 return false;
@@ -588,6 +618,16 @@ bool processCommandAction(void)
         }
         else if(tokenMatches(cmd, cmdEnd, "ifNotDoubletap")) {
             if(!processIfDoubletapCommand(true)) {
+                return false;
+            }
+        }
+        else if(tokenMatches(cmd, cmdEnd, "ifInterrupted")) {
+            if(!processIfInterruptedCommand(false)) {
+                return false;
+            }
+        }
+        else if(tokenMatches(cmd, cmdEnd, "ifNotInterrupted")) {
+            if(!processIfInterruptedCommand(true)) {
                 return false;
             }
         }
@@ -631,6 +671,7 @@ void Macros_StartMacro(uint8_t index, key_state_t *keyState)
         return;
     }
     MacroPlaying = true;
+    MacroInterrupted = false;
     currentMacroIndex = index;
     currentMacroActionIndex = 0;
     currentMacroKey = keyState;
