@@ -46,16 +46,20 @@ The following grammar is supported:
 
 - `switchKeymap` will toggle the keymap by its abbreviation. Last will toggle last keymap toggled via this command.
 
-- delayUntilRelease sleeps the macro until its activation key is released. Can be used to set action on key release. This is set to at least 50ms in order to prevent debouncing issues.
+- `delayUntilRelease` sleeps the macro until its activation key is released. Can be used to set action on key release. This is set to at least 50ms in order to prevent debouncing issues.
 
-- break will end playback of the current macro
+- `break` will end playback of the current macro
 
-- errorStatus will "type" content of error status buffer (256 chars) on the keyboard. Mainly for debug purposes.
+- `errorStatus` will "type" content of error status buffer (256 chars) on the keyboard. Mainly for debug purposes.
 
-- reportError will append <custom text> to the error report buffer, if there is enough space for that
+- `reportError <custom text>` will append <custom text> to the error report buffer, if there is enough space for that
 
 ## Known issues
 
 - Layers can be untoggled only via macro or "toggle" feature. The combined hold/doubletap will *not* release layer toggle.  
 
 - Macros are not recursive. 
+
+## Contributing
+
+If you wish to add some functionality, preferably fork the repo, implement it and post PR. Alternatively, feel free to fire tickets with feature requests... 
