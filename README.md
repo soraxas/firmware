@@ -2,6 +2,10 @@
 
 This is a fork of [UHK firmware](https://github.com/UltimateHackingKeyboard/firmware). This custom firmware provides extended macro action support. Namely, we allow a set of simple commands to be used in text macro actions. Commands are denoted by a single dolar sign  as a prefix. Currently, only oneliners are supported (since we need to respect action indexing of macro player).
 
+## Compatibility
+
+This firmware is 100% compatible with original unmodified agent. All you need is to flash the modified firmware. Configurations won't get lost in case you decide to switch back to official firmware, or if you then again flash the modified version too, since config formats were not altered in any way.
+
 ## Example
 For instance, if the following text is pasted as a macro text action, playing the macro will result in toggling of fn layer.
     
@@ -75,6 +79,8 @@ The following grammar is supported:
 
 - Macros are not recursive. 
 
+- Only one-liners are allowed, due to our need to respect firmware's indexation of actions.
+
 ## Contributing
 
 If you wish to add some functionality, preferably fork the repo, implement it and post PR. Alternatively, feel free to fire tickets with feature requests... 
@@ -82,3 +88,21 @@ If you wish to add some functionality, preferably fork the repo, implement it an
 ## Adding new features
 
 See `macros.c`, namely `processCommandAction(...)`.
+
+## Building the firmware
+
+If you want to try the firmware out, just download the tar in releases and flash it via Agent. 
+
+If you wish to make changes into the source code, please follow the official repository guide. Basically, you will need:
+
+- Clone the repo with `--recursive` flag.
+- Build agent in lib/agent (that is, unmodified official agent), via `npm install && npm run build` in repository root. While doing so, you may run into some problems:
+  - You may need to install some packages globally (I am afraid I no longer remember which ones).
+  - You may need to downgrade npm: `sudo npm install -g n && sudo n 8.12.0`
+  - You will need to commit changes made by npm in this repo, otherwise, make-release.js will be faililng later.
+- Then you can setup mcuxpressoide according to the official firmware README guide.
+- Now you can build and flash firmware either:
+  - Via mcuxpressoide (debugging probes are not needed, see official firmware README).
+  - Or via running scripts/make-release.js (run by `node make-release.js`) and flashing the resulting tar.bz2 through agent.
+  
+If you have any problems with the build procedure, please create issue in the official agent repository. I made no changes into the proccedure and I will not be able to help with them.
