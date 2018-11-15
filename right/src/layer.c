@@ -70,3 +70,9 @@ layer_id_t GetActiveLayer()
 
     return heldLayer;
 }
+
+void ToggleLayer(layer_id_t layer)
+{
+	toggledLayers[layer] = true;
+	ToggledLayer = layer;
+}

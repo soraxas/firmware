@@ -2,6 +2,7 @@
 #include "config_parser/parse_macro.h"
 #include "config_parser/config_globals.h"
 #include "timer.h"
+#include "keymap.h"
 
 macro_reference_t AllMacros[MAX_MACRO_NUM];
 uint8_t AllMacrosCount;
@@ -14,6 +15,14 @@ usb_system_keyboard_report_t MacroSystemKeyboardReport;
 static uint8_t currentMacroIndex;
 static uint16_t currentMacroActionIndex;
 static macro_action_t currentMacroAction;
+static key_state_t *currentMacroKey;
+static uint8_t previousMacroIndex;
+static uint32_t previousMacroEndTime;
+static bool wantBreak = false;
+
+#define ERROR_STATUS_BUFFER_LENGTH 256
+static char errorStatusBuffer[ERROR_STATUS_BUFFER_LENGTH];
+static uint8_t errorStatusLen;
 
 uint8_t characterToScancode(char character)
 {
@@ -348,14 +357,14 @@ bool processScrollMouseAction(void)
     return inMotion;
 }
 
-bool processTextAction(void)
+bool dispatchText(const char* text, uint16_t textLen)
 {
     static uint16_t textIndex;
     static uint8_t reportIndex = USB_BASIC_KEYBOARD_MAX_KEYS;
     char character;
     uint8_t scancode;
 
-    if (textIndex == currentMacroAction.text.textLen) {
+    if (textIndex == textLen) {
         textIndex = 0;
         reportIndex = USB_BASIC_KEYBOARD_MAX_KEYS;
         memset(&MacroBasicKeyboardReport, 0, sizeof MacroBasicKeyboardReport);
@@ -366,7 +375,7 @@ bool processTextAction(void)
         memset(&MacroBasicKeyboardReport, 0, sizeof MacroBasicKeyboardReport);
         return true;
     }
-    character = currentMacroAction.text.text[textIndex];
+    character = text[textIndex];
     scancode = characterToScancode(character);
     for (uint8_t i = 0; i < reportIndex; i++) {
         if (MacroBasicKeyboardReport.scancodes[i] == scancode) {
@@ -378,6 +387,229 @@ bool processTextAction(void)
     MacroBasicKeyboardReport.modifiers = characterToShift(character) ? HID_KEYBOARD_MODIFIER_LEFTSHIFT : 0;
     ++textIndex;
     return true;
+}
+
+bool processTextAction(void)
+{
+    return dispatchText(currentMacroAction.text.text, currentMacroAction.text.textLen);
+}
+
+//textEnd is allowed to be null if text is null-terminated
+void reportErrorStatusString(const char* text, const char *textEnd)
+{
+    while(*text && errorStatusLen < ERROR_STATUS_BUFFER_LENGTH && (text < textEnd || textEnd == NULL)) {
+        errorStatusBuffer[errorStatusLen] = *text;
+        text++;
+        errorStatusLen++;
+    }
+}
+
+void reportErrorStatusBool(bool b)
+{
+    reportErrorStatusString(b ? "1" : "0", NULL);
+}
+
+void reportErrorStatusNum(uint8_t n)
+{
+    char buff[2];
+    buff[0] = ' ';
+    buff[1] = 0;
+    reportErrorStatusString(buff, NULL);
+    for(uint8_t div = 100; div > 0; div /= 10) {
+        buff[0] = (char)(((uint8_t)(n/div)) + '0');
+        n = n%div;
+        reportErrorStatusString(buff, NULL);
+    }
+}
+
+//Beware, currentMacroAction.text.text is *not* null-terminated!
+bool tokenMatches(const char *a, const char *aEnd, const char *b)
+{
+    while(a < aEnd && *b) {
+        if(*a <= 32 || a == aEnd || *b <= 32) {
+            return (*a <= 32 || a == aEnd) && *b <= 32;
+        }
+        if(*a++ != *b++){
+            return false;
+        }
+    }
+    return (*a <= 32 || a == aEnd) && *b <= 32;
+}
+
+uint8_t tokLen(const char *a, const char *aEnd)
+{
+    uint8_t l = 0;
+    while(*a > 32 && a < aEnd) {
+        l++;
+        a++;
+    }
+    return l;
+}
+
+const char* nextTok(const char* cmd, const char *cmdEnd)
+{
+    while(*cmd > 32 && cmd < cmdEnd)    {
+        cmd++;
+    }
+    while(*cmd <= 32 && cmd < cmdEnd) {
+        cmd++;
+    }
+    return cmd;
+}
+
+bool processSwitchKeymapCommand(const char* arg1, const char* arg1End)
+{
+    static uint8_t lastKeymapIdx = 0;    int tmpKeymapIdx = CurrentKeymapIndex;
+    if(tokenMatches(arg1, arg1End, "last")) {
+        SwitchKeymapById(lastKeymapIdx);
+    }
+    else {
+        SwitchKeymapByAbbreviation(tokLen(arg1, arg1End), arg1);
+    }
+    lastKeymapIdx = tmpKeymapIdx;
+    return false;
+}
+
+bool processSwitchLayerCommand(const char* arg1, const char* arg1End)
+{
+#define LAYER_STACK_SIZE 5
+    static uint8_t layerIdxStack[LAYER_STACK_SIZE];
+    static uint8_t layerIdxStackTop = 0;
+    static uint8_t layerIdxStackSize = 0;
+    static uint8_t lastLayerIdx = 0;
+    uint8_t tmpLayerIdx = ToggledLayer;
+    if(tokenMatches(arg1, arg1End, "previous")) {
+        reportErrorStatusString("activating previous\n", NULL);
+        if(layerIdxStackSize > 0) {
+            layerIdxStackTop = (layerIdxStackTop + LAYER_STACK_SIZE - 1) % LAYER_STACK_SIZE;
+            layerIdxStackSize--;
+        }
+        else {
+            layerIdxStack[layerIdxStackTop] = LayerId_Base;
+        }
+        ToggleLayer(layerIdxStack[layerIdxStackTop]);
+    }
+    else {
+        layerIdxStackTop = (layerIdxStackTop + 1) % LAYER_STACK_SIZE;
+        if(tokenMatches(arg1, arg1End, "fn")) {
+            reportErrorStatusString("activating fn\n", NULL);
+            layerIdxStack[layerIdxStackTop] = LayerId_Fn;
+        }
+        else if(tokenMatches(arg1, arg1End, "mouse")) {
+            layerIdxStack[layerIdxStackTop] = LayerId_Mouse;
+        }
+        else if(tokenMatches(arg1, arg1End, "mod")) {
+            layerIdxStack[layerIdxStackTop] = LayerId_Mod;
+        }
+        else if(tokenMatches(arg1, arg1End, "base")) {
+            layerIdxStack[layerIdxStackTop] = LayerId_Base;
+        }
+        else if(tokenMatches(arg1, arg1End, "last")) {
+            layerIdxStack[layerIdxStackTop] = lastLayerIdx;
+        }
+        ToggleLayer(layerIdxStack[layerIdxStackTop]);
+        layerIdxStackSize = layerIdxStackSize < LAYER_STACK_SIZE - 1 ? layerIdxStackSize+1 : layerIdxStackSize;
+    }
+    lastLayerIdx = tmpLayerIdx;
+    return false;
+}
+
+bool processDelayUntilReleaseCommand()
+{
+    static bool inDelay;
+    static uint32_t delayStart;
+
+    if (inDelay) {
+        if (Timer_GetElapsedTime(&delayStart) >= 50 && !currentMacroKey->current) {
+            inDelay = false;
+        }
+    } else {
+        delayStart = CurrentTime;
+        inDelay = true;
+    }
+    return inDelay;
+}
+
+bool processIfDoubletapCommand(bool negate)
+{
+    if (Timer_GetElapsedTime(&previousMacroEndTime) <= 250 && currentMacroIndex == previousMacroIndex) {
+        return true != negate;
+    }
+    return false != negate;
+}
+
+bool processBreakCommand()
+{
+    wantBreak = true;
+    return false;
+}
+
+bool processErrorStatusCommand()
+{
+    bool res = dispatchText(errorStatusBuffer, errorStatusLen);
+    if(!res) {
+        errorStatusLen = 0;
+    }
+    return res;
+}
+
+bool processReportErrorCommand(const char* arg, const char *argEnd)
+{
+    reportErrorStatusString(arg, argEnd);
+    return false;
+}
+
+bool processCommandAction(void)
+{
+    const char* cmd = currentMacroAction.text.text+1;
+    const char* cmdEnd = currentMacroAction.text.text + currentMacroAction.text.textLen;
+    while(*cmd) {
+        const char* arg1 = nextTok(cmd, cmdEnd);
+        if(tokenMatches(cmd, cmdEnd, "break")) {
+            return processBreakCommand();
+        }
+        else if(tokenMatches(cmd, cmdEnd, "switchKeymap")) {
+            return processSwitchKeymapCommand(arg1, cmdEnd);
+        }
+        else if(tokenMatches(cmd, cmdEnd, "switchLayer")) {
+            reportErrorStatusString("switching layer with arg '", NULL);
+            reportErrorStatusString(arg1, cmdEnd);
+            reportErrorStatusString("' + ", NULL);
+            reportErrorStatusString(cmdEnd, cmdEnd+1);
+            return processSwitchLayerCommand(arg1, cmdEnd);
+        }
+        else if(tokenMatches(cmd, cmdEnd, "delayUntilRelease")) {
+            return processDelayUntilReleaseCommand();
+        }
+        else if(tokenMatches(cmd, cmdEnd, "errorStatus")) {
+            return processErrorStatusCommand();
+        }
+        else if(tokenMatches(cmd, cmdEnd, "reportError")) {
+            return processReportErrorCommand(arg1, cmdEnd);
+        }
+        else if(tokenMatches(cmd, cmdEnd, "ifDoubletap")) {
+            if(!processIfDoubletapCommand(false)) {
+                return false;
+            }
+        }
+        else if(tokenMatches(cmd, cmdEnd, "ifNotDoubletap")) {
+            if(!processIfDoubletapCommand(true)) {
+                return false;
+            }
+        }
+        cmd = arg1;
+    }
+    return false;
+}
+
+bool processTextOrCommandAction(void)
+{
+    if(currentMacroAction.text.text[0] == '$') {
+        return processCommandAction();
+    }
+    else {
+        return processTextAction();
+    }
 }
 
 bool processCurrentMacroAction(void)
@@ -394,16 +626,20 @@ bool processCurrentMacroAction(void)
         case MacroActionType_ScrollMouse:
             return processScrollMouseAction();
         case MacroActionType_Text:
-            return processTextAction();
+            return processTextOrCommandAction();
     }
     return false;
 }
 
-void Macros_StartMacro(uint8_t index)
+void Macros_StartMacro(uint8_t index, key_state_t *keyState)
 {
+    if(MacroPlaying) {
+        return;
+    }
     MacroPlaying = true;
     currentMacroIndex = index;
     currentMacroActionIndex = 0;
+    currentMacroKey = keyState;
     ValidatedUserConfigBuffer.offset = AllMacros[index].firstMacroActionOffset;
     ParseMacroAction(&ValidatedUserConfigBuffer, &currentMacroAction);
     memset(&MacroMouseReport, 0, sizeof MacroMouseReport);
@@ -414,11 +650,14 @@ void Macros_StartMacro(uint8_t index)
 
 void Macros_ContinueMacro(void)
 {
-    if (processCurrentMacroAction()) {
+    if (processCurrentMacroAction() && !wantBreak) {
         return;
     }
-    if (++currentMacroActionIndex == AllMacros[currentMacroIndex].macroActionsCount) {
+    if (++currentMacroActionIndex == AllMacros[currentMacroIndex].macroActionsCount || wantBreak) {
         MacroPlaying = false;
+        wantBreak = false;
+        previousMacroIndex = currentMacroIndex;
+        previousMacroEndTime = CurrentTime;
         return;
     }
     ParseMacroAction(&ValidatedUserConfigBuffer, &currentMacroAction);

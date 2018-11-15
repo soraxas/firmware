@@ -26,7 +26,7 @@ void SwitchKeymapById(uint8_t index)
     LedDisplay_UpdateText();
 }
 
-bool SwitchKeymapByAbbreviation(uint8_t length, char *abbrev)
+bool SwitchKeymapByAbbreviation(uint8_t length, const char *abbrev)
 {
     for (uint8_t i=0; i<AllKeymapsCount; i++) {
         keymap_reference_t *keymap = AllKeymaps + i;

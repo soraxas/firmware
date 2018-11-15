@@ -27,4 +27,6 @@
 
     layer_id_t GetActiveLayer();
 
+    void ToggleLayer(layer_id_t layer);
+
 #endif

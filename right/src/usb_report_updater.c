@@ -300,7 +300,7 @@ static void applyKeyAction(key_state_t *keyState, key_action_t *action)
         case KeyActionType_PlayMacro:
             if (!keyState->previous) {
                 stickyModifiers = 0;
-                Macros_StartMacro(action->playMacro.macroId);
+                Macros_StartMacro(action->playMacro.macroId, keyState);
             }
             break;
     }
@@ -314,7 +314,7 @@ static void updateActiveUsbReports(void)
         memcpy(ActiveUsbBasicKeyboardReport, &MacroBasicKeyboardReport, sizeof MacroBasicKeyboardReport);
         memcpy(ActiveUsbMediaKeyboardReport, &MacroMediaKeyboardReport, sizeof MacroMediaKeyboardReport);
         memcpy(ActiveUsbSystemKeyboardReport, &MacroSystemKeyboardReport, sizeof MacroSystemKeyboardReport);
-        return;
+        //return;
     }
 
     memset(activeMouseStates, 0, ACTIVE_MOUSE_STATES_COUNT);

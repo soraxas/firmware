@@ -7,6 +7,7 @@
     #include <stdbool.h>
     #include "key_action.h"
     #include "usb_device_config.h"
+    #include "key_states.h"
 
 // Macros:
 
@@ -77,7 +78,7 @@
 
 // Functions:
 
-    void Macros_StartMacro(uint8_t index);
+    void Macros_StartMacro(uint8_t index, key_state_t *keyState);
     void Macros_ContinueMacro(void);
 
 #endif

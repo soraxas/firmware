@@ -30,6 +30,6 @@
 // Functions:
 
     void SwitchKeymapById(uint8_t index);
-    bool SwitchKeymapByAbbreviation(uint8_t length, char *abbrev);
+    bool SwitchKeymapByAbbreviation(uint8_t length, const char *abbrev);
 
 #endif

@@ -1,27 +1,61 @@
-# Ultimate Hacking Keyboard firmware
+# Ultimate Hacking Keyboard firmware with custom actions
 
-[![Build Status](https://travis-ci.org/UltimateHackingKeyboard/firmware.svg?branch=master)](https://travis-ci.org/UltimateHackingKeyboard/firmware)
+This is a fork of [UHK firmware](https://github.com/UltimateHackingKeyboard/firmware). This custom firmware provides extended macro action support. Namely, we allow a set of simple commands to be used in text macro actions. Commands are denoted by a single dolar sign  as a prefix. Currently, only oneliners are supported (since we need to respect action indexing of macro player).
 
-This repository hosts the firmware of the [Ultimate Hacking Keyboard](https://ultimatehackingkeyboard.com/).
+## Example
+For instance, if the following text is pasted as a macro text action, playing the macro will result in toggling of fn layer.
+    
+    $switchLayer fn
 
-If you want to use the latest firmware version for your UHK, then instead of going through the pain of building the firmware, simply download the [latest release of Agent](https://github.com/UltimateHackingKeyboard/agent/releases/latest) and update to the latest firmware version within Agent with a click of a button.
+Implementation of standard double-tap-locking hold modifier in recursive version could look like (every line as a separate action!):
 
-If you're one of the brave few who wants to hack the firmware then read on.
+    $switchLayer fn
+    $delayUntilRelease
+    $switchLayer previous
+    $ifDoubletap switchLayer fn
 
-1. Make sure to clone this repo with:
+Creating double-shift-to-caps may look like:
+   
+    <press Shift>
+    $delayUntilRelease
+    <releaseShift>
+    $ifNotDoubletap break
+    <tap CapsLock>
 
-`git clone --recursive git@github.com:UltimateHackingKeyboard/firmware.git`
+## Reference manual
 
-2. Download and install MCUXpresso IDE for [Linux](https://storage.googleapis.com/ugl-static/mcuxpresso-ide/mcuxpressoide-10.2.1_795.x86_64.deb.bin), [Mac](https://storage.googleapis.com/ugl-static/mcuxpresso-ide/MCUXpressoIDE_10.2.1_795.pkg), or [Windows](https://storage.googleapis.com/ugl-static/mcuxpresso-ide/MCUXpressoIDE_10.2.1_795.exe).
+The following grammar is supported:
 
-3. In the IDE, import the project by invoking *File -> Import -> General -> Existing Projects into Workspace*, select the *left* or *right* directory depending on the desired firmware, then click on the *Finish* button.
+    BODY = $COMMAND
+    COMMAND = CONDITION COMMAND
+    COMMAND = delayUntilRelease
+    COMMAND = switchLayer {fn|mouse|mod|base|last|previous}
+    COMMAND = switchKeymap {<abbrev>|last}
+    COMMAND = break
+    COMMAND = errorStatus
+    COMMAND = reportError <custom text>
+    CONDITION = ifDoubletap | ifNotDoubletap
 
-4. In order to be able to flash the firmware via USB from the IDE, you must build [Agent](https://github.com/UltimateHackingKeyboard/agent) which is Git submodule of the this repo and located in the `lib/agent` directory.
+- `ifDoubletap/ifNotDoubletap` - is true if previous played macro had the same index and finished at most 250ms ago
 
-5. Finally, in the IDE, click on *Run -> External Tools -> External Tools Configurations*, then select a release firmware to be flashed such as *uhk60-right_release_kboot*, and click on the *Run* button.
+- `switchLayer` toggles layer. We keep a stack of size 5, which can be used for nested toggling and/or holds.
 
-Going forward, it's easier to flash the firmware of your choice by using the downwards toolbar icon which is located rightwards of the *green play + toolbox icon*.
+  - `last` will toggle last layer toggled via this command and push it onto stack
 
-## Contributing
+  - `previous` will pop the stack
 
-Want to contribute? Let us show you [how](/CONTRIBUTING.md).
+- `switchKeymap` will toggle the keymap by its abbreviation. Last will toggle last keymap toggled via this command.
+
+- delayUntilRelease sleeps the macro until its activation key is released. Can be used to set action on key release. This is set to at least 50ms in order to prevent debouncing issues.
+
+- break will end playback of the current macro
+
+- errorStatus will "type" content of error status buffer (256 chars) on the keyboard. Mainly for debug purposes.
+
+- reportError will append <custom text> to the error report buffer, if there is enough space for that
+
+## Known issues
+
+- Layers can be untoggled only via macro or "toggle" feature. The combined hold/doubletap will *not* release layer toggle.  
+
+- Macros are not recursive. 
