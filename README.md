@@ -64,6 +64,8 @@ The following grammar is supported:
 
 - Macros are not recursive. 
 
+- Only one-liners are allowed, due to our need to respect firmware's indexation of actions.
+
 ## Contributing
 
 If you wish to add some functionality, preferably fork the repo, implement it and post PR. Alternatively, feel free to fire tickets with feature requests... 
