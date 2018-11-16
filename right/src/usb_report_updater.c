@@ -23,6 +23,7 @@ static uint32_t mouseElapsedTime;
 uint16_t DoubleTapSwitchLayerTimeout = 300;
 static uint16_t DoubleTapSwitchLayerReleaseTimeout = 200;
 
+static bool toggledMouseStates[ACTIVE_MOUSE_STATES_COUNT];
 static bool activeMouseStates[ACTIVE_MOUSE_STATES_COUNT];
 bool TestUsbStack = false;
 static key_action_t actionCache[SLOT_COUNT][MAX_KEY_COUNT_PER_MODULE];
@@ -56,6 +57,11 @@ mouse_kinetic_state_t MouseScrollState = {
     .baseSpeed = 20,
     .acceleratedSpeed = 50,
 };
+
+void ToggleMouseState(serialized_mouse_action_t action, bool activate)
+{
+    toggledMouseStates[action] = activate;
+}
 
 static void processMouseKineticState(mouse_kinetic_state_t *kineticState)
 {
@@ -318,7 +324,8 @@ static void updateActiveUsbReports(void)
         //return;
     }
 
-    memset(activeMouseStates, 0, ACTIVE_MOUSE_STATES_COUNT);
+    //memset(activeMouseStates, 0, ACTIVE_MOUSE_STATES_COUNT);
+    memcpy(activeMouseStates, toggledMouseStates, ACTIVE_MOUSE_STATES_COUNT);
 
     basicScancodeIndex = 0;
     mediaScancodeIndex = 0;

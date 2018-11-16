@@ -78,5 +78,6 @@
 // Functions:
 
     void UpdateUsbReports(void);
+    void ToggleMouseState(serialized_mouse_action_t action, bool activate);
 
 #endif

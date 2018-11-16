@@ -3,6 +3,7 @@
 #include "config_parser/config_globals.h"
 #include "timer.h"
 #include "keymap.h"
+#include "usb_report_updater.h"
 
 macro_reference_t AllMacros[MAX_MACRO_NUM];
 uint8_t AllMacrosCount;
@@ -584,6 +585,47 @@ bool processGoToCommand(const char* arg, const char *argEnd)
     return false;
 }
 
+bool processMouseCommand(bool enable, const char* arg1, const char *argEnd)
+{
+    const char* arg2 = nextTok(arg1, argEnd);
+    uint8_t dirOffset = 0;
+
+    serialized_mouse_action_t baseAction = SerializedMouseAction_LeftClick;
+
+    if(tokenMatches(arg1, argEnd, "move")) {
+        baseAction = SerializedMouseAction_MoveUp;
+    }
+    else if(tokenMatches(arg1, argEnd, "scroll")) {
+        baseAction = SerializedMouseAction_ScrollUp;
+    }
+    else if(tokenMatches(arg1, argEnd, "accelerate")) {
+        baseAction = SerializedMouseAction_Accelerate;
+    }
+    else if(tokenMatches(arg1, argEnd, "decelerate")) {
+        baseAction = SerializedMouseAction_Decelerate;
+    }
+
+    if(baseAction == SerializedMouseAction_MoveUp || baseAction == SerializedMouseAction_ScrollUp) {
+        if(tokenMatches(arg2, argEnd, "up")) {
+            dirOffset = 0;
+        }
+        else if(tokenMatches(arg2, argEnd, "down")) {
+            dirOffset = 1;
+        }
+        else if(tokenMatches(arg2, argEnd, "left")) {
+            dirOffset = 2;
+        }
+        else if(tokenMatches(arg2, argEnd, "right")) {
+            dirOffset = 3;
+        }
+    }
+
+    if(baseAction != SerializedMouseAction_LeftClick) {
+        ToggleMouseState(baseAction + dirOffset, enable);
+    }
+    return false;
+}
+
 bool processCommandAction(void)
 {
     const char* cmd = currentMacroAction.text.text+1;
@@ -610,6 +652,12 @@ bool processCommandAction(void)
         }
         else if(tokenMatches(cmd, cmdEnd, "goTo")) {
             return processGoToCommand(arg1, cmdEnd);
+        }
+        else if(tokenMatches(cmd, cmdEnd, "startMouse")) {
+            return processMouseCommand(true, arg1, cmdEnd);
+        }
+        else if(tokenMatches(cmd, cmdEnd, "stopMouse")) {
+            return processMouseCommand(false, arg1, cmdEnd);
         }
         else if(tokenMatches(cmd, cmdEnd, "ifDoubletap")) {
             if(!processIfDoubletapCommand(false)) {

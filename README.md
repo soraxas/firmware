@@ -6,6 +6,16 @@ This is a fork of [UHK firmware](https://github.com/UltimateHackingKeyboard/firm
 
 This firmware is 100% compatible with original unmodified agent. All you need is to flash the modified firmware. Configurations won't get lost in case you decide to switch back to official firmware, or if you then again flash the modified version too, since config formats were not altered in any way.
 
+## Featured usecases
+
+The firmware adds macro commands for (almost?) all basic features of the keyboard. Furthermore some conditionals, jumps and sync mechanisms are added.
+
+Some of the usecases which can be achieved via these commands are: 
+- ability to mimic secondary roles 
+- ability to bind actions to doubletaps 
+- custom layer switching logic, including nested layer toggling (however, only one hold layer can be active at a time)
+- flow control via goto command
+
 ## Example
 For instance, if the following text is pasted as a macro text action, playing the macro will result in toggling of fn layer.
     
@@ -32,7 +42,6 @@ Smart switch (if tapped, locks layer; if used with a key, acts as a secondary ro
     $delayUntilRelease
     $switchLayer previous
     $ifNotInterrupted switchLayer mouse
-    
 
 ## Reference manual
 
@@ -47,38 +56,29 @@ The following grammar is supported:
     COMMAND = errorStatus
     COMMAND = reportError <custom text>
     COMMAND = goTo <index>
+    COMMAND = {mouseStart|mouseStop} {move DIRECTION|scroll DIRECTION|accelerate|decelerate}
+    DIRECTION = {left|right|up|down}
     CONDITION = ifDoubletap | ifNotDoubletap
     CONDITION = ifInterrupted | ifNotInterrupted
 
 - `ifDoubletap/ifNotDoubletap` is true if previous played macro had the same index and finished at most 250ms ago
-
 - `ifInterrupted/ifNotInterrupted` is true if a keystroke action was triggered during macro runtime. Allows fake implementation of secondary roles. Also allows interruption of cycles.
-
 - `switchLayer` toggles layer. We keep a stack of size 5, which can be used for nested toggling and/or holds.
-
   - `last` will toggle last layer toggled via this command and push it onto stack
-
   - `previous` will pop the stack
-
 - `switchKeymap` will toggle the keymap by its abbreviation. Last will toggle the last keymap toggled via this command.
-
 - `delayUntilRelease` sleeps the macro until its activation key is released. Can be used to set action on key release. This is set to at least 50ms in order to prevent debouncing issues.
-
 - `break` will end playback of the current macro
-
 - `errorStatus` will "type" content of error status buffer (256 chars) on the keyboard. Mainly for debug purposes.
-
 - `reportError <custom text>` will append <custom text> to the error report buffer, if there is enough space for that
-
 - `goTo <int>` will go to action index int. Actions are indexed from zero.
+- `mouseStart/mouseStop` start/stop corresponding action. E.g., `mouseStart move left`
 
 
 ## Known issues
 
-- Layers can be untoggled only via macro or "toggle" feature. The combined hold/doubletap will *not* release layer toggle.  
-
-- Macros are not recursive. 
-
+- Layers can be untoggled only via macro or "toggle" feature. The combined hold/doubletap will *not* release layer toggle (this is bug of the official firmware, waiting for reply from devs).  
+- Only one macro at a time can run.
 - Only one-liners are allowed, due to our need to respect firmware's indexation of actions.
 
 ## Contributing
