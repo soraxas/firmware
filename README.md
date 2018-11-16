@@ -63,7 +63,7 @@ The following grammar is supported:
     CONDITION = ifInterrupted | ifNotInterrupted
 
 - `ifDoubletap/ifNotDoubletap` is true if previous played macro had the same index and finished at most 250ms ago
-- `ifInterrupted/ifNotInterrupted` is true if a keystroke action was triggered during macro runtime. Allows fake implementation of secondary roles. Also allows interruption of cycles.
+- `ifInterrupted/ifNotInterrupted` is true if a keystroke action or mouse action was triggered during macro runtime. Allows fake implementation of secondary roles. Also allows interruption of cycles.
 - `switchLayer` toggles layer. We keep a stack of size 5, which can be used for nested toggling and/or holds.
   - `last` will toggle last layer toggled via this command and push it onto stack
   - `previous` will pop the stack
@@ -73,9 +73,12 @@ The following grammar is supported:
 - `printStatus` will "type" content of error status buffer (256 chars) on the keyboard. Mainly for debug purposes.
 - `setStatus <custom text>` will append <custom text> to the error report buffer, if there is enough space for that
 - `goTo <int>` will go to action index int. Actions are indexed from zero.
-- `startMouse/stopMouse` start/stop corresponding action. E.g., `startMouse move left`
+- `startMouse/stopMouse` start/stop corresponding mouse action. E.g., `startMouse move left`
 - `recordMacro|playMacro` targets vim-like macro functionality. For the time being, only one slot is available. Usage: call `recordMacro`, do some work, end recording by another `recordMacro`. Now you can play the actions back by calling `playMacro`. Only BasicKeyboard scancodes are available at the moment. These macros are recorded into RAM only. 
 
+## Error handling
+
+This version of firmware includes basic error handling. If an error is encountered, led display will change to `ERR`. Error log can be retrieved via the `$printStatus` command. (E.g., focus some text area (for instance, open notepad), and press key with corresponding macro).)
 
 ## Known issues
 
