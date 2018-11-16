@@ -53,10 +53,10 @@ The following grammar is supported:
     COMMAND = switchLayer {fn|mouse|mod|base|last|previous}
     COMMAND = switchKeymap {<abbrev>|last}
     COMMAND = break
-    COMMAND = errorStatus
-    COMMAND = reportError <custom text>
+    COMMAND = printStatus
+    COMMAND = setStatus <custom text>
     COMMAND = goTo <index>
-    COMMAND = {mouseStart|mouseStop} {move DIRECTION|scroll DIRECTION|accelerate|decelerate}
+    COMMAND = {startMouse|stopMouse} {move DIRECTION|scroll DIRECTION|accelerate|decelerate}
     DIRECTION = {left|right|up|down}
     CONDITION = ifDoubletap | ifNotDoubletap
     CONDITION = ifInterrupted | ifNotInterrupted
@@ -69,10 +69,10 @@ The following grammar is supported:
 - `switchKeymap` will toggle the keymap by its abbreviation. Last will toggle the last keymap toggled via this command.
 - `delayUntilRelease` sleeps the macro until its activation key is released. Can be used to set action on key release. This is set to at least 50ms in order to prevent debouncing issues.
 - `break` will end playback of the current macro
-- `errorStatus` will "type" content of error status buffer (256 chars) on the keyboard. Mainly for debug purposes.
-- `reportError <custom text>` will append <custom text> to the error report buffer, if there is enough space for that
+- `printStatus` will "type" content of error status buffer (256 chars) on the keyboard. Mainly for debug purposes.
+- `setStatus <custom text>` will append <custom text> to the error report buffer, if there is enough space for that
 - `goTo <int>` will go to action index int. Actions are indexed from zero.
-- `mouseStart/mouseStop` start/stop corresponding action. E.g., `mouseStart move left`
+- `startMouse/stopMouse` start/stop corresponding action. E.g., `startMouse move left`
 
 
 ## Known issues

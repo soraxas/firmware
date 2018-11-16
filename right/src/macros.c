@@ -4,15 +4,18 @@
 #include "timer.h"
 #include "keymap.h"
 #include "usb_report_updater.h"
+#include "led_display.h"
 
 macro_reference_t AllMacros[MAX_MACRO_NUM];
 uint8_t AllMacrosCount;
 bool MacroPlaying = false;
-bool MacroInterrupted = false;
 usb_mouse_report_t MacroMouseReport;
 usb_basic_keyboard_report_t MacroBasicKeyboardReport;
 usb_media_keyboard_report_t MacroMediaKeyboardReport;
 usb_system_keyboard_report_t MacroSystemKeyboardReport;
+
+static bool macroInterrupted = false;
+static bool macroBroken = false;
 
 static uint8_t currentMacroIndex;
 static uint16_t currentMacroActionIndex;
@@ -20,11 +23,10 @@ static macro_action_t currentMacroAction;
 static key_state_t *currentMacroKey;
 static uint8_t previousMacroIndex;
 static uint32_t previousMacroEndTime;
-static bool wantBreak = false;
 
-#define ERROR_STATUS_BUFFER_LENGTH 256
-static char errorStatusBuffer[ERROR_STATUS_BUFFER_LENGTH];
-static uint8_t errorStatusLen;
+#define STATUS_BUFFER_MAX_LENGTH 256
+static char statusBuffer[STATUS_BUFFER_MAX_LENGTH];
+static uint8_t statusBufferLen;
 
 uint8_t characterToScancode(char character)
 {
@@ -94,6 +96,11 @@ uint8_t characterToScancode(char character)
             return HID_KEYBOARD_SC_SPACE;
     }
     return 0;
+}
+
+void Macros_SignalInterrupt()
+{
+    macroInterrupted = true;
 }
 
 bool characterToShift(char character)
@@ -397,31 +404,46 @@ bool processTextAction(void)
 }
 
 //textEnd is allowed to be null if text is null-terminated
-void reportErrorStatusString(const char* text, const char *textEnd)
+void setStatusString(const char* text, const char *textEnd)
 {
-    while(*text && errorStatusLen < ERROR_STATUS_BUFFER_LENGTH && (text < textEnd || textEnd == NULL)) {
-        errorStatusBuffer[errorStatusLen] = *text;
+    while(*text && statusBufferLen < STATUS_BUFFER_MAX_LENGTH && (text < textEnd || textEnd == NULL)) {
+        statusBuffer[statusBufferLen] = *text;
         text++;
-        errorStatusLen++;
+        statusBufferLen++;
     }
 }
 
-void reportErrorStatusBool(bool b)
+void setStatusBool(bool b)
 {
-    reportErrorStatusString(b ? "1" : "0", NULL);
+    setStatusString(b ? "1" : "0", NULL);
 }
 
-void reportErrorStatusNum(uint8_t n)
+void setStatusNum(uint8_t n)
 {
+    uint8_t orig = n;
     char buff[2];
     buff[0] = ' ';
     buff[1] = 0;
-    reportErrorStatusString(buff, NULL);
+    setStatusString(buff, NULL);
     for(uint8_t div = 100; div > 0; div /= 10) {
         buff[0] = (char)(((uint8_t)(n/div)) + '0');
         n = n%div;
-        reportErrorStatusString(buff, NULL);
+        if(n!=orig || div = 1) {
+          setStatusString(buff, NULL);
+        }
     }
+}
+
+void reportError(const char* err, const char* arg, const char *argEnd)
+{
+    LedDisplay_SetText(3, "ERR");
+    setStatusString("line ", NULL);
+    setStatusNum(currentMacroActionIndex);
+    setStatusString(": ", NULL);
+    setStatusString(err, NULL);
+    setStatusString(": ", NULL);
+    setStatusString(arg, argEnd);
+    setStatusString("\n", NULL);
 }
 
 //Beware, currentMacroAction.text.text is *not* null-terminated!
@@ -517,6 +539,9 @@ bool processSwitchLayerCommand(const char* arg1, const char* arg1End)
         else if(tokenMatches(arg1, arg1End, "last")) {
             layerIdxStack[layerIdxStackTop] = lastLayerIdx;
         }
+        else {
+            reportError("unrecognized layer id", arg1, arg1End);
+        }
         ToggleLayer(layerIdxStack[layerIdxStackTop]);
         layerIdxStackSize = layerIdxStackSize < LAYER_STACK_SIZE - 1 ? layerIdxStackSize+1 : layerIdxStackSize;
     }
@@ -550,27 +575,27 @@ bool processIfDoubletapCommand(bool negate)
 
 bool processIfInterruptedCommand(bool negate)
 {
-   return MacroInterrupted != negate;
+   return macroInterrupted != negate;
 }
 
 bool processBreakCommand()
 {
-    wantBreak = true;
+    macroBroken = true;
     return false;
 }
 
-bool processErrorStatusCommand()
+bool processPrintStatusCommand()
 {
-    bool res = dispatchText(errorStatusBuffer, errorStatusLen);
+    bool res = dispatchText(statusBuffer, statusBufferLen);
     if(!res) {
-        errorStatusLen = 0;
+        statusBufferLen = 0;
     }
     return res;
 }
 
-bool processReportErrorCommand(const char* arg, const char *argEnd)
+bool processSetStatusCommand(const char* arg, const char *argEnd)
 {
-    reportErrorStatusString(arg, argEnd);
+    setStatusString(arg, argEnd);
     return false;
 }
 
@@ -604,6 +629,9 @@ bool processMouseCommand(bool enable, const char* arg1, const char *argEnd)
     else if(tokenMatches(arg1, argEnd, "decelerate")) {
         baseAction = SerializedMouseAction_Decelerate;
     }
+    else {
+        reportError("unrecognized argument", arg1, argEnd);
+    }
 
     if(baseAction == SerializedMouseAction_MoveUp || baseAction == SerializedMouseAction_ScrollUp) {
         if(tokenMatches(arg2, argEnd, "up")) {
@@ -617,6 +645,9 @@ bool processMouseCommand(bool enable, const char* arg1, const char *argEnd)
         }
         else if(tokenMatches(arg2, argEnd, "right")) {
             dirOffset = 3;
+        }
+        else {
+            reportError("unrecognized argument", arg2, argEnd);
         }
     }
 
@@ -644,11 +675,11 @@ bool processCommandAction(void)
         else if(tokenMatches(cmd, cmdEnd, "delayUntilRelease")) {
             return processDelayUntilReleaseCommand();
         }
-        else if(tokenMatches(cmd, cmdEnd, "errorStatus")) {
-            return processErrorStatusCommand();
+        else if(tokenMatches(cmd, cmdEnd, "printStatus")) {
+            return processPrintStatusCommand();
         }
-        else if(tokenMatches(cmd, cmdEnd, "reportError")) {
-            return processReportErrorCommand(arg1, cmdEnd);
+        else if(tokenMatches(cmd, cmdEnd, "setStatus")) {
+            return processSetStatusCommand(arg1, cmdEnd);
         }
         else if(tokenMatches(cmd, cmdEnd, "goTo")) {
             return processGoToCommand(arg1, cmdEnd);
@@ -678,6 +709,9 @@ bool processCommandAction(void)
             if(!processIfInterruptedCommand(true)) {
                 return false;
             }
+        }
+        else {
+            reportError("unrecognized command", cmd, cmdEnd);
         }
         cmd = arg1;
     }
@@ -719,7 +753,7 @@ void Macros_StartMacro(uint8_t index, key_state_t *keyState)
         return;
     }
     MacroPlaying = true;
-    MacroInterrupted = false;
+    macroInterrupted = false;
     currentMacroIndex = index;
     currentMacroActionIndex = 0;
     currentMacroKey = keyState;
@@ -733,12 +767,12 @@ void Macros_StartMacro(uint8_t index, key_state_t *keyState)
 
 void Macros_ContinueMacro(void)
 {
-    if (processCurrentMacroAction() && !wantBreak) {
+    if (processCurrentMacroAction() && !macroBroken) {
         return;
     }
-    if (++currentMacroActionIndex == AllMacros[currentMacroIndex].macroActionsCount || wantBreak) {
+    if (++currentMacroActionIndex == AllMacros[currentMacroIndex].macroActionsCount || macroBroken) {
         MacroPlaying = false;
-        wantBreak = false;
+        macroBroken = false;
         previousMacroIndex = currentMacroIndex;
         previousMacroEndTime = CurrentTime;
         return;
