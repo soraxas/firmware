@@ -1,6 +1,6 @@
 # Ultimate Hacking Keyboard firmware with extended macro support
 
-This is a fork of [UHK firmware](https://github.com/UltimateHackingKeyboard/firmware). This custom firmware provides extended macro action support. Namely, we allow a set of simple commands to be used in text macro actions. Commands are denoted by a single dolar sign  as a prefix. Currently, only oneliners are supported (since we need to respect action indexing of macro player).
+This is a fork of [UHK firmware](https://github.com/UltimateHackingKeyboard/firmware). This custom firmware provides extended macro action support. Namely, we allow a set of simple commands to be used in text macro actions. Commands are denoted by a single dolar sign  as a prefix. 
 
 ## Compatibility
 
@@ -8,7 +8,7 @@ This firmware is 100% compatible with original unmodified agent. All you need is
 
 ## Featured usecases
 
-The firmware adds macro commands for (almost?) all basic features of the keyboard. Furthermore some conditionals, jumps and sync mechanisms are added.
+The firmware adds macro commands for (almost?) all basic features of the keyboard. Furthermore some conditionals, jumps and sync mechanisms are available.
 
 Some of the usecases which can be achieved via these commands are: 
 - ability to mimic secondary roles 
