@@ -6,14 +6,18 @@ This is a fork of [UHK firmware](https://github.com/UltimateHackingKeyboard/firm
 
 This firmware is 100% compatible with original unmodified agent. All you need is to flash the modified firmware. Configurations won't get lost in case you decide to switch back to official firmware, or if you then again flash the modified version too, since config formats were not altered in any way.
 
-## Featured usecases
+## Features
 
-The firmware adds macro commands for (almost?) all basic features of the keyboard. Furthermore some conditionals, jumps and sync mechanisms are available.
+The firmware implements:
+- macro commands for (almost?) all basic features of the keyboard. 
+- macro commands for conditionals, jumps and sync mechanisms 
+- runtime macros implemented on scancode level, for vim-like macro functionality
+- ability to run multiple macros at the same time
 
 Some of the usecases which can be achieved via these commands are: 
 - ability to mimic secondary roles 
 - ability to bind actions to doubletaps 
-- custom layer switching logic, including nested layer toggling (however, only one hold layer can be active at a time)
+- ability to configure custom layer switching logic, including nested layer toggling 
 - flow control via goto command
 
 ## Example
@@ -78,12 +82,11 @@ The following grammar is supported:
 
 ## Error handling
 
-This version of firmware includes basic error handling. If an error is encountered, led display will change to `ERR`. Error log can be retrieved via the `$printStatus` command. (E.g., focus some text area (for instance, open notepad), and press key with corresponding macro).)
+This version of firmware includes basic error handling. If an error is encountered, led display will change to `ERR` and error message written into the status buffer. Error log can be retrieved via the `$printStatus` command. (E.g., focus some text area (for instance, open notepad), and press key with corresponding macro).)
 
 ## Known issues
 
 - Layers can be untoggled only via macro or "toggle" feature. The combined hold/doubletap will *not* release layer toggle (this is bug of the official firmware, waiting for reply from devs).  
-- Only one macro at a time can run.
 - Only one-liners are allowed, due to our need to respect firmware's indexation of actions.
 
 ## Contributing
@@ -113,5 +116,6 @@ If you wish to make changes into the source code, please follow the official rep
 If you have any problems with the build procedure, please create issue in the official agent repository. I made no changes into the proccedure and I will not be able to help with them.
 
 ## TODO
-- allow multiple macros run at the same time
-- enable slots for runtime macros
+
+- enable (multiple) slots for runtime macros
+

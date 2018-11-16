@@ -10,23 +10,36 @@
 macro_reference_t AllMacros[MAX_MACRO_NUM];
 uint8_t AllMacrosCount;
 bool MacroPlaying = false;
+bool ReportsClaimed = false;
 usb_mouse_report_t MacroMouseReport;
 usb_basic_keyboard_report_t MacroBasicKeyboardReport;
 usb_media_keyboard_report_t MacroMediaKeyboardReport;
 usb_system_keyboard_report_t MacroSystemKeyboardReport;
 
-static bool macroInterrupted = false;
-static bool macroBroken = false;
-
-static uint8_t currentMacroIndex;
-static uint16_t currentMacroActionIndex;
-static macro_action_t currentMacroAction;
-static key_state_t *currentMacroKey;
-static uint8_t previousMacroIndex;
-static uint32_t previousMacroEndTime;
-
 static char statusBuffer[STATUS_BUFFER_MAX_LENGTH];
 static uint16_t statusBufferLen;
+
+
+static uint8_t lastKeymapIdx;
+static uint8_t layerIdxStack[LAYER_STACK_SIZE];
+static uint8_t layerIdxStackTop;
+static uint8_t layerIdxStackSize;
+static uint8_t lastLayerIdx;
+
+static macro_state_t macroState[MACRO_STATE_POOL_SIZE];
+static macro_state_t *s = macroState;
+
+bool Macros_ClaimReports() {
+    if(!ReportsClaimed) {
+        ReportsClaimed = true;
+        return true;
+    }
+    return false;
+}
+
+void Macros_ResetReportClaims() {
+    ReportsClaimed = false;
+}
 
 uint8_t characterToScancode(char character)
 {
@@ -100,7 +113,11 @@ uint8_t characterToScancode(char character)
 
 void Macros_SignalInterrupt()
 {
-    macroInterrupted = true;
+    for(uint8_t i = 0; i < MACRO_STATE_POOL_SIZE; i++) {
+        if(macroState[i].macroPlaying) {
+            macroState[i].macroInterrupted = true;
+        }
+    }
 }
 
 bool characterToShift(char character)
@@ -268,67 +285,69 @@ void deleteScancode(uint16_t scancode, macro_sub_action_t type)
 
 bool processKeyAction(void)
 {
-    static bool pressStarted;
 
-    switch (currentMacroAction.key.action) {
+    if(!Macros_ClaimReports()) {
+        return true;
+    }
+
+    switch (s->currentMacroAction.key.action) {
         case MacroSubAction_Tap:
-            if (!pressStarted) {
-                pressStarted = true;
-                addModifiers(currentMacroAction.key.modifierMask);
-                addScancode(currentMacroAction.key.scancode, currentMacroAction.key.type);
+            if (!s->keyActionPressStarted) {
+                s->keyActionPressStarted = true;
+                addModifiers(s->currentMacroAction.key.modifierMask);
+                addScancode(s->currentMacroAction.key.scancode, s->currentMacroAction.key.type);
                 return true;
             }
-            pressStarted = false;
-            deleteModifiers(currentMacroAction.key.modifierMask);
-            deleteScancode(currentMacroAction.key.scancode, currentMacroAction.key.type);
+            s->keyActionPressStarted = false;
+            deleteModifiers(s->currentMacroAction.key.modifierMask);
+            deleteScancode(s->currentMacroAction.key.scancode, s->currentMacroAction.key.type);
             break;
         case MacroSubAction_Release:
-            deleteModifiers(currentMacroAction.key.modifierMask);
-            deleteScancode(currentMacroAction.key.scancode, currentMacroAction.key.type);
+            deleteModifiers(s->currentMacroAction.key.modifierMask);
+            deleteScancode(s->currentMacroAction.key.scancode, s->currentMacroAction.key.type);
             break;
         case MacroSubAction_Press:
-            addModifiers(currentMacroAction.key.modifierMask);
-            addScancode(currentMacroAction.key.scancode, currentMacroAction.key.type);
+            addModifiers(s->currentMacroAction.key.modifierMask);
+            addScancode(s->currentMacroAction.key.scancode, s->currentMacroAction.key.type);
             break;
     }
     return false;
 }
 
-bool processDelayAction(void)
+bool processDelay(uint32_t time)
 {
-    static bool inDelay;
-    static uint32_t delayStart;
-
-    if (inDelay) {
-        if (Timer_GetElapsedTime(&delayStart) >= currentMacroAction.delay.delay) {
-            inDelay = false;
+    if (s->delayActive) {
+        if (Timer_GetElapsedTime(&s->delayStart) >= time) {
+            s->delayActive = false;
         }
     } else {
-        delayStart = CurrentTime;
-        inDelay = true;
+        s->delayStart = CurrentTime;
+        s->delayActive = true;
     }
-    return inDelay;
+    return s->delayActive;
+}
+
+bool processDelayAction() {
+    return processDelay(s->currentMacroAction.delay.delay);
 }
 
 bool processMouseButtonAction(void)
 {
-    static bool pressStarted;
-
-    switch (currentMacroAction.key.action) {
+    switch (s->currentMacroAction.key.action) {
         case MacroSubAction_Tap:
-            if (!pressStarted) {
-                pressStarted = true;
-                MacroMouseReport.buttons |= currentMacroAction.mouseButton.mouseButtonsMask;
+            if (!s->mouseButtonPressStarted) {
+                s->mouseButtonPressStarted = true;
+                MacroMouseReport.buttons |= s->currentMacroAction.mouseButton.mouseButtonsMask;
                 return true;
             }
-            pressStarted = false;
-            MacroMouseReport.buttons &= ~currentMacroAction.mouseButton.mouseButtonsMask;
+            s->mouseButtonPressStarted = false;
+            MacroMouseReport.buttons &= ~s->currentMacroAction.mouseButton.mouseButtonsMask;
             break;
         case MacroSubAction_Release:
-            MacroMouseReport.buttons &= ~currentMacroAction.mouseButton.mouseButtonsMask;
+            MacroMouseReport.buttons &= ~s->currentMacroAction.mouseButton.mouseButtonsMask;
             break;
         case MacroSubAction_Press:
-            MacroMouseReport.buttons |= currentMacroAction.mouseButton.mouseButtonsMask;
+            MacroMouseReport.buttons |= s->currentMacroAction.mouseButton.mouseButtonsMask;
             break;
     }
     return false;
@@ -336,34 +355,30 @@ bool processMouseButtonAction(void)
 
 bool processMoveMouseAction(void)
 {
-    static bool inMotion;
-
-    if (inMotion) {
+    if (s->mouseMoveInMotion) {
         MacroMouseReport.x = 0;
         MacroMouseReport.y = 0;
-        inMotion = false;
+        s->mouseMoveInMotion = false;
     } else {
-        MacroMouseReport.x = currentMacroAction.moveMouse.x;
-        MacroMouseReport.y = currentMacroAction.moveMouse.y;
-        inMotion = true;
+        MacroMouseReport.x = s->currentMacroAction.moveMouse.x;
+        MacroMouseReport.y = s->currentMacroAction.moveMouse.y;
+        s->mouseMoveInMotion = true;
     }
-    return inMotion;
+    return s->mouseMoveInMotion;
 }
 
 bool processScrollMouseAction(void)
 {
-    static bool inMotion;
-
-    if (inMotion) {
+    if (s->mouseScrollInMotion) {
         MacroMouseReport.wheelX = 0;
         MacroMouseReport.wheelY = 0;
-        inMotion = false;
+        s->mouseScrollInMotion = false;
     } else {
-        MacroMouseReport.wheelX = currentMacroAction.scrollMouse.x;
-        MacroMouseReport.wheelY = currentMacroAction.scrollMouse.y;
-        inMotion = true;
+        MacroMouseReport.wheelX = s->currentMacroAction.scrollMouse.x;
+        MacroMouseReport.wheelY = s->currentMacroAction.scrollMouse.y;
+        s->mouseScrollInMotion = true;
     }
-    return inMotion;
+    return s->mouseScrollInMotion;
 }
 
 //textEnd is allowed to be null if text is null-terminated
@@ -401,12 +416,19 @@ void reportError(const char* err, const char* arg, const char *argEnd)
 {
     LedDisplay_SetText(3, "ERR");
     setStatusString("line ", NULL);
-    setStatusNum(currentMacroActionIndex);
+    setStatusNum(s->currentMacroActionIndex);
     setStatusString(": ", NULL);
     setStatusString(err, NULL);
-    setStatusString(": ", NULL);
-    setStatusString(arg, argEnd);
+    if(arg != NULL) {
+        setStatusString(": ", NULL);
+        setStatusString(arg, argEnd);
+    }
     setStatusString("\n", NULL);
+}
+
+void Macros_ReportError(const char* err, const char* arg, const char *argEnd)
+{
+    reportError(err, arg, argEnd);
 }
 
 void printReport(usb_basic_keyboard_report_t *report) {
@@ -419,43 +441,40 @@ void printReport(usb_basic_keyboard_report_t *report) {
 
 bool dispatchText(const char* text, uint16_t textLen)
 {
-    static uint16_t textIndex;
-    static uint8_t reportIndex = USB_BASIC_KEYBOARD_MAX_KEYS;
+    if(!Macros_ClaimReports()) {
+        return true;
+    }
     char character;
     uint8_t scancode;
 
-    if (textIndex == textLen) {
-        textIndex = 0;
-        reportIndex = USB_BASIC_KEYBOARD_MAX_KEYS;
+    if (s->dispatchTextIndex == textLen) {
+        s->dispatchTextIndex = 0;
+        s->dispatchReportIndex = USB_BASIC_KEYBOARD_MAX_KEYS;
         memset(&MacroBasicKeyboardReport, 0, sizeof MacroBasicKeyboardReport);
-        //setStatusString("ended\n", NULL);
         return false;
     }
-    if (reportIndex == USB_BASIC_KEYBOARD_MAX_KEYS) {
-        reportIndex = 0;
+    if (s->dispatchReportIndex == USB_BASIC_KEYBOARD_MAX_KEYS) {
+        s->dispatchReportIndex = 0;
         memset(&MacroBasicKeyboardReport, 0, sizeof MacroBasicKeyboardReport);
-        //setStatusString("clearing\n", NULL);
         return true;
     }
-    character = text[textIndex];
+    character = text[s->dispatchTextIndex];
     scancode = characterToScancode(character);
-    for (uint8_t i = 0; i < reportIndex; i++) {
+    for (uint8_t i = 0; i < s->dispatchReportIndex; i++) {
         if (MacroBasicKeyboardReport.scancodes[i] == scancode) {
-            reportIndex = USB_BASIC_KEYBOARD_MAX_KEYS;
-            //setStatusString("found same\n", NULL);
+            s->dispatchReportIndex = USB_BASIC_KEYBOARD_MAX_KEYS;
             return true;
         }
     }
-    MacroBasicKeyboardReport.scancodes[reportIndex++] = scancode;
+    MacroBasicKeyboardReport.scancodes[s->dispatchReportIndex++] = scancode;
     MacroBasicKeyboardReport.modifiers = characterToShift(character) ? HID_KEYBOARD_MODIFIER_LEFTSHIFT : 0;
-    ++textIndex;
-    //printReport(&MacroBasicKeyboardReport);
+    ++s->dispatchTextIndex;
     return true;
 }
 
 bool processTextAction(void)
 {
-    return dispatchText(currentMacroAction.text.text, currentMacroAction.text.textLen);
+    return dispatchText(s->currentMacroAction.text.text, s->currentMacroAction.text.textLen);
 }
 
 //Beware, currentMacroAction.text.text is *not* null-terminated!
@@ -505,7 +524,7 @@ uint8_t parseUInt8(const char *a, const char *aEnd)
 
 bool processSwitchKeymapCommand(const char* arg1, const char* arg1End)
 {
-    static uint8_t lastKeymapIdx = 0;    int tmpKeymapIdx = CurrentKeymapIndex;
+    int tmpKeymapIdx = CurrentKeymapIndex;
     if(tokenMatches(arg1, arg1End, "last")) {
         SwitchKeymapById(lastKeymapIdx);
     }
@@ -518,11 +537,6 @@ bool processSwitchKeymapCommand(const char* arg1, const char* arg1End)
 
 bool processSwitchLayerCommand(const char* arg1, const char* arg1End)
 {
-#define LAYER_STACK_SIZE 5
-    static uint8_t layerIdxStack[LAYER_STACK_SIZE];
-    static uint8_t layerIdxStackTop = 0;
-    static uint8_t layerIdxStackSize = 0;
-    static uint8_t lastLayerIdx = 0;
     uint8_t tmpLayerIdx = ToggledLayer;
     if(tokenMatches(arg1, arg1End, "previous")) {
         if(layerIdxStackSize > 0) {
@@ -540,7 +554,7 @@ bool processSwitchLayerCommand(const char* arg1, const char* arg1End)
             layerIdxStack[layerIdxStackTop] = LayerId_Fn;
         }
         else if(tokenMatches(arg1, arg1End, "mouse")) {
-            layerIdxStack[layerIdxStackTop] = LayerId_Mouse;
+           layerIdxStack[layerIdxStackTop] = LayerId_Mouse;
         }
         else if(tokenMatches(arg1, arg1End, "mod")) {
             layerIdxStack[layerIdxStackTop] = LayerId_Mod;
@@ -563,36 +577,36 @@ bool processSwitchLayerCommand(const char* arg1, const char* arg1End)
 
 bool processDelayUntilReleaseCommand()
 {
-    static bool inDelay;
-    static uint32_t delayStart;
-
-    if (inDelay) {
-        if (Timer_GetElapsedTime(&delayStart) >= 50 && !currentMacroKey->current) {
-            inDelay = false;
-        }
-    } else {
-        delayStart = CurrentTime;
-        inDelay = true;
+    if(s->currentMacroKey->current) {
+        return true;
     }
-    return inDelay;
+    return processDelay(50);
 }
 
 bool processIfDoubletapCommand(bool negate)
 {
-    if (Timer_GetElapsedTime(&previousMacroEndTime) <= 250 && currentMacroIndex == previousMacroIndex) {
-        return true != negate;
+    bool doubletapFound = false;
+
+    for(uint8_t i = 0; i < MACRO_STATE_POOL_SIZE; i++) {
+        if (macroState[i].macroPlaying && Timer_GetElapsedTime(&macroState[i].previousMacroEndTime) <= 250 && s->currentMacroIndex == macroState[i].previousMacroIndex) {
+            doubletapFound = true;
+        }
+        if (!macroState[i].macroPlaying && Timer_GetElapsedTime(&macroState[i].previousMacroEndTime) <= 250 && s->currentMacroIndex == macroState[i].currentMacroIndex) {
+            doubletapFound = true;
+        }
     }
-    return false != negate;
+
+    return doubletapFound != negate;
 }
 
 bool processIfInterruptedCommand(bool negate)
 {
-   return macroInterrupted != negate;
+   return s->macroInterrupted != negate;
 }
 
 bool processBreakCommand()
 {
-    macroBroken = true;
+    s->macroBroken = true;
     return false;
 }
 
@@ -615,11 +629,12 @@ bool processSetStatusCommand(const char* arg, const char *argEnd)
 bool processGoToCommand(const char* arg, const char *argEnd)
 {
     uint8_t address = parseUInt8(arg, argEnd);
-    currentMacroActionIndex = address - 1;
-    ValidatedUserConfigBuffer.offset = AllMacros[currentMacroIndex].firstMacroActionOffset;
+    s->currentMacroActionIndex = address - 1;
+    ValidatedUserConfigBuffer.offset = AllMacros[s->currentMacroIndex].firstMacroActionOffset;
     for(uint8_t i = 0; i < address; i++) {
-        ParseMacroAction(&ValidatedUserConfigBuffer, &currentMacroAction);
+        ParseMacroAction(&ValidatedUserConfigBuffer, &s->currentMacroAction);
     }
+    s->bufferOffset = ValidatedUserConfigBuffer.offset;
     return false;
 }
 
@@ -672,8 +687,8 @@ bool processMouseCommand(bool enable, const char* arg1, const char *argEnd)
 
 bool processCommandAction(void)
 {
-    const char* cmd = currentMacroAction.text.text+1;
-    const char* cmdEnd = currentMacroAction.text.text + currentMacroAction.text.textLen;
+    const char* cmd = s->currentMacroAction.text.text+1;
+    const char* cmdEnd = s->currentMacroAction.text.text + s->currentMacroAction.text.textLen;
     while(*cmd) {
         const char* arg1 = nextTok(cmd, cmdEnd);
         if(tokenMatches(cmd, cmdEnd, "break")) {
@@ -740,7 +755,7 @@ bool processCommandAction(void)
 
 bool processTextOrCommandAction(void)
 {
-    if(currentMacroAction.text.text[0] == '$') {
+    if(s->currentMacroAction.text.text[0] == '$') {
         return processCommandAction();
     }
     else {
@@ -750,7 +765,7 @@ bool processTextOrCommandAction(void)
 
 bool processCurrentMacroAction(void)
 {
-    switch (currentMacroAction.type) {
+    switch (s->currentMacroAction.type) {
         case MacroActionType_Delay:
             return processDelayAction();
         case MacroActionType_Key:
@@ -767,35 +782,63 @@ bool processCurrentMacroAction(void)
     return false;
 }
 
+bool findFreeStateSlot() {
+    for(uint8_t i = 0; i < MACRO_STATE_POOL_SIZE; i++) {
+        if(!macroState[i].macroPlaying) {
+            s = &macroState[i];
+            return true;
+        }
+    }
+    reportError("Too many macros running at one time", "", NULL);
+    return false;
+}
+
 void Macros_StartMacro(uint8_t index, key_state_t *keyState)
 {
-    if(MacroPlaying) {
+    if(!findFreeStateSlot()) {
         return;
     }
     MacroPlaying = true;
-    macroInterrupted = false;
-    currentMacroIndex = index;
-    currentMacroActionIndex = 0;
-    currentMacroKey = keyState;
+    s->macroPlaying = true;
+    s->macroInterrupted = false;
+    s->currentMacroIndex = index;
+    s->currentMacroActionIndex = 0;
+    s->currentMacroKey = keyState;
     ValidatedUserConfigBuffer.offset = AllMacros[index].firstMacroActionOffset;
-    ParseMacroAction(&ValidatedUserConfigBuffer, &currentMacroAction);
+    ParseMacroAction(&ValidatedUserConfigBuffer, &s->currentMacroAction);
+    s->bufferOffset = ValidatedUserConfigBuffer.offset;
     memset(&MacroMouseReport, 0, sizeof MacroMouseReport);
     memset(&MacroBasicKeyboardReport, 0, sizeof MacroBasicKeyboardReport);
     memset(&MacroMediaKeyboardReport, 0, sizeof MacroMediaKeyboardReport);
     memset(&MacroSystemKeyboardReport, 0, sizeof MacroSystemKeyboardReport);
 }
 
+void continueMacro(void)
+{
+    if (processCurrentMacroAction() && !s->macroBroken) {
+        return;
+    }
+    if (++s->currentMacroActionIndex == AllMacros[s->currentMacroIndex].macroActionsCount || s->macroBroken) {
+        s->macroPlaying = false;
+        s->macroBroken = false;
+        s->previousMacroIndex = s->currentMacroIndex;
+        s->previousMacroEndTime = CurrentTime;
+        return;
+    }
+    ValidatedUserConfigBuffer.offset = s->bufferOffset;
+    ParseMacroAction(&ValidatedUserConfigBuffer, &s->currentMacroAction);
+    s->bufferOffset = ValidatedUserConfigBuffer.offset;
+}
+
 void Macros_ContinueMacro(void)
 {
-    if (processCurrentMacroAction() && !macroBroken) {
-        return;
+    bool someonePlaying = false;
+    for(uint8_t i = 0; i < MACRO_STATE_POOL_SIZE; i++) {
+        if(macroState[i].macroPlaying) {
+            someonePlaying = true;
+            s = &macroState[i];
+            continueMacro();
+        }
     }
-    if (++currentMacroActionIndex == AllMacros[currentMacroIndex].macroActionsCount || macroBroken) {
-        MacroPlaying = false;
-        macroBroken = false;
-        previousMacroIndex = currentMacroIndex;
-        previousMacroEndTime = CurrentTime;
-        return;
-    }
-    ParseMacroAction(&ValidatedUserConfigBuffer, &currentMacroAction);
+    MacroPlaying &= someonePlaying;
 }

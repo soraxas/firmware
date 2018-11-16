@@ -318,6 +318,7 @@ static void applyKeyAction(key_state_t *keyState, key_action_t *action)
 static void updateActiveUsbReports(void)
 {
     if (MacroPlaying) {
+        Macros_ResetReportClaims();
         Macros_ContinueMacro();
         memcpy(ActiveUsbMouseReport, &MacroMouseReport, sizeof MacroMouseReport);
         memcpy(ActiveUsbBasicKeyboardReport, &MacroBasicKeyboardReport, sizeof MacroBasicKeyboardReport);

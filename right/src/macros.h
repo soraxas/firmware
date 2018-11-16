@@ -13,6 +13,8 @@
 
     #define MAX_MACRO_NUM 255
     #define STATUS_BUFFER_MAX_LENGTH 1024
+    #define LAYER_STACK_SIZE 5
+    #define MACRO_STATE_POOL_SIZE 5
 
 // Typedefs:
 
@@ -67,6 +69,31 @@
         macro_action_type_t type;
     } ATTR_PACKED macro_action_t;
 
+    typedef struct {
+        bool macroInterrupted;
+        bool macroBroken;
+        bool macroPlaying;
+
+        uint8_t currentMacroIndex;
+        uint16_t currentMacroActionIndex;
+        macro_action_t currentMacroAction;
+        key_state_t *currentMacroKey;
+        uint8_t previousMacroIndex;
+        uint32_t previousMacroEndTime;
+
+        bool keyActionPressStarted;
+        bool mouseButtonPressStarted;
+        bool mouseMoveInMotion;
+        bool mouseScrollInMotion;
+        uint16_t dispatchTextIndex;
+        uint8_t dispatchReportIndex;
+
+        bool delayActive;
+        uint32_t delayStart;
+
+        uint16_t bufferOffset;
+    } macro_state_t;
+
 // Variables:
 
     extern macro_reference_t AllMacros[MAX_MACRO_NUM];
@@ -82,5 +109,7 @@
     void Macros_StartMacro(uint8_t index, key_state_t *keyState);
     void Macros_ContinueMacro(void);
     void Macros_SignalInterrupt(void);
+    void Macros_ResetReportClaims(void);
+    void Macros_ReportError(const char* err, const char* arg, const char *argEnd);
 
 #endif
