@@ -16,6 +16,7 @@
 #include "config_parser/parse_keymap.h"
 #include "usb_commands/usb_command_get_debug_buffer.h"
 #include "arduino_hid/ConsumerAPI.h"
+#include "macro_recorder.h"
 
 static uint32_t mouseUsbReportUpdateTime = 0;
 static uint32_t mouseElapsedTime;
@@ -474,6 +475,7 @@ void UpdateUsbReports(void)
     bool HasUsbMouseReportChanged = memcmp(ActiveUsbMouseReport, GetInactiveUsbMouseReport(), sizeof(usb_mouse_report_t)) != 0;
 
     if (HasUsbBasicKeyboardReportChanged) {
+        RecordReport(ActiveUsbBasicKeyboardReport, 6); //TODO: optimize the 6
         usb_status_t status = UsbBasicKeyboardAction();
         if (status == kStatus_USB_Success) {
             UsbReportUpdateSemaphore |= 1 << USB_BASIC_KEYBOARD_INTERFACE_INDEX;

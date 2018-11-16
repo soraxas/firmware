@@ -5,6 +5,7 @@
 #include "keymap.h"
 #include "usb_report_updater.h"
 #include "led_display.h"
+#include "macro_recorder.h"
 
 macro_reference_t AllMacros[MAX_MACRO_NUM];
 uint8_t AllMacrosCount;
@@ -24,9 +25,8 @@ static key_state_t *currentMacroKey;
 static uint8_t previousMacroIndex;
 static uint32_t previousMacroEndTime;
 
-#define STATUS_BUFFER_MAX_LENGTH 256
 static char statusBuffer[STATUS_BUFFER_MAX_LENGTH];
-static uint8_t statusBufferLen;
+static uint16_t statusBufferLen;
 
 uint8_t characterToScancode(char character)
 {
@@ -366,43 +366,6 @@ bool processScrollMouseAction(void)
     return inMotion;
 }
 
-bool dispatchText(const char* text, uint16_t textLen)
-{
-    static uint16_t textIndex;
-    static uint8_t reportIndex = USB_BASIC_KEYBOARD_MAX_KEYS;
-    char character;
-    uint8_t scancode;
-
-    if (textIndex == textLen) {
-        textIndex = 0;
-        reportIndex = USB_BASIC_KEYBOARD_MAX_KEYS;
-        memset(&MacroBasicKeyboardReport, 0, sizeof MacroBasicKeyboardReport);
-        return false;
-    }
-    if (reportIndex == USB_BASIC_KEYBOARD_MAX_KEYS) {
-        reportIndex = 0;
-        memset(&MacroBasicKeyboardReport, 0, sizeof MacroBasicKeyboardReport);
-        return true;
-    }
-    character = text[textIndex];
-    scancode = characterToScancode(character);
-    for (uint8_t i = 0; i < reportIndex; i++) {
-        if (MacroBasicKeyboardReport.scancodes[i] == scancode) {
-            reportIndex = USB_BASIC_KEYBOARD_MAX_KEYS;
-            return true;
-        }
-    }
-    MacroBasicKeyboardReport.scancodes[reportIndex++] = scancode;
-    MacroBasicKeyboardReport.modifiers = characterToShift(character) ? HID_KEYBOARD_MODIFIER_LEFTSHIFT : 0;
-    ++textIndex;
-    return true;
-}
-
-bool processTextAction(void)
-{
-    return dispatchText(currentMacroAction.text.text, currentMacroAction.text.textLen);
-}
-
 //textEnd is allowed to be null if text is null-terminated
 void setStatusString(const char* text, const char *textEnd)
 {
@@ -423,12 +386,12 @@ void setStatusNum(uint8_t n)
     uint8_t orig = n;
     char buff[2];
     buff[0] = ' ';
-    buff[1] = 0;
+    buff[1] = '\0';
     setStatusString(buff, NULL);
     for(uint8_t div = 100; div > 0; div /= 10) {
         buff[0] = (char)(((uint8_t)(n/div)) + '0');
         n = n%div;
-        if(n!=orig || div = 1) {
+        if(n!=orig || div == 1) {
           setStatusString(buff, NULL);
         }
     }
@@ -444,6 +407,55 @@ void reportError(const char* err, const char* arg, const char *argEnd)
     setStatusString(": ", NULL);
     setStatusString(arg, argEnd);
     setStatusString("\n", NULL);
+}
+
+void printReport(usb_basic_keyboard_report_t *report) {
+    setStatusNum(report->modifiers);
+    for(int i = 0; i < 6; i++) {
+        setStatusNum(report->scancodes[i]);
+    }
+    setStatusString("\n", NULL);
+}
+
+bool dispatchText(const char* text, uint16_t textLen)
+{
+    static uint16_t textIndex;
+    static uint8_t reportIndex = USB_BASIC_KEYBOARD_MAX_KEYS;
+    char character;
+    uint8_t scancode;
+
+    if (textIndex == textLen) {
+        textIndex = 0;
+        reportIndex = USB_BASIC_KEYBOARD_MAX_KEYS;
+        memset(&MacroBasicKeyboardReport, 0, sizeof MacroBasicKeyboardReport);
+        //setStatusString("ended\n", NULL);
+        return false;
+    }
+    if (reportIndex == USB_BASIC_KEYBOARD_MAX_KEYS) {
+        reportIndex = 0;
+        memset(&MacroBasicKeyboardReport, 0, sizeof MacroBasicKeyboardReport);
+        //setStatusString("clearing\n", NULL);
+        return true;
+    }
+    character = text[textIndex];
+    scancode = characterToScancode(character);
+    for (uint8_t i = 0; i < reportIndex; i++) {
+        if (MacroBasicKeyboardReport.scancodes[i] == scancode) {
+            reportIndex = USB_BASIC_KEYBOARD_MAX_KEYS;
+            //setStatusString("found same\n", NULL);
+            return true;
+        }
+    }
+    MacroBasicKeyboardReport.scancodes[reportIndex++] = scancode;
+    MacroBasicKeyboardReport.modifiers = characterToShift(character) ? HID_KEYBOARD_MODIFIER_LEFTSHIFT : 0;
+    ++textIndex;
+    //printReport(&MacroBasicKeyboardReport);
+    return true;
+}
+
+bool processTextAction(void)
+{
+    return dispatchText(currentMacroAction.text.text, currentMacroAction.text.textLen);
 }
 
 //Beware, currentMacroAction.text.text is *not* null-terminated!
@@ -590,6 +602,7 @@ bool processPrintStatusCommand()
     if(!res) {
         statusBufferLen = 0;
     }
+    LedDisplay_UpdateText();
     return res;
 }
 
@@ -689,6 +702,13 @@ bool processCommandAction(void)
         }
         else if(tokenMatches(cmd, cmdEnd, "stopMouse")) {
             return processMouseCommand(false, arg1, cmdEnd);
+        }
+        else if(tokenMatches(cmd, cmdEnd, "recordMacro")) {
+            RecordRuntimeMacroSmart();
+            return false;
+        }
+        else if(tokenMatches(cmd, cmdEnd, "playMacro")) {
+            return PlayRuntimeMacroSmart();
         }
         else if(tokenMatches(cmd, cmdEnd, "ifDoubletap")) {
             if(!processIfDoubletapCommand(false)) {

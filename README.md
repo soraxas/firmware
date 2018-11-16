@@ -56,6 +56,7 @@ The following grammar is supported:
     COMMAND = printStatus
     COMMAND = setStatus <custom text>
     COMMAND = goTo <index>
+    COMMAND = recordMacro|playMacro
     COMMAND = {startMouse|stopMouse} {move DIRECTION|scroll DIRECTION|accelerate|decelerate}
     DIRECTION = {left|right|up|down}
     CONDITION = ifDoubletap | ifNotDoubletap
@@ -73,6 +74,7 @@ The following grammar is supported:
 - `setStatus <custom text>` will append <custom text> to the error report buffer, if there is enough space for that
 - `goTo <int>` will go to action index int. Actions are indexed from zero.
 - `startMouse/stopMouse` start/stop corresponding action. E.g., `startMouse move left`
+- `recordMacro|playMacro` targets vim-like macro functionality. For the time being, only one slot is available. Usage: call `recordMacro`, do some work, end recording by another `recordMacro`. Now you can play the actions back by calling `playMacro`. Only BasicKeyboard scancodes are available at the moment. These macros are recorded into RAM only. 
 
 
 ## Known issues
@@ -106,3 +108,7 @@ If you wish to make changes into the source code, please follow the official rep
   - Or via running scripts/make-release.js (run by `node make-release.js`) and flashing the resulting tar.bz2 through agent.
   
 If you have any problems with the build procedure, please create issue in the official agent repository. I made no changes into the proccedure and I will not be able to help with them.
+
+## TODO
+- allow multiple macros run at the same time
+- enable slots for runtime macros
