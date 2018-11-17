@@ -20,10 +20,15 @@ Some of the usecases which can be achieved via these commands are:
 - ability to configure custom layer switching logic, including nested layer toggling 
 - flow control via goto command
 
-## Example
+## Examples
 For instance, if the following text is pasted as a macro text action, playing the macro will result in toggling of fn layer.
     
     $switchLayer fn
+    
+Runtime macro recorder example. In this setup, shift+key will start recording (denoted by the "adaptive mode" led indicator), another shit+key will stop recording. Hiting sole key will then replay the macro (e.g., simple repetitive text edit).
+
+    $ifShift recordMacro A
+    $ifNotShift playMacro A
 
 Implementation of standard double-tap-locking hold modifier in recursive version could look like (every line as a separate action!):
 
