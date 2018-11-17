@@ -829,6 +829,16 @@ bool processCommandAction(void)
                     return false;
                 }
             }
+            else if(tokenMatches(cmd, cmdEnd, "ifGui")) {
+                if(!processIfModifierCommand(false, GUIMASK)  && !s->currentConditionPassed) {
+                    return false;
+                }
+            }
+            else if(tokenMatches(cmd, cmdEnd, "ifNotGui")) {
+                if(!processIfModifierCommand(true, GUIMASK) && !s->currentConditionPassed) {
+                    return false;
+                }
+            }
             else {
                 goto failed;
             }

@@ -66,12 +66,12 @@ The following grammar is supported:
     CONDITION = ifDoubletap | ifNotDoubletap
     CONDITION = ifInterrupted | ifNotInterrupted
     CONDITION = {ifPlaytime | ifNotPlaytime} <timeout in ms>
-    CONDITION = ifShift | ifAlt | ifCtrl | ifNotShift | ifNotAlt | ifNotCtrl
+    CONDITION = ifShift | ifAlt | ifCtrl ifGui | ifNotShift | ifNotAlt | ifNotCtrl | ifNotGui
 
 - `ifDoubletap/ifNotDoubletap` is true if previous played macro had the same index and finished at most 250ms ago
 - `ifInterrupted/ifNotInterrupted` is true if a keystroke action or mouse action was triggered during macro runtime. Allows fake implementation of secondary roles. Also allows interruption of cycles.
 - `ifPlaytime/ifNotPlaytime <timeout in ms>` is true if at least `timeout` milliseconds passed since macro was started.
-- `ifShift/ifAlt/ifCtrl/ifNotShift/ifNotAlt/ifNotCtrl` is true if either right or left modifier was held in the previous update cycle.
+- `ifShift/ifAlt/ifCtrl/ifGui/ifNotShift/ifNotAlt/ifNotCtrl/ifNotGui` is true if either right or left modifier was held in the previous update cycle.
 - `switchLayer` toggles layer. We keep a stack of size 5, which can be used for nested toggling and/or holds.
   - `last` will toggle last layer toggled via this command and push it onto stack
   - `previous` will pop the stack
