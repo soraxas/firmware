@@ -60,7 +60,7 @@ The following grammar is supported:
     COMMAND = printStatus
     COMMAND = setStatus <custom text>
     COMMAND = goTo <index>
-    COMMAND = recordMacro|playMacro
+    COMMAND = {recordMacro|playMacro} <slot identifier>
     COMMAND = {startMouse|stopMouse} {move DIRECTION|scroll DIRECTION|accelerate|decelerate}
     DIRECTION = {left|right|up|down}
     CONDITION = ifDoubletap | ifNotDoubletap
@@ -78,7 +78,7 @@ The following grammar is supported:
 - `setStatus <custom text>` will append <custom text> to the error report buffer, if there is enough space for that
 - `goTo <int>` will go to action index int. Actions are indexed from zero.
 - `startMouse/stopMouse` start/stop corresponding mouse action. E.g., `startMouse move left`
-- `recordMacro|playMacro` targets vim-like macro functionality. For the time being, only one slot is available. Usage: call `recordMacro`, do some work, end recording by another `recordMacro`. Now you can play the actions back by calling `playMacro`. Only BasicKeyboard scancodes are available at the moment. These macros are recorded into RAM only. 
+- `recordMacro|playMacro` targets vim-like macro functionality. Slot identifier is a single character. Usage (e.g.): call `recordMacro a`, do some work, end recording by another `recordMacro a`. Now you can play the actions back by calling `playMacro a`. Only BasicKeyboard scancodes are available at the moment. These macros are recorded into RAM only. Number of macros is limited by memory (we can hold approximately 300 keystrokes). If there's less than 1/4 memory free, oldest macro slot is freed.
 
 ## Error handling
 

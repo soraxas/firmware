@@ -258,9 +258,12 @@ static void applyKeyAction(key_state_t *keyState, key_action_t *action)
 
     handleSwitchLayerAction(keyState, action);
 
+    if (!keyState->previous) {
+        Macros_SignalInterrupt();
+    }
+
     switch (action->type) {
         case KeyActionType_Keystroke:
-            Macros_SignalInterrupt();
             if (action->keystroke.scancode) {
                 if (!keyState->previous) {
                     stickyModifiers = action->keystroke.modifiers;
@@ -290,7 +293,6 @@ static void applyKeyAction(key_state_t *keyState, key_action_t *action)
             }
             break;
         case KeyActionType_Mouse:
-            Macros_SignalInterrupt();
             if (!keyState->previous) {
                 stickyModifiers = 0;
             }
@@ -476,7 +478,7 @@ void UpdateUsbReports(void)
     bool HasUsbMouseReportChanged = memcmp(ActiveUsbMouseReport, GetInactiveUsbMouseReport(), sizeof(usb_mouse_report_t)) != 0;
 
     if (HasUsbBasicKeyboardReportChanged) {
-        RecordReport(ActiveUsbBasicKeyboardReport, 6); //TODO: optimize the 6
+        RecordBasicReport(ActiveUsbBasicKeyboardReport);
         usb_status_t status = UsbBasicKeyboardAction();
         if (status == kStatus_USB_Success) {
             UsbReportUpdateSemaphore |= 1 << USB_BASIC_KEYBOARD_INTERFACE_INDEX;

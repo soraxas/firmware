@@ -333,6 +333,9 @@ bool processDelayAction() {
 
 bool processMouseButtonAction(void)
 {
+    if(!Macros_ClaimReports()) {
+        return true;
+    }
     switch (s->currentMacroAction.key.action) {
         case MacroSubAction_Tap:
             if (!s->mouseButtonPressStarted) {
@@ -355,6 +358,9 @@ bool processMouseButtonAction(void)
 
 bool processMoveMouseAction(void)
 {
+    if(!Macros_ClaimReports()) {
+        return true;
+    }
     if (s->mouseMoveInMotion) {
         MacroMouseReport.x = 0;
         MacroMouseReport.y = 0;
@@ -369,6 +375,9 @@ bool processMoveMouseAction(void)
 
 bool processScrollMouseAction(void)
 {
+    if(!Macros_ClaimReports()) {
+        return true;
+    }
     if (s->mouseScrollInMotion) {
         MacroMouseReport.wheelX = 0;
         MacroMouseReport.wheelY = 0;
@@ -396,14 +405,14 @@ void setStatusBool(bool b)
     setStatusString(b ? "1" : "0", NULL);
 }
 
-void setStatusNum(uint8_t n)
+void setStatusNum(uint32_t n)
 {
-    uint8_t orig = n;
+    uint32_t orig = n;
     char buff[2];
     buff[0] = ' ';
     buff[1] = '\0';
     setStatusString(buff, NULL);
-    for(uint8_t div = 100; div > 0; div /= 10) {
+    for(uint32_t div = 1000000000; div > 0; div /= 10) {
         buff[0] = (char)(((uint8_t)(n/div)) + '0');
         n = n%div;
         if(n!=orig || div == 1) {
@@ -428,7 +437,21 @@ void reportError(const char* err, const char* arg, const char *argEnd)
 
 void Macros_ReportError(const char* err, const char* arg, const char *argEnd)
 {
-    reportError(err, arg, argEnd);
+    LedDisplay_SetText(3, "ERR");
+    setStatusString(err, NULL);
+    if(arg != NULL) {
+        setStatusString(": ", NULL);
+        setStatusString(arg, argEnd);
+    }
+    setStatusString("\n", NULL);
+}
+
+void Macros_ReportErrorNum(const char* err, uint32_t num)
+{
+    LedDisplay_SetText(3, "ERR");
+    setStatusString(err, NULL);
+    setStatusNum(num);
+    setStatusString("\n", NULL);
 }
 
 void printReport(usb_basic_keyboard_report_t *report) {
@@ -685,6 +708,19 @@ bool processMouseCommand(bool enable, const char* arg1, const char *argEnd)
     return false;
 }
 
+bool processRecordMacroCommand(const char* arg, const char *argEnd)
+{
+    uint8_t id = arg == argEnd ? 0 : *arg;
+    RecordRuntimeMacroSmart(id);
+    return false;
+}
+
+bool processPlayMacroCommand(const char* arg, const char *argEnd)
+{
+    uint8_t id = arg == argEnd ? 0 : *arg;
+    return PlayRuntimeMacroSmart(id);
+}
+
 bool processCommandAction(void)
 {
     const char* cmd = s->currentMacroAction.text.text+1;
@@ -719,11 +755,10 @@ bool processCommandAction(void)
             return processMouseCommand(false, arg1, cmdEnd);
         }
         else if(tokenMatches(cmd, cmdEnd, "recordMacro")) {
-            RecordRuntimeMacroSmart();
-            return false;
+            return processRecordMacroCommand(arg1, cmdEnd);
         }
         else if(tokenMatches(cmd, cmdEnd, "playMacro")) {
-            return PlayRuntimeMacroSmart();
+            return processPlayMacroCommand(arg1, cmdEnd);
         }
         else if(tokenMatches(cmd, cmdEnd, "ifDoubletap")) {
             if(!processIfDoubletapCommand(false)) {

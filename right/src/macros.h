@@ -109,7 +109,9 @@
     void Macros_StartMacro(uint8_t index, key_state_t *keyState);
     void Macros_ContinueMacro(void);
     void Macros_SignalInterrupt(void);
+    bool Macros_ClaimReports();
     void Macros_ResetReportClaims(void);
     void Macros_ReportError(const char* err, const char* arg, const char *argEnd);
+    void Macros_ReportErrorNum(const char* err, uint32_t num);
 
 #endif
