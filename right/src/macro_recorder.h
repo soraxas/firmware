@@ -36,9 +36,9 @@
 
 // Functions:
 
-    void RecordBasicReport(usb_basic_keyboard_report_t *report);
+    void MacroRecorder_RecordBasicReport(usb_basic_keyboard_report_t *report);
 
-    bool PlayRuntimeMacroSmart(uint8_t id, usb_basic_keyboard_report_t *report);
-    void RecordRuntimeMacroSmart(uint8_t id);
+    bool MacroRecorder_PlayRuntimeMacroSmart(uint8_t id, usb_basic_keyboard_report_t *report);
+    void MacroRecorder_RecordRuntimeMacroSmart(uint8_t id);
 
 #endif

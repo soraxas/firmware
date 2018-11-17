@@ -717,14 +717,14 @@ bool processMouseCommand(bool enable, const char* arg1, const char *argEnd)
 bool processRecordMacroCommand(const char* arg, const char *argEnd)
 {
     uint8_t id = arg == argEnd ? 0 : *arg;
-    RecordRuntimeMacroSmart(id);
+    MacroRecorder_RecordRuntimeMacroSmart(id);
     return false;
 }
 
 bool processPlayMacroCommand(const char* arg, const char *argEnd)
 {
     uint8_t id = arg == argEnd ? 0 : *arg;
-    return PlayRuntimeMacroSmart(id, &s->macroBasicKeyboardReport);
+    return MacroRecorder_PlayRuntimeMacroSmart(id, &s->macroBasicKeyboardReport);
 }
 
 bool processCommandAction(void)

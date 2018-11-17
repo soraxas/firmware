@@ -68,67 +68,67 @@ bool resolvePlaybackHeader(uint8_t id) {
 }
 
 //id is an arbitrary slot identifier
-void RecordRuntimeMacroStart(uint8_t id) {
+void recordRuntimeMacroStart(uint8_t id) {
     resolveRecordingHeader(id);
     RuntimeMacroRecording = true;
     LedDisplay_SetIcon(LedDisplayIcon_Adaptive, true);
 }
 
-void WriteByte(uint8_t b) {
+void writeByte(uint8_t b) {
     reportBuffer[reportBufferLength] = b;
     reportBufferLength++;
     recordingHeader->length++;
 }
 
-void RecordBasicReport(usb_basic_keyboard_report_t *report) {
+void MacroRecorder_RecordBasicReport(usb_basic_keyboard_report_t *report) {
     if(!RuntimeMacroRecording) {
         return;
     }
     if(report->modifiers == 0 && report->scancodes[0] == 0) {
-        WriteByte(BasicKeyboardEmpty);
+        writeByte(BasicKeyboardEmpty);
         return;
     }
     if(report->modifiers == 0 && report->scancodes[1] == 0) {
-        WriteByte(BasicKeyboardSimple);
-        WriteByte(report->scancodes[0]);
+        writeByte(BasicKeyboardSimple);
+        writeByte(report->scancodes[0]);
         return;
     }
-    WriteByte(BasicKeyboard);
+    writeByte(BasicKeyboard);
     uint8_t size = 0;
     while( size < USB_BASIC_KEYBOARD_MAX_KEYS && report->scancodes[size] != 0) {
         size++;
     }
-    WriteByte(size);
-    WriteByte(report->modifiers);
+    writeByte(size);
+    writeByte(report->modifiers);
     for(int i = 0; i < size; i++) {
-        WriteByte(report->scancodes[i]);
+        writeByte(report->scancodes[i]);
     }
 }
 
-void RecordRuntimeMacroEnd() {
+void recordRuntimeMacroEnd() {
     RuntimeMacroRecording = false;
     LedDisplay_SetIcon(LedDisplayIcon_Adaptive, false);
 }
 
-uint8_t ReadByte() {
+uint8_t readByte() {
     return reportBuffer[playbackPosition++];
 }
 
-void PlayReport(usb_basic_keyboard_report_t *report) {
+void playReport(usb_basic_keyboard_report_t *report) {
     memset(report, 0, sizeof *report);
-    macro_report_type_t type = ReadByte();
+    macro_report_type_t type = readByte();
     switch(type) {
     case BasicKeyboardEmpty:
         break;
     case BasicKeyboardSimple:
-        report->scancodes[0] = ReadByte();
+        report->scancodes[0] = readByte();
         break;
     case BasicKeyboard:
         {
-            uint8_t size = ReadByte();
-            report->modifiers = ReadByte();
+            uint8_t size = readByte();
+            report->modifiers = readByte();
             for(int i = 0; i < size; i++) {
-                report->scancodes[i] = ReadByte();
+                report->scancodes[i] = readByte();
             }
             break;
         }
@@ -137,7 +137,7 @@ void PlayReport(usb_basic_keyboard_report_t *report) {
     }
 }
 
-bool PlayRuntimeMacroBegin(uint8_t id) {
+bool playRuntimeMacroBegin(uint8_t id) {
     if(!resolvePlaybackHeader(id)) {
         return false;
     }
@@ -146,36 +146,36 @@ bool PlayRuntimeMacroBegin(uint8_t id) {
     return true;
 }
 
-bool PlayRuntimeMacroContinue(usb_basic_keyboard_report_t* report) {
+bool playRuntimeMacroContinue(usb_basic_keyboard_report_t* report) {
     if(!RuntimeMacroPlaying) {
         return false;
     }
-    PlayReport(report);
+    playReport(report);
     RuntimeMacroPlaying = playbackPosition < playbackHeader->offset + playbackHeader->length;
     return RuntimeMacroPlaying;
 }
 
 
-bool PlayRuntimeMacroSmart(uint8_t id, usb_basic_keyboard_report_t* report) {
+bool MacroRecorder_PlayRuntimeMacroSmart(uint8_t id, usb_basic_keyboard_report_t* report) {
     if(!Macros_ClaimReports()) {
         return true;
     }
     if(!RuntimeMacroPlaying) {
-        if(!PlayRuntimeMacroBegin(id)) {
+        if(!playRuntimeMacroBegin(id)) {
             return false;
         }
     }
-    return PlayRuntimeMacroContinue(report);
+    return playRuntimeMacroContinue(report);
 }
 
-void RecordRuntimeMacroSmart(uint8_t id) {
+void MacroRecorder_RecordRuntimeMacroSmart(uint8_t id) {
     if(RuntimeMacroPlaying) {
         return;
     }
     if(!RuntimeMacroRecording) {
-        RecordRuntimeMacroStart(id);
+        recordRuntimeMacroStart(id);
     }
     else {
-        RecordRuntimeMacroEnd();
+        recordRuntimeMacroEnd();
     }
 }
