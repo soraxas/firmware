@@ -130,6 +130,8 @@ void PlayReport(usb_basic_keyboard_report_t *report) {
             }
             break;
         }
+    default:
+        Macros_ReportErrorNum("PlayReport decode failed at ", type);
     }
 }
 

@@ -16,6 +16,10 @@
     #define LAYER_STACK_SIZE 5
     #define MACRO_STATE_POOL_SIZE 5
 
+    #define ALTMASK (HID_KEYBOARD_MODIFIER_LEFTALT | HID_KEYBOARD_MODIFIER_RIGHTALT)
+    #define CTRLMASK (HID_KEYBOARD_MODIFIER_LEFTCTRL | HID_KEYBOARD_MODIFIER_RIGHTCTRL)
+    #define SHIFTMASK (HID_KEYBOARD_MODIFIER_LEFTSHIFT | HID_KEYBOARD_MODIFIER_RIGHTSHIFT)
+
 // Typedefs:
 
     typedef struct {
@@ -88,6 +92,8 @@
         bool mouseScrollInMotion;
         uint16_t dispatchTextIndex;
         uint8_t dispatchReportIndex;
+
+        bool currentConditionPassed;
 
         bool delayActive;
         uint32_t delayStart;

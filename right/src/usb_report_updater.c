@@ -31,6 +31,7 @@ static key_action_t actionCache[SLOT_COUNT][MAX_KEY_COUNT_PER_MODULE];
 
 volatile uint8_t UsbReportUpdateSemaphore = 0;
 
+//contains last modifier report, including those from MacroReport (beware, this will feedback in macro engine).
 uint8_t OldModifierState;
 
 mouse_kinetic_state_t MouseMoveState = {

@@ -622,12 +622,9 @@ bool processIfDoubletapCommand(bool negate)
     return doubletapFound != negate;
 }
 
-bool processIfModifierCommand(bool negate, uint8_t m1, uint8_t m2)
+bool processIfModifierCommand(bool negate, uint8_t modmask)
 {
-    bool modPresent = false;
-    modPresent |= (OldModifierState & m1) > 0;
-    modPresent |= (OldModifierState & m2) > 0;
-    return modPresent != negate;
+    return ((OldModifierState & modmask) > 0) != negate;
 }
 
 bool processIfPlaytimeCommand(bool negate, const char* arg, const char *argEnd)
@@ -769,62 +766,66 @@ bool processCommandAction(void)
             break;
         case 'i':
             if(tokenMatches(cmd, cmdEnd, "ifDoubletap")) {
-                if(!processIfDoubletapCommand(false)) {
+                if(!processIfDoubletapCommand(false) && !s->currentConditionPassed) {
                     return false;
                 }
             }
             else if(tokenMatches(cmd, cmdEnd, "ifNotDoubletap")) {
-                if(!processIfDoubletapCommand(true)) {
+                if(!processIfDoubletapCommand(true) && !s->currentConditionPassed) {
                     return false;
                 }
             }
             else if(tokenMatches(cmd, cmdEnd, "ifInterrupted")) {
-                if(!processIfInterruptedCommand(false)) {
+                if(!processIfInterruptedCommand(false) && !s->currentConditionPassed) {
                     return false;
                 }
             }
             else if(tokenMatches(cmd, cmdEnd, "ifNotInterrupted")) {
-                if(!processIfInterruptedCommand(true)) {
+                if(!processIfInterruptedCommand(true) && !s->currentConditionPassed) {
                     return false;
                 }
             }
             else if(tokenMatches(cmd, cmdEnd, "ifPlaytime")) {
-                if(!processIfPlaytimeCommand(true, arg1, cmdEnd)) {
+                if(!processIfPlaytimeCommand(false, arg1, cmdEnd) && !s->currentConditionPassed) {
                     return false;
                 }
+                cmd = arg1;
+                arg1 = nextTok(arg1, cmdEnd);
             }
             else if(tokenMatches(cmd, cmdEnd, "ifNotPlaytime")) {
-                if(!processIfPlaytimeCommand(true, arg1, cmdEnd)) {
+                if(!processIfPlaytimeCommand(true, arg1, cmdEnd) && !s->currentConditionPassed) {
                     return false;
                 }
+                cmd = arg1;
+                arg1 = nextTok(arg1, cmdEnd);
             }
             else if(tokenMatches(cmd, cmdEnd, "ifShift")) {
-                if(!processIfModifierCommand(false, HID_KEYBOARD_MODIFIER_LEFTSHIFT, HID_KEYBOARD_MODIFIER_RIGHTSHIFT)) {
+                if(!processIfModifierCommand(false, SHIFTMASK)  && !s->currentConditionPassed) {
                     return false;
                 }
             }
             else if(tokenMatches(cmd, cmdEnd, "ifNotShift")) {
-                if(!processIfModifierCommand(true, HID_KEYBOARD_MODIFIER_LEFTSHIFT, HID_KEYBOARD_MODIFIER_RIGHTSHIFT)) {
+                if(!processIfModifierCommand(true, SHIFTMASK) && !s->currentConditionPassed) {
                     return false;
                 }
             }
             else if(tokenMatches(cmd, cmdEnd, "ifCtrl")) {
-                if(!processIfModifierCommand(false, HID_KEYBOARD_MODIFIER_LEFTCTRL, HID_KEYBOARD_MODIFIER_RIGHTCTRL)) {
+                if(!processIfModifierCommand(false, CTRLMASK) && !s->currentConditionPassed) {
                     return false;
                 }
             }
             else if(tokenMatches(cmd, cmdEnd, "ifNotCtrl")) {
-                if(!processIfModifierCommand(true, HID_KEYBOARD_MODIFIER_LEFTCTRL, HID_KEYBOARD_MODIFIER_RIGHTCTRL)) {
+                if(!processIfModifierCommand(true, CTRLMASK) && !s->currentConditionPassed) {
                     return false;
                 }
             }
             else if(tokenMatches(cmd, cmdEnd, "ifAlt")) {
-                if(!processIfModifierCommand(false, HID_KEYBOARD_MODIFIER_LEFTALT, HID_KEYBOARD_MODIFIER_RIGHTALT)) {
+                if(!processIfModifierCommand(false, ALTMASK) && !s->currentConditionPassed) {
                     return false;
                 }
             }
             else if(tokenMatches(cmd, cmdEnd, "ifNotAlt")) {
-                if(!processIfModifierCommand(true, HID_KEYBOARD_MODIFIER_LEFTALT, HID_KEYBOARD_MODIFIER_RIGHTALT)) {
+                if(!processIfModifierCommand(true, ALTMASK) && !s->currentConditionPassed) {
                     return false;
                 }
             }
@@ -883,7 +884,9 @@ bool processCommandAction(void)
 bool processTextOrCommandAction(void)
 {
     if(s->currentMacroAction.text.text[0] == '$') {
-        return processCommandAction();
+        bool actionInProgress = processCommandAction();
+        s->currentConditionPassed = actionInProgress;
+        return actionInProgress;
     }
     else {
         return processTextAction();
@@ -932,6 +935,7 @@ void Macros_StartMacro(uint8_t index, key_state_t *keyState)
     s->currentMacroActionIndex = 0;
     s->currentMacroKey = keyState;
     s->currentMacroStartTime = CurrentTime;
+    s->currentConditionPassed = false;
     ValidatedUserConfigBuffer.offset = AllMacros[index].firstMacroActionOffset;
     ParseMacroAction(&ValidatedUserConfigBuffer, &s->currentMacroAction);
     s->bufferOffset = ValidatedUserConfigBuffer.offset;
@@ -956,6 +960,7 @@ void continueMacro(void)
     ValidatedUserConfigBuffer.offset = s->bufferOffset;
     ParseMacroAction(&ValidatedUserConfigBuffer, &s->currentMacroAction);
     s->bufferOffset = ValidatedUserConfigBuffer.offset;
+    s->currentConditionPassed = false;
 }
 
 void Macros_ContinueMacro(void)
