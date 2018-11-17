@@ -1,6 +1,6 @@
-# Ultimate Hacking Keyboard firmware with extended macro support
+# Ultimate Hacking Keyboard firmware with extended macro engine
 
-This is a fork of [UHK firmware](https://github.com/UltimateHackingKeyboard/firmware). This custom firmware provides extended macro action support. Namely, we allow a set of simple commands to be used in text macro actions. Commands are denoted by a single dolar sign  as a prefix. 
+This is a fork of [UHK firmware](https://github.com/UltimateHackingKeyboard/firmware). This custom firmware provides extended macro engine. Namely, we allow a set of simple commands to be used in text macro actions. These commands can be used to reach functionality otherwise unavailable via agent.
 
 ## Compatibility
 
@@ -9,9 +9,9 @@ This firmware is 100% compatible with original unmodified agent. All you need is
 ## Features
 
 The firmware implements:
-- macro commands for (almost?) all basic features of the keyboard. 
+- macro commands for (almost?) all basic features of the keyboard otherwise unreachable via agent. 
 - macro commands for conditionals, jumps and sync mechanisms 
-- runtime macros implemented on scancode level, for vim-like macro functionality
+- runtime macro recorder implemented on scancode level, for vim-like macro functionality
 - ability to run multiple macros at the same time
 
 Some of the usecases which can be achieved via these commands are: 
@@ -46,6 +46,12 @@ Smart switch (if tapped, locks layer; if used with a key, acts as a secondary ro
     $delayUntilRelease
     $switchLayer previous
     $ifNotInterrupted switchLayer mouse
+    
+If you wish to be able to lock a layer via hold layer, you will have to deal with release of the hold modifier throwing out top of the stack. The solution is to replace the top-1 item (any ideas how to provide this functionality via more intuitive API?):
+
+    $switchLayer previous
+    $switchLayer fn
+    $switchLayer fn
 
 ## Reference manual
 
@@ -95,7 +101,7 @@ This version of firmware includes basic error handling. If an error is encounter
 
 ## Contributing
 
-If you wish to add some functionality, preferably fork the repo, implement it and post PR. Alternatively, feel free to fire tickets with feature requests... 
+If you wish some functionality, feel free to fire tickets with feature requests... Or fork the repo and post PR. 
 
 ## Adding new features
 
