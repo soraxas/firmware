@@ -32,6 +32,8 @@ static key_action_t actionCache[SLOT_COUNT][MAX_KEY_COUNT_PER_MODULE];
 volatile uint8_t UsbReportUpdateSemaphore = 0;
 
 uint8_t OldModifierState;
+uint8_t SuppressedModifierState;
+bool SuppressMods = false;
 
 mouse_kinetic_state_t MouseMoveState = {
     .isScroll = false,
@@ -271,7 +273,12 @@ static void applyKeyAction(key_state_t *keyState, key_action_t *action)
                     stickyModifiers = action->keystroke.modifiers;
                 }
             } else {
-                ActiveUsbBasicKeyboardReport->modifiers |= action->keystroke.modifiers;
+                if(!SuppressMods) {
+                    ActiveUsbBasicKeyboardReport->modifiers |= action->keystroke.modifiers;
+                }
+                else {
+                    SuppressedModifierState |= action->keystroke.modifiers;
+                }
             }
             switch (action->keystroke.keystrokeType) {
                 case KeystrokeType_Basic:
@@ -361,6 +368,8 @@ static void updateActiveUsbReports(void)
     basicScancodeIndex = 0;
     mediaScancodeIndex = 0;
     systemScancodeIndex = 0;
+    SuppressMods = false;
+    SuppressedModifierState = 0;
 
     if (MacroPlaying) {
         Macros_ContinueMacro();
@@ -511,7 +520,7 @@ void UpdateUsbReports(void)
     bool HasUsbMouseReportChanged = memcmp(ActiveUsbMouseReport, GetInactiveUsbMouseReport(), sizeof(usb_mouse_report_t)) != 0;
 
     if (HasUsbBasicKeyboardReportChanged) {
-        OldModifierState = ActiveUsbBasicKeyboardReport->modifiers;
+        OldModifierState = ActiveUsbBasicKeyboardReport->modifiers | SuppressedModifierState;
         MacroRecorder_RecordBasicReport(ActiveUsbBasicKeyboardReport);
         usb_status_t status = UsbBasicKeyboardAction();
         if (status == kStatus_USB_Success) {

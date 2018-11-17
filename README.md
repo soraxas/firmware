@@ -47,22 +47,29 @@ Smart switch (if tapped, locks layer; if used with a key, acts as a secondary ro
     $switchLayer previous
     $ifNotInterrupted switchLayer mouse
 
+Mapping shift/nonshift scancodes independently:
+
+    $ifShift suppressMods write 4
+    $ifNotShift write %
+
 ## Reference manual
 
 The following grammar is supported:
 
     BODY = $COMMAND
-    COMMAND = CONDITION COMMAND
+    COMMAND = [CONDITION|MODIFIER]* COMMAND
     COMMAND = delayUntilRelease
     COMMAND = switchLayer {fn|mouse|mod|base|last|previous}
     COMMAND = switchKeymap {<abbrev>|last}
     COMMAND = break
     COMMAND = printStatus
     COMMAND = setStatus <custom text>
+    COMMAND = write <custom text>
     COMMAND = goTo <index>
     COMMAND = {recordMacro|playMacro} <slot identifier>
     COMMAND = {startMouse|stopMouse} {move DIRECTION|scroll DIRECTION|accelerate|decelerate}
     DIRECTION = {left|right|up|down}
+    MODIFIER = suppressMods
     CONDITION = ifDoubletap | ifNotDoubletap
     CONDITION = ifInterrupted | ifNotInterrupted
     CONDITION = {ifPlaytime | ifNotPlaytime} <timeout in ms>
@@ -75,11 +82,13 @@ The following grammar is supported:
 - `switchLayer` toggles layer. We keep a stack of size 5, which can be used for nested toggling and/or holds.
   - `last` will toggle last layer toggled via this command and push it onto stack
   - `previous` will pop the stack
+- `suppressMods` will supress any modifiers except those applied via macro engine. Can be used to remap shift and nonShift characters independently.
 - `switchKeymap` will toggle the keymap by its abbreviation. Last will toggle the last keymap toggled via this command.
 - `delayUntilRelease` sleeps the macro until its activation key is released. Can be used to set action on key release. This is set to at least 50ms in order to prevent debouncing issues.
 - `break` will end playback of the current macro
 - `printStatus` will "type" content of error status buffer (256 chars) on the keyboard. Mainly for debug purposes.
 - `setStatus <custom text>` will append <custom text> to the error report buffer, if there is enough space for that
+- `write <custom text>` will type rest of the string. This is easier to use with conditionals than standard action...
 - `goTo <int>` will go to action index int. Actions are indexed from zero.
 - `startMouse/stopMouse` start/stop corresponding mouse action. E.g., `startMouse move left`:w
 - `recordMacro|playMacro <slot identifier>` targets vim-like macro functionality. Slot identifier is a single character. Usage (e.g.): call `recordMacro a`, do some work, end recording by another `recordMacro a`. Now you can play the actions (i.e., sequence of keyboard reports) back by calling `playMacro a`. Only BasicKeyboard scancodes are available at the moment. These macros are recorded into RAM only. Number of macros is limited by memory (we can hold approximately 300 keystrokes). If less than 1/4 of dedicated memory is free, oldest macro slot is freed.

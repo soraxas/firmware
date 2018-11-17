@@ -75,6 +75,8 @@
     extern volatile uint8_t UsbReportUpdateSemaphore;
     extern bool TestUsbStack;
     extern uint8_t OldModifierState;
+    extern uint8_t SuppressedModifierState;
+    extern bool SuppressMods;
 
 // Functions:
 

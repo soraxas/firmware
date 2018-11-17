@@ -727,6 +727,17 @@ bool processPlayMacroCommand(const char* arg, const char *argEnd)
     return MacroRecorder_PlayRuntimeMacroSmart(id, &s->macroBasicKeyboardReport);
 }
 
+bool processWriteCommand(const char* arg, const char *argEnd)
+{
+    return dispatchText(arg, argEnd - arg);
+}
+
+bool processSuppressModsCommand()
+{
+    SuppressMods = true;
+    return false;
+}
+
 bool processCommandAction(void)
 {
     const char* cmd = s->currentMacroAction.text.text+1;
@@ -872,9 +883,21 @@ bool processCommandAction(void)
             else if(tokenMatches(cmd, cmdEnd, "stopMouse")) {
                 return processMouseCommand(false, arg1, cmdEnd);
             }
+            else if(tokenMatches(cmd, cmdEnd, "suppressMods")) {
+                processSuppressModsCommand();
+            }
             else {
                 goto failed;
             }
+            break;
+        case 'w':
+            if(tokenMatches(cmd, cmdEnd, "write")) {
+                return processWriteCommand(arg1, cmdEnd);
+            }
+            else {
+                goto failed;
+            }
+            break;
         default:
         failed:
             reportError("unrecognized command", cmd, cmdEnd);
