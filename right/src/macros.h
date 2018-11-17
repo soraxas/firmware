@@ -80,6 +80,7 @@
         key_state_t *currentMacroKey;
         uint8_t previousMacroIndex;
         uint32_t previousMacroEndTime;
+        uint32_t currentMacroStartTime;
 
         bool keyActionPressStarted;
         bool mouseButtonPressStarted;

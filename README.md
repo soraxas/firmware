@@ -65,9 +65,13 @@ The following grammar is supported:
     DIRECTION = {left|right|up|down}
     CONDITION = ifDoubletap | ifNotDoubletap
     CONDITION = ifInterrupted | ifNotInterrupted
+    CONDITION = ifShift | ifAlt | ifCtrl | ifNotShift | ifNotAlt | ifNotCtrl
+    CONDITION = {ifPlaytime | ifNotPlaytime} <timeout in ms>
 
 - `ifDoubletap/ifNotDoubletap` is true if previous played macro had the same index and finished at most 250ms ago
 - `ifInterrupted/ifNotInterrupted` is true if a keystroke action or mouse action was triggered during macro runtime. Allows fake implementation of secondary roles. Also allows interruption of cycles.
+- `ifShift/ifAlt/ifCtrl/ifNotShift/ifNotAlt/ifNotCtrl` is true if either right or left modifier was held in the previous update cycle.
+- `ifPlaytime/ifNotPlaytime <timeout in ms>` is true if at least `timeout` milliseconds passed since macro was started.
 - `switchLayer` toggles layer. We keep a stack of size 5, which can be used for nested toggling and/or holds.
   - `last` will toggle last layer toggled via this command and push it onto stack
   - `previous` will pop the stack
@@ -77,8 +81,8 @@ The following grammar is supported:
 - `printStatus` will "type" content of error status buffer (256 chars) on the keyboard. Mainly for debug purposes.
 - `setStatus <custom text>` will append <custom text> to the error report buffer, if there is enough space for that
 - `goTo <int>` will go to action index int. Actions are indexed from zero.
-- `startMouse/stopMouse` start/stop corresponding mouse action. E.g., `startMouse move left`
-- `recordMacro|playMacro` targets vim-like macro functionality. Slot identifier is a single character. Usage (e.g.): call `recordMacro a`, do some work, end recording by another `recordMacro a`. Now you can play the actions back by calling `playMacro a`. Only BasicKeyboard scancodes are available at the moment. These macros are recorded into RAM only. Number of macros is limited by memory (we can hold approximately 300 keystrokes). If there's less than 1/4 memory free, oldest macro slot is freed.
+- `startMouse/stopMouse` start/stop corresponding mouse action. E.g., `startMouse move left`:w
+- `recordMacro|playMacro <slot identifier>` targets vim-like macro functionality. Slot identifier is a single character. Usage (e.g.): call `recordMacro a`, do some work, end recording by another `recordMacro a`. Now you can play the actions (i.e., sequence of keyboard reports) back by calling `playMacro a`. Only BasicKeyboard scancodes are available at the moment. These macros are recorded into RAM only. Number of macros is limited by memory (we can hold approximately 300 keystrokes). If less than 1/4 of dedicated memory is free, oldest macro slot is freed.
 
 ## Error handling
 

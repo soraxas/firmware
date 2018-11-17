@@ -535,9 +535,9 @@ const char* nextTok(const char* cmd, const char *cmdEnd)
     return cmd;
 }
 
-uint8_t parseUInt8(const char *a, const char *aEnd)
+uint32_t parseUInt32(const char *a, const char *aEnd)
 {
-    uint8_t n = 0;
+    uint32_t n = 0;
     while(*a > 32 && a < aEnd) {
         n = n*10 + ((uint8_t)(*a))-48;
         a++;
@@ -622,6 +622,21 @@ bool processIfDoubletapCommand(bool negate)
     return doubletapFound != negate;
 }
 
+bool processIfModifierCommand(bool negate, uint8_t m1, uint8_t m2)
+{
+    bool modPresent = false;
+    modPresent |= (OldModifierState & m1) > 0;
+    modPresent |= (OldModifierState & m2) > 0;
+    return modPresent != negate;
+}
+
+bool processIfPlaytimeCommand(bool negate, const char* arg, const char *argEnd)
+{
+    uint32_t timeout = parseUInt32(arg, argEnd);
+    uint32_t delay = Timer_GetElapsedTime(&s->currentMacroStartTime);
+    return (delay > timeout) != negate;
+}
+
 bool processIfInterruptedCommand(bool negate)
 {
    return s->macroInterrupted != negate;
@@ -651,7 +666,7 @@ bool processSetStatusCommand(const char* arg, const char *argEnd)
 
 bool processGoToCommand(const char* arg, const char *argEnd)
 {
-    uint8_t address = parseUInt8(arg, argEnd);
+    uint8_t address = parseUInt32(arg, argEnd);
     s->currentMacroActionIndex = address - 1;
     ValidatedUserConfigBuffer.offset = AllMacros[s->currentMacroIndex].firstMacroActionOffset;
     for(uint8_t i = 0; i < address; i++) {
@@ -727,61 +742,138 @@ bool processCommandAction(void)
     const char* cmdEnd = s->currentMacroAction.text.text + s->currentMacroAction.text.textLen;
     while(*cmd) {
         const char* arg1 = nextTok(cmd, cmdEnd);
-        if(tokenMatches(cmd, cmdEnd, "break")) {
-            return processBreakCommand();
-        }
-        else if(tokenMatches(cmd, cmdEnd, "switchKeymap")) {
-            return processSwitchKeymapCommand(arg1, cmdEnd);
-        }
-        else if(tokenMatches(cmd, cmdEnd, "switchLayer")) {
-            return processSwitchLayerCommand(arg1, cmdEnd);
-        }
-        else if(tokenMatches(cmd, cmdEnd, "delayUntilRelease")) {
-            return processDelayUntilReleaseCommand();
-        }
-        else if(tokenMatches(cmd, cmdEnd, "printStatus")) {
-            return processPrintStatusCommand();
-        }
-        else if(tokenMatches(cmd, cmdEnd, "setStatus")) {
-            return processSetStatusCommand(arg1, cmdEnd);
-        }
-        else if(tokenMatches(cmd, cmdEnd, "goTo")) {
-            return processGoToCommand(arg1, cmdEnd);
-        }
-        else if(tokenMatches(cmd, cmdEnd, "startMouse")) {
-            return processMouseCommand(true, arg1, cmdEnd);
-        }
-        else if(tokenMatches(cmd, cmdEnd, "stopMouse")) {
-            return processMouseCommand(false, arg1, cmdEnd);
-        }
-        else if(tokenMatches(cmd, cmdEnd, "recordMacro")) {
-            return processRecordMacroCommand(arg1, cmdEnd);
-        }
-        else if(tokenMatches(cmd, cmdEnd, "playMacro")) {
-            return processPlayMacroCommand(arg1, cmdEnd);
-        }
-        else if(tokenMatches(cmd, cmdEnd, "ifDoubletap")) {
-            if(!processIfDoubletapCommand(false)) {
-                return false;
+        switch(*cmd) {
+        case 'b':
+            if(tokenMatches(cmd, cmdEnd, "break")) {
+                return processBreakCommand();
             }
-        }
-        else if(tokenMatches(cmd, cmdEnd, "ifNotDoubletap")) {
-            if(!processIfDoubletapCommand(true)) {
-                return false;
+            else {
+                goto failed;
             }
-        }
-        else if(tokenMatches(cmd, cmdEnd, "ifInterrupted")) {
-            if(!processIfInterruptedCommand(false)) {
-                return false;
+            break;
+        case 'd':
+            if(tokenMatches(cmd, cmdEnd, "delayUntilRelease")) {
+                return processDelayUntilReleaseCommand();
             }
-        }
-        else if(tokenMatches(cmd, cmdEnd, "ifNotInterrupted")) {
-            if(!processIfInterruptedCommand(true)) {
-                return false;
+            else {
+                goto failed;
             }
-        }
-        else {
+            break;
+        case 'g':
+            if(tokenMatches(cmd, cmdEnd, "goTo")) {
+                return processGoToCommand(arg1, cmdEnd);
+            }
+            else {
+                goto failed;
+            }
+            break;
+        case 'i':
+            if(tokenMatches(cmd, cmdEnd, "ifDoubletap")) {
+                if(!processIfDoubletapCommand(false)) {
+                    return false;
+                }
+            }
+            else if(tokenMatches(cmd, cmdEnd, "ifNotDoubletap")) {
+                if(!processIfDoubletapCommand(true)) {
+                    return false;
+                }
+            }
+            else if(tokenMatches(cmd, cmdEnd, "ifInterrupted")) {
+                if(!processIfInterruptedCommand(false)) {
+                    return false;
+                }
+            }
+            else if(tokenMatches(cmd, cmdEnd, "ifNotInterrupted")) {
+                if(!processIfInterruptedCommand(true)) {
+                    return false;
+                }
+            }
+            else if(tokenMatches(cmd, cmdEnd, "ifPlaytime")) {
+                if(!processIfPlaytimeCommand(true, arg1, cmdEnd)) {
+                    return false;
+                }
+            }
+            else if(tokenMatches(cmd, cmdEnd, "ifNotPlaytime")) {
+                if(!processIfPlaytimeCommand(true, arg1, cmdEnd)) {
+                    return false;
+                }
+            }
+            else if(tokenMatches(cmd, cmdEnd, "ifShift")) {
+                if(!processIfModifierCommand(false, HID_KEYBOARD_MODIFIER_LEFTSHIFT, HID_KEYBOARD_MODIFIER_RIGHTSHIFT)) {
+                    return false;
+                }
+            }
+            else if(tokenMatches(cmd, cmdEnd, "ifNotShift")) {
+                if(!processIfModifierCommand(true, HID_KEYBOARD_MODIFIER_LEFTSHIFT, HID_KEYBOARD_MODIFIER_RIGHTSHIFT)) {
+                    return false;
+                }
+            }
+            else if(tokenMatches(cmd, cmdEnd, "ifCtrl")) {
+                if(!processIfModifierCommand(false, HID_KEYBOARD_MODIFIER_LEFTCTRL, HID_KEYBOARD_MODIFIER_RIGHTCTRL)) {
+                    return false;
+                }
+            }
+            else if(tokenMatches(cmd, cmdEnd, "ifNotCtrl")) {
+                if(!processIfModifierCommand(true, HID_KEYBOARD_MODIFIER_LEFTCTRL, HID_KEYBOARD_MODIFIER_RIGHTCTRL)) {
+                    return false;
+                }
+            }
+            else if(tokenMatches(cmd, cmdEnd, "ifAlt")) {
+                if(!processIfModifierCommand(false, HID_KEYBOARD_MODIFIER_LEFTALT, HID_KEYBOARD_MODIFIER_RIGHTALT)) {
+                    return false;
+                }
+            }
+            else if(tokenMatches(cmd, cmdEnd, "ifNotAlt")) {
+                if(!processIfModifierCommand(true, HID_KEYBOARD_MODIFIER_LEFTALT, HID_KEYBOARD_MODIFIER_RIGHTALT)) {
+                    return false;
+                }
+            }
+            else {
+                goto failed;
+            }
+            break;
+        case 'p':
+            if(tokenMatches(cmd, cmdEnd, "printStatus")) {
+                return processPrintStatusCommand();
+            }
+            else if(tokenMatches(cmd, cmdEnd, "playMacro")) {
+                return processPlayMacroCommand(arg1, cmdEnd);
+            }
+            else {
+                goto failed;
+            }
+            break;
+        case 'r':
+            if(tokenMatches(cmd, cmdEnd, "recordMacro")) {
+                return processRecordMacroCommand(arg1, cmdEnd);
+            }
+            else {
+                goto failed;
+            }
+            break;
+        case 's':
+            if(tokenMatches(cmd, cmdEnd, "setStatus")) {
+                return processSetStatusCommand(arg1, cmdEnd);
+            }
+            else if(tokenMatches(cmd, cmdEnd, "switchKeymap")) {
+                return processSwitchKeymapCommand(arg1, cmdEnd);
+            }
+            else if(tokenMatches(cmd, cmdEnd, "switchLayer")) {
+                return processSwitchLayerCommand(arg1, cmdEnd);
+            }
+            else if(tokenMatches(cmd, cmdEnd, "startMouse")) {
+                return processMouseCommand(true, arg1, cmdEnd);
+            }
+            else if(tokenMatches(cmd, cmdEnd, "stopMouse")) {
+                return processMouseCommand(false, arg1, cmdEnd);
+            }
+            else {
+                goto failed;
+            }
+        default:
+        failed:
             reportError("unrecognized command", cmd, cmdEnd);
+            break;
         }
         cmd = arg1;
     }
@@ -839,6 +931,7 @@ void Macros_StartMacro(uint8_t index, key_state_t *keyState)
     s->currentMacroIndex = index;
     s->currentMacroActionIndex = 0;
     s->currentMacroKey = keyState;
+    s->currentMacroStartTime = CurrentTime;
     ValidatedUserConfigBuffer.offset = AllMacros[index].firstMacroActionOffset;
     ParseMacroAction(&ValidatedUserConfigBuffer, &s->currentMacroAction);
     s->bufferOffset = ValidatedUserConfigBuffer.offset;

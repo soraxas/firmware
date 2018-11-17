@@ -31,6 +31,8 @@ static key_action_t actionCache[SLOT_COUNT][MAX_KEY_COUNT_PER_MODULE];
 
 volatile uint8_t UsbReportUpdateSemaphore = 0;
 
+uint8_t OldModifierState;
+
 mouse_kinetic_state_t MouseMoveState = {
     .isScroll = false,
     .upState = SerializedMouseAction_MoveUp,
@@ -478,6 +480,7 @@ void UpdateUsbReports(void)
     bool HasUsbMouseReportChanged = memcmp(ActiveUsbMouseReport, GetInactiveUsbMouseReport(), sizeof(usb_mouse_report_t)) != 0;
 
     if (HasUsbBasicKeyboardReportChanged) {
+        OldModifierState = ActiveUsbBasicKeyboardReport->modifiers;
         RecordBasicReport(ActiveUsbBasicKeyboardReport);
         usb_status_t status = UsbBasicKeyboardAction();
         if (status == kStatus_USB_Success) {
