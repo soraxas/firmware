@@ -146,17 +146,17 @@ bool PlayRuntimeMacroBegin(uint8_t id) {
     return true;
 }
 
-bool PlayRuntimeMacroContinue() {
+bool PlayRuntimeMacroContinue(usb_basic_keyboard_report_t* report) {
     if(!RuntimeMacroPlaying) {
         return false;
     }
-    PlayReport(&MacroBasicKeyboardReport);
+    PlayReport(report);
     RuntimeMacroPlaying = playbackPosition < playbackHeader->offset + playbackHeader->length;
     return RuntimeMacroPlaying;
 }
 
 
-bool PlayRuntimeMacroSmart(uint8_t id) {
+bool PlayRuntimeMacroSmart(uint8_t id, usb_basic_keyboard_report_t* report) {
     if(!Macros_ClaimReports()) {
         return true;
     }
@@ -165,7 +165,7 @@ bool PlayRuntimeMacroSmart(uint8_t id) {
             return false;
         }
     }
-    return PlayRuntimeMacroContinue();
+    return PlayRuntimeMacroContinue(report);
 }
 
 void RecordRuntimeMacroSmart(uint8_t id) {

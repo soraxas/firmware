@@ -320,24 +320,55 @@ static void applyKeyAction(key_state_t *keyState, key_action_t *action)
     }
 }
 
-static void updateActiveUsbReports(void)
+void mergeReports(void)
 {
-    if (MacroPlaying) {
-        Macros_ResetReportClaims();
-        Macros_ContinueMacro();
-        memcpy(ActiveUsbMouseReport, &MacroMouseReport, sizeof MacroMouseReport);
-        memcpy(ActiveUsbBasicKeyboardReport, &MacroBasicKeyboardReport, sizeof MacroBasicKeyboardReport);
-        memcpy(ActiveUsbMediaKeyboardReport, &MacroMediaKeyboardReport, sizeof MacroMediaKeyboardReport);
-        memcpy(ActiveUsbSystemKeyboardReport, &MacroSystemKeyboardReport, sizeof MacroSystemKeyboardReport);
-        //return;
-    }
-
-    //memset(activeMouseStates, 0, ACTIVE_MOUSE_STATES_COUNT);
-    memcpy(activeMouseStates, toggledMouseStates, ACTIVE_MOUSE_STATES_COUNT);
-
+    memset(ActiveUsbMouseReport, 0, sizeof *ActiveUsbMouseReport);
+    memset(ActiveUsbBasicKeyboardReport, 0, sizeof *ActiveUsbBasicKeyboardReport);
+    memset(ActiveUsbMediaKeyboardReport, 0, sizeof *ActiveUsbMediaKeyboardReport);
+    memset(ActiveUsbSystemKeyboardReport, 0, sizeof *ActiveUsbSystemKeyboardReport);
     basicScancodeIndex = 0;
     mediaScancodeIndex = 0;
     systemScancodeIndex = 0;
+    for(uint8_t j = 0; j < MACRO_STATE_POOL_SIZE; j++) {
+        if(MacroState[j].macroPlaying && MacroState[j].reportsUsed) {
+            macro_state_t *s = &MacroState[j];
+            ActiveUsbBasicKeyboardReport->modifiers |= s->macroBasicKeyboardReport.modifiers;
+            for ( int i = 0; s->macroBasicKeyboardReport.scancodes[i] != 0; i++) {
+                if( basicScancodeIndex < USB_BASIC_KEYBOARD_MAX_KEYS ) {
+                    ActiveUsbBasicKeyboardReport->scancodes[basicScancodeIndex++] = s->macroBasicKeyboardReport.scancodes[i];
+                }
+            }
+            for ( int i = 0; s->macroMediaKeyboardReport.scancodes[i] != 0; i++) {
+                if( mediaScancodeIndex < USB_MEDIA_KEYBOARD_MAX_KEYS ) {
+                    ActiveUsbMediaKeyboardReport->scancodes[mediaScancodeIndex++] = s->macroMediaKeyboardReport.scancodes[i];
+                }
+            }
+            for ( int i = 0; s->macroSystemKeyboardReport.scancodes[i] != 0; i++) {
+                if( systemScancodeIndex < USB_SYSTEM_KEYBOARD_MAX_KEYS ) {
+                    ActiveUsbSystemKeyboardReport->scancodes[systemScancodeIndex++] = s->macroSystemKeyboardReport.scancodes[i];
+                }
+            }
+            ActiveUsbMouseReport->buttons |= s->macroMouseReport.buttons;
+            ActiveUsbMouseReport->x += s->macroMouseReport.x;
+            ActiveUsbMouseReport->y += s->macroMouseReport.y;
+            ActiveUsbMouseReport->wheelX += s->macroMouseReport.wheelX;
+            ActiveUsbMouseReport->wheelY += s->macroMouseReport.wheelY;
+        }
+    }
+}
+
+static void updateActiveUsbReports(void)
+{
+    basicScancodeIndex = 0;
+    mediaScancodeIndex = 0;
+    systemScancodeIndex = 0;
+
+    if (MacroPlaying) {
+        Macros_ContinueMacro();
+        mergeReports();
+    }
+
+    memcpy(activeMouseStates, toggledMouseStates, ACTIVE_MOUSE_STATES_COUNT);
 
     layer_id_t activeLayer = LayerId_Base;
     if (secondaryRoleState == SecondaryRoleState_Triggered && IS_SECONDARY_ROLE_LAYER_SWITCHER(secondaryRole)) {

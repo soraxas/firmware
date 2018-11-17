@@ -100,25 +100,27 @@
         uint32_t delayStart;
 
         uint16_t bufferOffset;
+
+        bool reportsUsed;
+        usb_mouse_report_t macroMouseReport;
+        usb_basic_keyboard_report_t macroBasicKeyboardReport;
+        usb_media_keyboard_report_t macroMediaKeyboardReport;
+        usb_system_keyboard_report_t macroSystemKeyboardReport;
     } macro_state_t;
 
 // Variables:
 
     extern macro_reference_t AllMacros[MAX_MACRO_NUM];
     extern uint8_t AllMacrosCount;
+    extern macro_state_t MacroState[MACRO_STATE_POOL_SIZE];
     extern bool MacroPlaying;
-    extern usb_mouse_report_t MacroMouseReport;
-    extern usb_basic_keyboard_report_t MacroBasicKeyboardReport;
-    extern usb_media_keyboard_report_t MacroMediaKeyboardReport;
-    extern usb_system_keyboard_report_t MacroSystemKeyboardReport;
 
 // Functions:
 
     void Macros_StartMacro(uint8_t index, key_state_t *keyState);
     void Macros_ContinueMacro(void);
     void Macros_SignalInterrupt(void);
-    bool Macros_ClaimReports();
-    void Macros_ResetReportClaims(void);
+    bool Macros_ClaimReports(void);
     void Macros_ReportError(const char* err, const char* arg, const char *argEnd);
     void Macros_ReportErrorNum(const char* err, uint32_t num);
 

@@ -10,15 +10,17 @@
 macro_reference_t AllMacros[MAX_MACRO_NUM];
 uint8_t AllMacrosCount;
 bool MacroPlaying = false;
-bool ReportsClaimed = false;
 usb_mouse_report_t MacroMouseReport;
 usb_basic_keyboard_report_t MacroBasicKeyboardReport;
 usb_media_keyboard_report_t MacroMediaKeyboardReport;
 usb_system_keyboard_report_t MacroSystemKeyboardReport;
 
+uint8_t MacroBasicScancodeIndex = 0;
+uint8_t MacroMediaScancodeIndex = 0;
+uint8_t MacroSystemScancodeIndex = 0;
+
 static char statusBuffer[STATUS_BUFFER_MAX_LENGTH];
 static uint16_t statusBufferLen;
-
 
 static uint8_t lastKeymapIdx;
 static uint8_t layerIdxStack[LAYER_STACK_SIZE];
@@ -26,19 +28,12 @@ static uint8_t layerIdxStackTop;
 static uint8_t layerIdxStackSize;
 static uint8_t lastLayerIdx;
 
-static macro_state_t macroState[MACRO_STATE_POOL_SIZE];
-static macro_state_t *s = macroState;
+macro_state_t MacroState[MACRO_STATE_POOL_SIZE];
+static macro_state_t *s = MacroState;
 
 bool Macros_ClaimReports() {
-    if(!ReportsClaimed) {
-        ReportsClaimed = true;
-        return true;
-    }
-    return false;
-}
-
-void Macros_ResetReportClaims() {
-    ReportsClaimed = false;
+    s->reportsUsed = true;
+    return true;
 }
 
 uint8_t characterToScancode(char character)
@@ -114,8 +109,8 @@ uint8_t characterToScancode(char character)
 void Macros_SignalInterrupt()
 {
     for(uint8_t i = 0; i < MACRO_STATE_POOL_SIZE; i++) {
-        if(macroState[i].macroPlaying) {
-            macroState[i].macroInterrupted = true;
+        if(MacroState[i].macroPlaying) {
+            MacroState[i].macroInterrupted = true;
         }
     }
 }
@@ -156,13 +151,13 @@ void addBasicScancode(uint8_t scancode)
         return;
     }
     for (uint8_t i = 0; i < USB_BASIC_KEYBOARD_MAX_KEYS; i++) {
-        if (MacroBasicKeyboardReport.scancodes[i] == scancode) {
+        if (s->macroBasicKeyboardReport.scancodes[i] == scancode) {
             return;
         }
     }
     for (uint8_t i = 0; i < USB_BASIC_KEYBOARD_MAX_KEYS; i++) {
-        if (!MacroBasicKeyboardReport.scancodes[i]) {
-            MacroBasicKeyboardReport.scancodes[i] = scancode;
+        if (!s->macroBasicKeyboardReport.scancodes[i]) {
+            s->macroBasicKeyboardReport.scancodes[i] = scancode;
             break;
         }
     }
@@ -174,8 +169,8 @@ void deleteBasicScancode(uint8_t scancode)
         return;
     }
     for (uint8_t i = 0; i < USB_BASIC_KEYBOARD_MAX_KEYS; i++) {
-        if (MacroBasicKeyboardReport.scancodes[i] == scancode) {
-            MacroBasicKeyboardReport.scancodes[i] = 0;
+        if (s->macroBasicKeyboardReport.scancodes[i] == scancode) {
+            s->macroBasicKeyboardReport.scancodes[i] = 0;
             return;
         }
     }
@@ -183,12 +178,12 @@ void deleteBasicScancode(uint8_t scancode)
 
 void addModifiers(uint8_t modifiers)
 {
-    MacroBasicKeyboardReport.modifiers |= modifiers;
+    s->macroBasicKeyboardReport.modifiers |= modifiers;
 }
 
 void deleteModifiers(uint8_t modifiers)
 {
-    MacroBasicKeyboardReport.modifiers &= ~modifiers;
+    s->macroBasicKeyboardReport.modifiers &= ~modifiers;
 }
 
 void addMediaScancode(uint16_t scancode)
@@ -197,13 +192,13 @@ void addMediaScancode(uint16_t scancode)
         return;
     }
     for (uint8_t i = 0; i < USB_MEDIA_KEYBOARD_MAX_KEYS; i++) {
-        if (MacroMediaKeyboardReport.scancodes[i] == scancode) {
+        if (s->macroMediaKeyboardReport.scancodes[i] == scancode) {
             return;
         }
     }
     for (uint8_t i = 0; i < USB_MEDIA_KEYBOARD_MAX_KEYS; i++) {
-        if (!MacroMediaKeyboardReport.scancodes[i]) {
-            MacroMediaKeyboardReport.scancodes[i] = scancode;
+        if (!s->macroMediaKeyboardReport.scancodes[i]) {
+            s->macroMediaKeyboardReport.scancodes[i] = scancode;
             break;
         }
     }
@@ -215,8 +210,8 @@ void deleteMediaScancode(uint16_t scancode)
         return;
     }
     for (uint8_t i = 0; i < USB_MEDIA_KEYBOARD_MAX_KEYS; i++) {
-        if (MacroMediaKeyboardReport.scancodes[i] == scancode) {
-            MacroMediaKeyboardReport.scancodes[i] = 0;
+        if (s->macroMediaKeyboardReport.scancodes[i] == scancode) {
+            s->macroMediaKeyboardReport.scancodes[i] = 0;
             return;
         }
     }
@@ -228,13 +223,13 @@ void addSystemScancode(uint8_t scancode)
         return;
     }
     for (uint8_t i = 0; i < USB_SYSTEM_KEYBOARD_MAX_KEYS; i++) {
-        if (MacroSystemKeyboardReport.scancodes[i] == scancode) {
+        if (s->macroSystemKeyboardReport.scancodes[i] == scancode) {
             return;
         }
     }
     for (uint8_t i = 0; i < USB_SYSTEM_KEYBOARD_MAX_KEYS; i++) {
-        if (!MacroSystemKeyboardReport.scancodes[i]) {
-            MacroSystemKeyboardReport.scancodes[i] = scancode;
+        if (!s->macroSystemKeyboardReport.scancodes[i]) {
+            s->macroSystemKeyboardReport.scancodes[i] = scancode;
             break;
         }
     }
@@ -246,8 +241,8 @@ void deleteSystemScancode(uint8_t scancode)
         return;
     }
     for (uint8_t i = 0; i < USB_SYSTEM_KEYBOARD_MAX_KEYS; i++) {
-        if (MacroSystemKeyboardReport.scancodes[i] == scancode) {
-            MacroSystemKeyboardReport.scancodes[i] = 0;
+        if (s->macroSystemKeyboardReport.scancodes[i] == scancode) {
+            s->macroSystemKeyboardReport.scancodes[i] = 0;
             return;
         }
     }
@@ -285,7 +280,6 @@ void deleteScancode(uint16_t scancode, macro_sub_action_t type)
 
 bool processKeyAction(void)
 {
-
     if(!Macros_ClaimReports()) {
         return true;
     }
@@ -340,17 +334,17 @@ bool processMouseButtonAction(void)
         case MacroSubAction_Tap:
             if (!s->mouseButtonPressStarted) {
                 s->mouseButtonPressStarted = true;
-                MacroMouseReport.buttons |= s->currentMacroAction.mouseButton.mouseButtonsMask;
+                s->macroMouseReport.buttons |= s->currentMacroAction.mouseButton.mouseButtonsMask;
                 return true;
             }
             s->mouseButtonPressStarted = false;
-            MacroMouseReport.buttons &= ~s->currentMacroAction.mouseButton.mouseButtonsMask;
+            s->macroMouseReport.buttons &= ~s->currentMacroAction.mouseButton.mouseButtonsMask;
             break;
         case MacroSubAction_Release:
-            MacroMouseReport.buttons &= ~s->currentMacroAction.mouseButton.mouseButtonsMask;
+            s->macroMouseReport.buttons &= ~s->currentMacroAction.mouseButton.mouseButtonsMask;
             break;
         case MacroSubAction_Press:
-            MacroMouseReport.buttons |= s->currentMacroAction.mouseButton.mouseButtonsMask;
+            s->macroMouseReport.buttons |= s->currentMacroAction.mouseButton.mouseButtonsMask;
             break;
     }
     return false;
@@ -362,12 +356,12 @@ bool processMoveMouseAction(void)
         return true;
     }
     if (s->mouseMoveInMotion) {
-        MacroMouseReport.x = 0;
-        MacroMouseReport.y = 0;
+        s->macroMouseReport.x = 0;
+        s->macroMouseReport.y = 0;
         s->mouseMoveInMotion = false;
     } else {
-        MacroMouseReport.x = s->currentMacroAction.moveMouse.x;
-        MacroMouseReport.y = s->currentMacroAction.moveMouse.y;
+        s->macroMouseReport.x = s->currentMacroAction.moveMouse.x;
+        s->macroMouseReport.y = s->currentMacroAction.moveMouse.y;
         s->mouseMoveInMotion = true;
     }
     return s->mouseMoveInMotion;
@@ -379,12 +373,12 @@ bool processScrollMouseAction(void)
         return true;
     }
     if (s->mouseScrollInMotion) {
-        MacroMouseReport.wheelX = 0;
-        MacroMouseReport.wheelY = 0;
+        s->macroMouseReport.wheelX = 0;
+        s->macroMouseReport.wheelY = 0;
         s->mouseScrollInMotion = false;
     } else {
-        MacroMouseReport.wheelX = s->currentMacroAction.scrollMouse.x;
-        MacroMouseReport.wheelY = s->currentMacroAction.scrollMouse.y;
+        s->macroMouseReport.wheelX = s->currentMacroAction.scrollMouse.x;
+        s->macroMouseReport.wheelY = s->currentMacroAction.scrollMouse.y;
         s->mouseScrollInMotion = true;
     }
     return s->mouseScrollInMotion;
@@ -473,24 +467,24 @@ bool dispatchText(const char* text, uint16_t textLen)
     if (s->dispatchTextIndex == textLen) {
         s->dispatchTextIndex = 0;
         s->dispatchReportIndex = USB_BASIC_KEYBOARD_MAX_KEYS;
-        memset(&MacroBasicKeyboardReport, 0, sizeof MacroBasicKeyboardReport);
+        memset(&s->macroBasicKeyboardReport, 0, sizeof s->macroBasicKeyboardReport);
         return false;
     }
     if (s->dispatchReportIndex == USB_BASIC_KEYBOARD_MAX_KEYS) {
         s->dispatchReportIndex = 0;
-        memset(&MacroBasicKeyboardReport, 0, sizeof MacroBasicKeyboardReport);
+        memset(&s->macroBasicKeyboardReport, 0, sizeof s->macroBasicKeyboardReport);
         return true;
     }
     character = text[s->dispatchTextIndex];
     scancode = characterToScancode(character);
     for (uint8_t i = 0; i < s->dispatchReportIndex; i++) {
-        if (MacroBasicKeyboardReport.scancodes[i] == scancode) {
+        if (s->macroBasicKeyboardReport.scancodes[i] == scancode) {
             s->dispatchReportIndex = USB_BASIC_KEYBOARD_MAX_KEYS;
             return true;
         }
     }
-    MacroBasicKeyboardReport.scancodes[s->dispatchReportIndex++] = scancode;
-    MacroBasicKeyboardReport.modifiers = characterToShift(character) ? HID_KEYBOARD_MODIFIER_LEFTSHIFT : 0;
+    s->macroBasicKeyboardReport.scancodes[s->dispatchReportIndex++] = scancode;
+    s->macroBasicKeyboardReport.modifiers = characterToShift(character) ? HID_KEYBOARD_MODIFIER_LEFTSHIFT : 0;
     ++s->dispatchTextIndex;
     return true;
 }
@@ -611,10 +605,10 @@ bool processIfDoubletapCommand(bool negate)
     bool doubletapFound = false;
 
     for(uint8_t i = 0; i < MACRO_STATE_POOL_SIZE; i++) {
-        if (macroState[i].macroPlaying && Timer_GetElapsedTime(&macroState[i].previousMacroEndTime) <= 250 && s->currentMacroIndex == macroState[i].previousMacroIndex) {
+        if (MacroState[i].macroPlaying && Timer_GetElapsedTime(&MacroState[i].previousMacroEndTime) <= 250 && s->currentMacroIndex == MacroState[i].previousMacroIndex) {
             doubletapFound = true;
         }
-        if (!macroState[i].macroPlaying && Timer_GetElapsedTime(&macroState[i].previousMacroEndTime) <= 250 && s->currentMacroIndex == macroState[i].currentMacroIndex) {
+        if (!MacroState[i].macroPlaying && Timer_GetElapsedTime(&MacroState[i].previousMacroEndTime) <= 250 && s->currentMacroIndex == MacroState[i].currentMacroIndex) {
             doubletapFound = true;
         }
     }
@@ -730,7 +724,7 @@ bool processRecordMacroCommand(const char* arg, const char *argEnd)
 bool processPlayMacroCommand(const char* arg, const char *argEnd)
 {
     uint8_t id = arg == argEnd ? 0 : *arg;
-    return PlayRuntimeMacroSmart(id);
+    return PlayRuntimeMacroSmart(id, &s->macroBasicKeyboardReport);
 }
 
 bool processCommandAction(void)
@@ -924,8 +918,8 @@ bool processCurrentMacroAction(void)
 
 bool findFreeStateSlot() {
     for(uint8_t i = 0; i < MACRO_STATE_POOL_SIZE; i++) {
-        if(!macroState[i].macroPlaying) {
-            s = &macroState[i];
+        if(!MacroState[i].macroPlaying) {
+            s = &MacroState[i];
             return true;
         }
     }
@@ -946,13 +940,14 @@ void Macros_StartMacro(uint8_t index, key_state_t *keyState)
     s->currentMacroKey = keyState;
     s->currentMacroStartTime = CurrentTime;
     s->currentConditionPassed = false;
+    s->reportsUsed = false;
     ValidatedUserConfigBuffer.offset = AllMacros[index].firstMacroActionOffset;
     ParseMacroAction(&ValidatedUserConfigBuffer, &s->currentMacroAction);
     s->bufferOffset = ValidatedUserConfigBuffer.offset;
-    memset(&MacroMouseReport, 0, sizeof MacroMouseReport);
-    memset(&MacroBasicKeyboardReport, 0, sizeof MacroBasicKeyboardReport);
-    memset(&MacroMediaKeyboardReport, 0, sizeof MacroMediaKeyboardReport);
-    memset(&MacroSystemKeyboardReport, 0, sizeof MacroSystemKeyboardReport);
+    memset(&s->macroMouseReport, 0, sizeof s->macroMouseReport);
+    memset(&s->macroBasicKeyboardReport, 0, sizeof s->macroBasicKeyboardReport);
+    memset(&s->macroMediaKeyboardReport, 0, sizeof s->macroMediaKeyboardReport);
+    memset(&s->macroSystemKeyboardReport, 0, sizeof s->macroSystemKeyboardReport);
 }
 
 void continueMacro(void)
@@ -973,13 +968,14 @@ void continueMacro(void)
     s->currentConditionPassed = false;
 }
 
+
 void Macros_ContinueMacro(void)
 {
     bool someonePlaying = false;
     for(uint8_t i = 0; i < MACRO_STATE_POOL_SIZE; i++) {
-        if(macroState[i].macroPlaying) {
+        if(MacroState[i].macroPlaying) {
             someonePlaying = true;
-            s = &macroState[i];
+            s = &MacroState[i];
             continueMacro();
         }
     }
