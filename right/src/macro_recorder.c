@@ -54,15 +54,17 @@ void resolveRecordingHeader(uint8_t id) {
     initHeaderSlot(id);
 }
 
-void resolvePlaybackHeader(uint8_t id) {
+bool resolvePlaybackHeader(uint8_t id) {
     for(int i = 0; i < headersLen; i++)
     {
         if(headers[i].id == id)
         {
             playbackHeader = &headers[i];
-            return;
+            return true;
         }
     }
+    Macros_ReportErrorNum("Macro slot not found ", id);
+    return false;
 }
 
 //id is an arbitrary slot identifier
@@ -136,7 +138,9 @@ void PlayReport(usb_basic_keyboard_report_t *report) {
 }
 
 bool PlayRuntimeMacroBegin(uint8_t id) {
-    resolvePlaybackHeader(id);
+    if(!resolvePlaybackHeader(id)) {
+        return false;
+    }
     playbackPosition = playbackHeader->offset;
     RuntimeMacroPlaying = true;
     return true;
@@ -157,7 +161,9 @@ bool PlayRuntimeMacroSmart(uint8_t id) {
         return true;
     }
     if(!RuntimeMacroPlaying) {
-        PlayRuntimeMacroBegin(id);
+        if(!PlayRuntimeMacroBegin(id)) {
+            return false;
+        }
     }
     return PlayRuntimeMacroContinue();
 }
