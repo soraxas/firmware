@@ -4,7 +4,7 @@ This is a fork of [UHK firmware](https://github.com/UltimateHackingKeyboard/firm
 
 ## Compatibility
 
-This firmware is 100% compatible with original unmodified agent. All you need is to flash the modified firmware. Configurations won't get lost in case you decide to switch back to official firmware, or if you then again flash the modified version too, since config formats were not altered in any way.
+This firmware is 100% compatible with the original unmodified agent. All you need is to flash the modified firmware to your UHK. Configurations won't get lost in case you decide to switch back to official firmware, or if you then again flash the modified version too, since config formats were not altered in any way.
 
 ## Features
 
