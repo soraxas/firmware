@@ -25,7 +25,7 @@ For instance, if the following text is pasted as a macro text action, playing th
     
     $switchLayer fn
     
-Runtime macro recorder example. In this setup, shift+key will start recording (denoted by the "adaptive mode" led indicator), another shit+key will stop recording. Hiting sole key will then replay the macro (e.g., simple repetitive text edit).
+Runtime macro recorder example. In this setup, shift+key will start recording (indicated by the "adaptive mode" led), another shit+key will stop recording. Hiting sole key will then replay the macro (e.g., simple repetitive text edit).
 
     $ifShift recordMacro A
     $ifNotShift playMacro A
