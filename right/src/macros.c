@@ -594,10 +594,11 @@ bool processSwitchLayerCommand(const char* arg1, const char* arg1End)
 
 bool processDelayUntilReleaseCommand()
 {
-    if(s->currentMacroKey->current) {
+    //debouncing takes place later in the event loop, i.e., at this time, only s->currentMacroKey->previous is debounced
+    if(s->currentMacroKey->previous) {
         return true;
     }
-    return processDelay(50);
+    return false;
 }
 
 bool processIfDoubletapCommand(bool negate)
