@@ -4,7 +4,7 @@ This is a fork of [UHK firmware](https://github.com/UltimateHackingKeyboard/firm
 
 ## Compatibility
 
-This firmware is 100% compatible with original unmodified agent. All you need is to flash the modified firmware. Configurations won't get lost in case you decide to switch back to official firmware, or if you then again flash the modified version too, since config formats were not altered in any way.
+This firmware is 100% compatible with the original unmodified agent. All you need is to flash the modified firmware to your UHK. Configurations won't get lost in case you decide to switch back to official firmware, or if you then again flash the modified version too, since config formats were not altered in any way.
 
 ## Features
 
@@ -102,7 +102,7 @@ The following grammar is supported:
 - `write <custom text>` will type rest of the string. This is easier to use with conditionals than standard action...
 - `goTo <int>` will go to action index int. Actions are indexed from zero.
 - `startMouse/stopMouse` start/stop corresponding mouse action. E.g., `startMouse move left`:w
-- `recordMacro|playMacro <slot identifier>` targets vim-like macro functionality. Slot identifier is a single character. Usage (e.g.): call `recordMacro a`, do some work, end recording by another `recordMacro a`. Now you can play the actions (i.e., sequence of keyboard reports) back by calling `playMacro a`. Only BasicKeyboard scancodes are available at the moment. These macros are recorded into RAM only. Number of macros is limited by memory (we can hold approximately 300 keystrokes). If less than 1/4 of dedicated memory is free, oldest macro slot is freed.
+- `recordMacro|playMacro <slot identifier>` targets vim-like macro functionality. Slot identifier is a single character. Usage (e.g.): call `recordMacro a`, do some work, end recording by another `recordMacro a`. Now you can play the actions (i.e., sequence of keyboard reports) back by calling `playMacro a`. Only BasicKeyboard scancodes are available at the moment. These macros are recorded into RAM only. Number of macros is limited by memory (we can hold approximately 300 keystrokes in total). If less than 1/4 of dedicated memory is free, oldest macro slot is freed.
 
 ## Error handling
 
@@ -119,7 +119,14 @@ If you wish some functionality, feel free to fire tickets with feature requests.
 
 ## Adding new features
 
-See `macros.c`, namely `processCommandAction(...)`.
+Practically all high-level functionality of the firmware is implemented in the following three files:
+
+- `usb_report_updater.c` - logic of key activation, layer switching, debouncing, etc.. Almost all important stuff is here.
+- `layer.c` - some suport for "hold" layer switching (beware, there are two independent layer switching mechanisms and this one is the less important one).
+- `keymap.c` - keymap switching functions.
+- `macros.c` - the macro engine. We furthermore extend it by `macro_recorder.c`
+
+Our command actions are rooted in `processCommandAction(...)` in `macros.c`.
 
 ## Building the firmware
 
