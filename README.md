@@ -25,7 +25,7 @@ For instance, if the following text is pasted as a macro text action, playing th
     
     $switchLayer fn
     
-Runtime macro recorder example. In this setup, shift+key will start recording (denoted by the "adaptive mode" led indicator), another shit+key will stop recording. Hiting sole key will then replay the macro (e.g., simple repetitive text edit).
+Runtime macro recorder example. In this setup, shift+key will start recording (denoted by the "adaptive mode" led indicator), another shit+key will stop recording. Hitting sole key will then replay the macro (e.g., simple repetitive text edit).
 
     $ifShift recordMacro A
     $ifNotShift playMacro A
@@ -93,7 +93,7 @@ The following grammar is supported:
 - `setStatus <custom text>` will append <custom text> to the error report buffer, if there is enough space for that
 - `goTo <int>` will go to action index int. Actions are indexed from zero.
 - `startMouse/stopMouse` start/stop corresponding mouse action. E.g., `startMouse move left`:w
-- `recordMacro|playMacro <slot identifier>` targets vim-like macro functionality. Slot identifier is a single character. Usage (e.g.): call `recordMacro a`, do some work, end recording by another `recordMacro a`. Now you can play the actions (i.e., sequence of keyboard reports) back by calling `playMacro a`. Only BasicKeyboard scancodes are available at the moment. These macros are recorded into RAM only. Number of macros is limited by memory (we can hold approximately 300 keystrokes). If less than 1/4 of dedicated memory is free, oldest macro slot is freed.
+- `recordMacro|playMacro <slot identifier>` targets vim-like macro functionality. Slot identifier is a single character. Usage (e.g.): call `recordMacro a`, do some work, end recording by another `recordMacro a`. Now you can play the actions (i.e., sequence of keyboard reports) back by calling `playMacro a`. Only BasicKeyboard scancodes are available at the moment. These macros are recorded into RAM only. Number of macros is limited by memory (we can hold approximately 300 keystrokes in total). If less than 1/4 of dedicated memory is free, oldest macro slot is freed.
 
 ## Error handling
 
@@ -110,7 +110,14 @@ If you wish some functionality, feel free to fire tickets with feature requests.
 
 ## Adding new features
 
-See `macros.c`, namely `processCommandAction(...)`.
+Practically all high-level functionality of the firmware is implemented in the following three files:
+
+- `usb_report_updater.c` - logic of key activation, layer switching, debouncing, etc.. Almost all important stuff is here.
+- `layer.c` - some suport for "hold" layer switching (beware, there are two independent layer switching mechanisms and this one is the less important one).
+- `keymap.c` - keymap switching functions.
+- `macros.c` - the macro engine. We furthermore extend it by `macro_recorder.c`
+
+Our command actions are rooted in `processCommandAction(...)` in `macros.c`.
 
 ## Building the firmware
 
