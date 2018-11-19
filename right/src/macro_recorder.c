@@ -63,7 +63,7 @@ bool resolvePlaybackHeader(uint8_t id) {
             return true;
         }
     }
-    Macros_ReportErrorNum("Macro slot not found ", id);
+    //Macros_ReportErrorNum("Macro slot not found ", id);
     return false;
 }
 
