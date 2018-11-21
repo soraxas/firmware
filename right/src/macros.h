@@ -13,7 +13,7 @@
 
     #define MAX_MACRO_NUM 255
     #define STATUS_BUFFER_MAX_LENGTH 1024
-    #define LAYER_STACK_SIZE 5
+    #define LAYER_STACK_SIZE 10
     #define MACRO_STATE_POOL_SIZE 5
 
     #define ALTMASK (HID_KEYBOARD_MODIFIER_LEFTALT | HID_KEYBOARD_MODIFIER_RIGHTALT)
@@ -27,6 +27,11 @@
         uint16_t firstMacroActionOffset;
         uint16_t macroActionsCount;
     } macro_reference_t;
+
+    typedef struct {
+        uint8_t layer;
+        bool removed;
+    } layerStackRecord;
 
     typedef enum {
         MacroSubAction_Tap,
@@ -98,6 +103,9 @@
 
         bool delayActive;
         uint32_t delayStart;
+
+        bool holdActive;
+        uint8_t holdLayerIdx;
 
         uint16_t bufferOffset;
 

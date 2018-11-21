@@ -22,11 +22,11 @@ uint8_t MacroSystemScancodeIndex = 0;
 static char statusBuffer[STATUS_BUFFER_MAX_LENGTH];
 static uint16_t statusBufferLen;
 
-static uint8_t lastKeymapIdx;
-static uint8_t layerIdxStack[LAYER_STACK_SIZE];
+static layerStackRecord layerIdxStack[LAYER_STACK_SIZE];
 static uint8_t layerIdxStackTop;
 static uint8_t layerIdxStackSize;
 static uint8_t lastLayerIdx;
+static uint8_t lastKeymapIdx;
 
 macro_state_t MacroState[MACRO_STATE_POOL_SIZE];
 static macro_state_t *s = MacroState;
@@ -532,69 +532,141 @@ const char* nextTok(const char* cmd, const char *cmdEnd)
 uint32_t parseUInt32(const char *a, const char *aEnd)
 {
     uint32_t n = 0;
-    while(*a > 32 && a < aEnd) {
+    bool numFound = false;
+    while(*a > 47 && *a < 58 && a < aEnd) {
         n = n*10 + ((uint8_t)(*a))-48;
         a++;
+        numFound = true;
+    }
+    if(!numFound) {
+        reportError("Integer expected", NULL, NULL);
     }
     return n;
 }
 
-bool processSwitchKeymapCommand(const char* arg1, const char* arg1End)
+bool processSwitchKeymapCommand(const char* arg1, const char* cmdEnd)
 {
     int tmpKeymapIdx = CurrentKeymapIndex;
-    if(tokenMatches(arg1, arg1End, "last")) {
+    if(tokenMatches(arg1, cmdEnd, "last")) {
         SwitchKeymapById(lastKeymapIdx);
     }
     else {
-        SwitchKeymapByAbbreviation(tokLen(arg1, arg1End), arg1);
+        SwitchKeymapByAbbreviation(tokLen(arg1, cmdEnd), arg1);
     }
     lastKeymapIdx = tmpKeymapIdx;
     return false;
 }
 
-bool processSwitchLayerCommand(const char* arg1, const char* arg1End)
-{
-    uint8_t tmpLayerIdx = ToggledLayer;
-    if(tokenMatches(arg1, arg1End, "previous")) {
-        if(layerIdxStackSize > 0) {
-            layerIdxStackTop = (layerIdxStackTop + LAYER_STACK_SIZE - 1) % LAYER_STACK_SIZE;
-            layerIdxStackSize--;
-        }
-        else {
-            layerIdxStack[layerIdxStackTop] = LayerId_Base;
-        }
-        ToggleLayer(layerIdxStack[layerIdxStackTop]);
+void removeStackTop(void) {
+    layerIdxStackTop = (layerIdxStackTop + LAYER_STACK_SIZE - 1) % LAYER_STACK_SIZE;
+    layerIdxStackSize--;
+}
+
+void popLayerStack(bool forceRemoveTop) {
+    if(layerIdxStackSize > 0 && forceRemoveTop) {
+        removeStackTop();
+    }
+    while(layerIdxStackSize > 0 && layerIdxStack[layerIdxStackTop].removed) {
+        removeStackTop();
+    }
+    if(layerIdxStackSize == 0) {
+        layerIdxStack[layerIdxStackTop].layer = LayerId_Base;
+        layerIdxStack[layerIdxStackTop].removed = false;
+    }
+    ToggleLayer(layerIdxStack[layerIdxStackTop].layer);
+}
+
+uint8_t parseLayerId(const char* arg1, const char* cmdEnd) {
+    if(tokenMatches(arg1, cmdEnd, "fn")) {
+        return LayerId_Fn;
+    }
+    else if(tokenMatches(arg1, cmdEnd, "mouse")) {
+        return LayerId_Mouse;
+    }
+    else if(tokenMatches(arg1, cmdEnd, "mod")) {
+        return LayerId_Mod;
+    }
+    else if(tokenMatches(arg1, cmdEnd, "base")) {
+        return LayerId_Base;
+    }
+    else if(tokenMatches(arg1, cmdEnd, "last")) {
+        return lastLayerIdx;
     }
     else {
-        layerIdxStackTop = (layerIdxStackTop + 1) % LAYER_STACK_SIZE;
-        if(tokenMatches(arg1, arg1End, "fn")) {
-            layerIdxStack[layerIdxStackTop] = LayerId_Fn;
-        }
-        else if(tokenMatches(arg1, arg1End, "mouse")) {
-           layerIdxStack[layerIdxStackTop] = LayerId_Mouse;
-        }
-        else if(tokenMatches(arg1, arg1End, "mod")) {
-            layerIdxStack[layerIdxStackTop] = LayerId_Mod;
-        }
-        else if(tokenMatches(arg1, arg1End, "base")) {
-            layerIdxStack[layerIdxStackTop] = LayerId_Base;
-        }
-        else if(tokenMatches(arg1, arg1End, "last")) {
-            layerIdxStack[layerIdxStackTop] = lastLayerIdx;
-        }
-        else {
-            reportError("unrecognized layer id", arg1, arg1End);
-        }
-        ToggleLayer(layerIdxStack[layerIdxStackTop]);
-        layerIdxStackSize = layerIdxStackSize < LAYER_STACK_SIZE - 1 ? layerIdxStackSize+1 : layerIdxStackSize;
+        reportError("unrecognized layer id", arg1, cmdEnd);
+        return false;
+    }
+}
+
+void pushStack(uint8_t layer) {
+    layerIdxStackTop = (layerIdxStackTop + 1) % LAYER_STACK_SIZE;
+    layerIdxStack[layerIdxStackTop].layer = layer;
+    layerIdxStack[layerIdxStackTop].removed = false;
+    ToggleLayer(layerIdxStack[layerIdxStackTop].layer);
+    layerIdxStackSize = layerIdxStackSize < LAYER_STACK_SIZE - 1 ? layerIdxStackSize+1 : layerIdxStackSize;
+}
+
+bool processSwitchLayerCommand(const char* arg1, const char* cmdEnd)
+{
+    uint8_t tmpLayerIdx = ToggledLayer;
+    if(tokenMatches(arg1, cmdEnd, "previous")) {
+        popLayerStack(true);
+    }
+    else {
+        pushStack(parseLayerId(arg1, cmdEnd));
     }
     lastLayerIdx = tmpLayerIdx;
     return false;
 }
 
+
+bool processHoldLayer(uint8_t layer, uint16_t timeout)
+{
+    if(!s->holdActive) {
+        s->holdActive = true;
+        pushStack(layer);
+        s->holdLayerIdx = layerIdxStackTop;
+        return true;
+    }
+    else {
+        if(s->currentMacroKey->previous && (Timer_GetElapsedTime(&s->currentMacroStartTime) < timeout || s->macroInterrupted)) {
+            return true;
+        }
+        else {
+            s->holdActive = false;
+            if(layerIdxStack[s->holdLayerIdx].layer == layer) {
+                layerIdxStack[s->holdLayerIdx].removed = true;
+            }
+            popLayerStack(false);
+            return false;
+        }
+    }
+}
+
+bool processHoldLayerCommand(const char* arg1, const char* cmdEnd)
+{
+    return processHoldLayer(parseLayerId(arg1, cmdEnd), 0xFFFF);
+}
+
+bool processHoldLayerMaxCommand(const char* arg1, const char* cmdEnd)
+{
+    const char* arg2 = nextTok(arg1, cmdEnd);
+    uint16_t timeout = parseUInt32(arg2, cmdEnd);
+    return processHoldLayer(parseLayerId(arg1, cmdEnd), timeout);
+}
+
+bool processDelayUntilReleaseMaxCommand(const char* arg1, const char* cmdEnd)
+{
+    uint32_t timeout = parseUInt32(arg1, cmdEnd);
+    //debouncing takes place later in the event loop, i.e., at this time, only s->currentMacroKey->previous is debounced
+    if(s->currentMacroKey->previous && Timer_GetElapsedTime(&s->currentMacroStartTime) < timeout) {
+        return true;
+    }
+    return false;
+}
+
 bool processDelayUntilReleaseCommand()
 {
-    //debouncing takes place later in the event loop, i.e., at this time, only s->currentMacroKey->previous is debounced
     if(s->currentMacroKey->previous) {
         return true;
     }
@@ -758,6 +830,9 @@ bool processCommandAction(void)
             if(tokenMatches(cmd, cmdEnd, "delayUntilRelease")) {
                 return processDelayUntilReleaseCommand();
             }
+            else if(tokenMatches(cmd, cmdEnd, "delayUntilReleaseMax")) {
+                return processDelayUntilReleaseMaxCommand(arg1, cmdEnd);
+            }
             else {
                 goto failed;
             }
@@ -765,6 +840,17 @@ bool processCommandAction(void)
         case 'g':
             if(tokenMatches(cmd, cmdEnd, "goTo")) {
                 return processGoToCommand(arg1, cmdEnd);
+            }
+            else {
+                goto failed;
+            }
+            break;
+        case 'h':
+            if(tokenMatches(cmd, cmdEnd, "holdLayer")) {
+                return processHoldLayerCommand(arg1, cmdEnd);
+            }
+            else if(tokenMatches(cmd, cmdEnd, "holdLayerMax")) {
+                return processHoldLayerMaxCommand(arg1, cmdEnd);
             }
             else {
                 goto failed;
