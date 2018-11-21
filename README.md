@@ -48,7 +48,7 @@ Creating double-shift-to-caps may look like:
 
 Smart switch (if tapped, locks layer; if used with a key, acts as a secondary role):
 
-    $holdLayerLayer mouse
+    $holdLayer mouse
     $ifNotInterrupted switchLayer mouse
     
 
