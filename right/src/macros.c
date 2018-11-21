@@ -673,6 +673,16 @@ bool processDelayUntilReleaseCommand()
     return false;
 }
 
+bool processRecordMacroDelayCommand()
+{
+    if(s->currentMacroKey->previous) {
+        return true;
+    }
+    uint16_t delay = Timer_GetElapsedTime(&s->currentMacroStartTime);
+    MacroRecorder_RecordDelay(delay);
+    return false;
+}
+
 bool processIfDoubletapCommand(bool negate)
 {
     bool doubletapFound = false;
@@ -949,6 +959,9 @@ bool processCommandAction(void)
         case 'r':
             if(tokenMatches(cmd, cmdEnd, "recordMacro")) {
                 return processRecordMacroCommand(arg1, cmdEnd);
+            }
+            else if(tokenMatches(cmd, cmdEnd, "recordMacroDelay")) {
+                return processRecordMacroDelayCommand();
             }
             else {
                 goto failed;

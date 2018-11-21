@@ -1,6 +1,7 @@
 #include "macro_recorder.h"
 #include "led_display.h"
 #include "macros.h"
+#include "timer.h"
 
 bool RuntimeMacroPlaying = false;
 bool RuntimeMacroRecording = false;
@@ -14,6 +15,9 @@ static uint8_t headersLen = 0;
 static runtime_macro_header *recordingHeader;
 static runtime_macro_header *playbackHeader;
 static uint8_t playbackPosition;
+
+static bool delayActive;
+static uint32_t delayStart;
 
 void initHeaderSlot(uint8_t id) {
     recordingHeader = &headers[headersLen];
@@ -80,6 +84,12 @@ void writeByte(uint8_t b) {
     recordingHeader->length++;
 }
 
+
+void writeUInt16(uint16_t b) {
+    writeByte(((uint8_t*)&b)[0]);
+    writeByte(((uint8_t*)&b)[1]);
+}
+
 void MacroRecorder_RecordBasicReport(usb_basic_keyboard_report_t *report) {
     if(!RuntimeMacroRecording) {
         return;
@@ -114,24 +124,50 @@ uint8_t readByte() {
     return reportBuffer[playbackPosition++];
 }
 
+uint16_t readUInt16() {
+    uint16_t b;
+    ((uint8_t*)&b)[0] = reportBuffer[playbackPosition++];
+    ((uint8_t*)&b)[1] = reportBuffer[playbackPosition++];
+    return b;
+}
+
 void playReport(usb_basic_keyboard_report_t *report) {
-    memset(report, 0, sizeof *report);
     macro_report_type_t type = readByte();
     switch(type) {
     case BasicKeyboardEmpty:
+        memset(report, 0, sizeof *report);
         break;
     case BasicKeyboardSimple:
+        memset(report, 0, sizeof *report);
         report->scancodes[0] = readByte();
         break;
     case BasicKeyboard:
+        memset(report, 0, sizeof *report);
         {
             uint8_t size = readByte();
             report->modifiers = readByte();
             for(int i = 0; i < size; i++) {
                 report->scancodes[i] = readByte();
             }
-            break;
         }
+        break;
+    case Delay:
+        {
+            uint16_t timeout = readUInt16();
+            if(!delayActive) {
+                delayActive = true;
+                delayStart = CurrentTime;
+                playbackPosition -= 3;
+            } else {
+                if(Timer_GetElapsedTime(&delayStart) < timeout) {
+                    playbackPosition -= 3;
+                }
+                else {
+                    delayActive = false;
+                }
+            }
+        }
+        break;
     default:
         Macros_ReportErrorNum("PlayReport decode failed at ", type);
     }
@@ -155,6 +191,13 @@ bool playRuntimeMacroContinue(usb_basic_keyboard_report_t* report) {
     return RuntimeMacroPlaying;
 }
 
+void MacroRecorder_RecordDelay(uint16_t delay) {
+    if(!RuntimeMacroRecording) {
+        return;
+    }
+    writeByte(Delay);
+    writeUInt16(delay);
+}
 
 bool MacroRecorder_PlayRuntimeMacroSmart(uint8_t id, usb_basic_keyboard_report_t* report) {
     if(!Macros_ClaimReports()) {

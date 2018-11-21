@@ -21,7 +21,8 @@
     typedef enum {
         BasicKeyboardEmpty,
         BasicKeyboardSimple,
-        BasicKeyboard
+        BasicKeyboard,
+        Delay
     } macro_report_type_t;
 
     typedef struct {
@@ -37,6 +38,7 @@
 // Functions:
 
     void MacroRecorder_RecordBasicReport(usb_basic_keyboard_report_t *report);
+    void MacroRecorder_RecordDelay(uint16_t delay);
 
     bool MacroRecorder_PlayRuntimeMacroSmart(uint8_t id, usb_basic_keyboard_report_t *report);
     void MacroRecorder_RecordRuntimeMacroSmart(uint8_t id);
