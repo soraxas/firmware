@@ -83,7 +83,7 @@ The following grammar is supported:
     CONDITION = ifDoubletap | ifNotDoubletap
     CONDITION = ifInterrupted | ifNotInterrupted
     CONDITION = {ifPlaytime | ifNotPlaytime} <timeout in ms>
-    CONDITION = ifShift | ifAlt | ifCtrl ifGui | ifNotShift | ifNotAlt | ifNotCtrl | ifNotGui
+    CONDITION = ifShift | ifAlt | ifCtrl | ifGui | ifNotShift | ifNotAlt | ifNotCtrl | ifNotGui
 
 - `ifDoubletap/ifNotDoubletap` is true if previous played macro had the same index and finished at most 250ms ago
 - `ifInterrupted/ifNotInterrupted` is true if a keystroke action or mouse action was triggered during macro runtime. Allows fake implementation of secondary roles. Also allows interruption of cycles.
