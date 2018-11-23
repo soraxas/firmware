@@ -821,6 +821,13 @@ bool processSuppressModsCommand()
     return false;
 }
 
+bool processSetStickyModsEnabledCommand(const char* arg, const char *argEnd)
+{
+    uint8_t enabled = parseUInt32(arg,  argEnd);
+    StickyModifiersEnabled = enabled;
+    return false;
+}
+
 bool processCommandAction(void)
 {
     const char* cmd = s->currentMacroAction.text.text+1;
@@ -985,6 +992,9 @@ bool processCommandAction(void)
             }
             else if(tokenMatches(cmd, cmdEnd, "suppressMods")) {
                 processSuppressModsCommand();
+            }
+            else if(tokenMatches(cmd, cmdEnd, "setStickyModsEnabled")) {
+                return processSetStickyModsEnabledCommand(arg1, cmdEnd);
             }
             else {
                 goto failed;

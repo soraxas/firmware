@@ -77,6 +77,7 @@ The following grammar is supported:
     COMMAND = recordMacroDelay
     COMMAND = {recordMacro|playMacro} <slot identifier>
     COMMAND = {startMouse|stopMouse} {move DIRECTION|scroll DIRECTION|accelerate|decelerate}
+    COMMAND = setStickyModsEnabled {0|1}
     LAYERID = fn|mouse|mod|base|last
     DIRECTION = {left|right|up|down}
     MODIFIER = suppressMods
@@ -90,7 +91,7 @@ The following grammar is supported:
 - `ifPlaytime/ifNotPlaytime <timeout in ms>` is true if at least `timeout` milliseconds passed since macro was started.
 - `ifShift/ifAlt/ifCtrl/ifGui/ifNotShift/ifNotAlt/ifNotCtrl/ifNotGui` is true if either right or left modifier was held in the previous update cycle.
 - Layer/Keymap switching:
-  - `switchLayer` toggles layer. We keep a stack of size 5, which can be used for nested toggling and/or holds.
+  - `switchLayer` toggles layer. We keep a stack of limited size, which can be used for nested toggling and/or holds.
     - `last` will toggle last layer toggled via this command and push it onto stack
     - `previous` will pop the stack
   - `holdLayer <layer>` mostly corresponds to the sequence `switchLayer <layer>; delayUntilRelease; switchLayer previous`, except for more elaborate conflict resolution (releasing holds in incorrect order, correct releasing of holds in case layer is locked via `$switchLayer` command.
@@ -104,9 +105,10 @@ The following grammar is supported:
 - `setStatus <custom text>` will append <custom text> to the error report buffer, if there is enough space for that
 - `write <custom text>` will type rest of the string. Same as the plain text command. This is just easier to use with conditionals...
 - `goTo <int>` will go to action index int. Actions are indexed from zero.
-- `startMouse/stopMouse` start/stop corresponding mouse action. E.g., `startMouse move left`:w
-- `recordMacro|playMacro <slot identifier>` targets vim-like macro functionality. Slot identifier is a single character. Usage (e.g.): call `recordMacro a`, do some work, end recording by another `recordMacro a`. Now you can play the actions (i.e., sequence of keyboard reports) back by calling `playMacro a`. Only BasicKeyboard scancodes are available at the moment. These macros are recorded into RAM only. Number of macros is limited by memory (we can hold approximately 300 keystrokes in total). If less than 1/4 of dedicated memory is free, oldest macro slot is freed.
+- `startMouse/stopMouse` start/stop corresponding mouse action. E.g., `startMouse move left`
+- `recordMacro|playMacro <slot identifier>` targets vim-like macro functionality. Slot identifier is a single character. Usage (e.g.): call `recordMacro a`, do some work, end recording by another `recordMacro a`. Now you can play the actions (i.e., sequence of keyboard reports) back by calling `playMacro a`. Only BasicKeyboard scancodes are available at the moment. These macros are recorded into RAM only. Number of macros is limited by memory (current limit is set to approximately 300 keystrokes (maximum is ~1500 if we used all available memory)). If less than 1/4 of dedicated memory is free, oldest macro slot is freed.
 - `recordMacroDelay` will measure time until key release (i.e., works like `delayUntilRelease`) and insert delay of that length into the currently recorded macro. This can be used to wait for window manager's reaction etc. 
+- `setStickyModsEnabled` globally turns on or off sticky modifiers
 
 ## Error handling
 

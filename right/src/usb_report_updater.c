@@ -34,6 +34,7 @@ volatile uint8_t UsbReportUpdateSemaphore = 0;
 uint8_t OldModifierState;
 uint8_t SuppressedModifierState;
 bool SuppressMods = false;
+bool StickyModifiersEnabled = true;
 
 mouse_kinetic_state_t MouseMoveState = {
     .isScroll = false,
@@ -272,13 +273,12 @@ static void applyKeyAction(key_state_t *keyState, key_action_t *action)
                 if (!keyState->previous) {
                     stickyModifiers = action->keystroke.modifiers;
                 }
-            } else {
-                if(!SuppressMods) {
-                    ActiveUsbBasicKeyboardReport->modifiers |= action->keystroke.modifiers;
-                }
-                else {
-                    SuppressedModifierState |= action->keystroke.modifiers;
-                }
+            }
+            if(!SuppressMods) {
+                ActiveUsbBasicKeyboardReport->modifiers |= action->keystroke.modifiers;
+            }
+            else {
+                SuppressedModifierState |= action->keystroke.modifiers;
             }
             switch (action->keystroke.keystrokeType) {
                 case KeystrokeType_Basic:
@@ -477,7 +477,9 @@ static void updateActiveUsbReports(void)
     // When a layer switcher key gets pressed along with another key that produces some modifiers
     // and the accomanying key gets released then keep the related modifiers active a long as the
     // layer switcher key stays pressed.  Useful for Alt+Tab keymappings and the like.
-    ActiveUsbBasicKeyboardReport->modifiers |= stickyModifiers;
+    if (StickyModifiersEnabled) {
+        ActiveUsbBasicKeyboardReport->modifiers |= stickyModifiers;
+    }
 
     if (secondaryRoleState == SecondaryRoleState_Triggered && IS_SECONDARY_ROLE_MODIFIER(secondaryRole)) {
         ActiveUsbBasicKeyboardReport->modifiers |= SECONDARY_ROLE_MODIFIER_TO_HID_MODIFIER(secondaryRole);

@@ -77,6 +77,7 @@
     extern uint8_t OldModifierState;
     extern uint8_t SuppressedModifierState;
     extern bool SuppressMods;
+    extern bool StickyModifiersEnabled;
 
 // Functions:
 
