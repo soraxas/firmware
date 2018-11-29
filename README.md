@@ -24,6 +24,8 @@ Some of the usecases which can be achieved via these commands are:
 - runtime macros
 
 ## Examples
+**Note that every command (i.e., every line in the examples) has to be inputted as a separate action!**
+
 For instance, if the following text is pasted as a macro text action, playing the macro will result in toggling of fn layer.
     
     $switchLayer fn
@@ -33,7 +35,7 @@ Runtime macro recorder example. In this setup, shift+key will start recording (i
     $ifShift recordMacro A
     $ifNotShift playMacro A
 
-Implementation of standard double-tap-locking hold modifier in recursive version could look like (every line as a separate action!):
+Implementation of standard double-tap-locking hold modifier in recursive version could look like:
 
     $holdLayer fn
     $ifDoubletap switchLayer fn
@@ -84,7 +86,7 @@ The following grammar is supported:
     CONDITION = ifDoubletap | ifNotDoubletap
     CONDITION = ifInterrupted | ifNotInterrupted
     CONDITION = {ifPlaytime | ifNotPlaytime} <timeout in ms>
-    CONDITION = ifShift | ifAlt | ifCtrl ifGui | ifNotShift | ifNotAlt | ifNotCtrl | ifNotGui
+    CONDITION = ifShift | ifAlt | ifCtrl | ifGui | ifNotShift | ifNotAlt | ifNotCtrl | ifNotGui
 
 - `ifDoubletap/ifNotDoubletap` is true if previous played macro had the same index and finished at most 250ms ago
 - `ifInterrupted/ifNotInterrupted` is true if a keystroke action or mouse action was triggered during macro runtime. Allows fake implementation of secondary roles. Also allows interruption of cycles.
