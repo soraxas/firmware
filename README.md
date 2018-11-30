@@ -100,7 +100,7 @@ The following grammar is supported:
   - `holdLayerMax <layer> <timeout in ms>` will timeout after <timeout> ms if no action is performed in that time.
   - `switchKeymap` will toggle the keymap by its abbreviation. Last will toggle the last keymap toggled via this command.
 - `suppressMods` will supress any modifiers except those applied via macro engine. Can be used to remap shift and nonShift characters independently.
-- `delayUntilRelease` sleeps the macro until its activation key is released. Can be used to set action on key release. This is set to at least 50ms in order to prevent debouncing issues.
+- `delayUntilRelease` sleeps the macro until its activation key is released. Can be used to set action on key release. 
 - `delayUntilReleaseMax <timeout>` same as `delayUntilRelease`, but is also broken when timeout is reached.
 - `break` will end playback of the current macro
 - `printStatus` will "type" content of error status buffer (256 chars) on the keyboard. Mainly for debug purposes.
