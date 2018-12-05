@@ -63,6 +63,9 @@ bool resolvePlaybackHeader(uint8_t id) {
     {
         if(headers[i].id == id)
         {
+            if(&headers[i] == recordingHeader && RuntimeMacroRecording) {
+                return false;
+            }
             playbackHeader = &headers[i];
             return true;
         }
