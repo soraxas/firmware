@@ -40,6 +40,13 @@ Implementation of standard double-tap-locking hold modifier in recursive version
 
     $holdLayer fn
     $ifDoubletap switchLayer fn
+    
+Alternative way to implement the above example would be the following. However, using `holdLayer` for "hold" mechanisms is strongly encouraged due to more elaborate release logic:
+
+    $switchLayer fn
+    $delayUntilRelease
+    $switchLayer previous
+    $ifDoubletap switchLayer fn
 
 Creating double-shift-to-caps may look like:
    
