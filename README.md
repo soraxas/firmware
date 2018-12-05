@@ -11,6 +11,7 @@ This firmware is 100% compatible with the original unmodified agent. All you nee
 The firmware implements:
 - macro commands for (almost?) all basic features of the keyboard otherwise unreachable via agent. 
 - macro commands for conditionals, jumps and sync mechanisms 
+- some extended configuration options (composite-keystroke delay, sticky modifiers)
 - runtime macro recorder implemented on scancode level, for vim-like macro functionality
 - ability to run multiple macros at the same time
 
@@ -58,7 +59,12 @@ Mapping shift/nonshift scancodes independently:
 
     $ifShift suppressMods write 4
     $ifNotShift write %
+    
+Applies the corresponding settings globaly. Namely turns off sticky modifiers (i.e., modifiers of composite keystrokes will apply but will no longer stick), and sets keystroke delay (i.e., application of keystroke of a composite keystroke action will be postponed by 50 ms).
 
+    $setStickyModsEnabled 0 
+    $setCompositeKeystrokeDelay 50
+    
 ## Reference manual
 
 The following grammar is supported:
@@ -80,6 +86,7 @@ The following grammar is supported:
     COMMAND = {recordMacro|playMacro} <slot identifier>
     COMMAND = {startMouse|stopMouse} {move DIRECTION|scroll DIRECTION|accelerate|decelerate}
     COMMAND = setStickyModsEnabled {0|1}
+    COMMAND = setCompositeKeystrokeDelay <delay in ms, at most 50>
     LAYERID = fn|mouse|mod|base|last
     DIRECTION = {left|right|up|down}
     MODIFIER = suppressMods
@@ -111,15 +118,17 @@ The following grammar is supported:
 - `recordMacro|playMacro <slot identifier>` targets vim-like macro functionality. Slot identifier is a single character. Usage (e.g.): call `recordMacro a`, do some work, end recording by another `recordMacro a`. Now you can play the actions (i.e., sequence of keyboard reports) back by calling `playMacro a`. Only BasicKeyboard scancodes are available at the moment. These macros are recorded into RAM only. Number of macros is limited by memory (current limit is set to approximately 300 keystrokes (maximum is ~1500 if we used all available memory)). If less than 1/4 of dedicated memory is free, oldest macro slot is freed.
 - `recordMacroDelay` will measure time until key release (i.e., works like `delayUntilRelease`) and insert delay of that length into the currently recorded macro. This can be used to wait for window manager's reaction etc. 
 - `setStickyModsEnabled` globally turns on or off sticky modifiers
+- `setCompositeKeystrokeDelay` <delay in ms, at most 50>` sets the global variable altering behaviour of standard key tap actions composed of action key and modifier (both macro and non-macro keystrokes). If keystroke contains implicit modifiers (i.e., configured via the first tab of the key popover), and this variable is set to non-zero, then the actual keystroke will not be added until the delay has passed. This way, modifiers are sent before the actual action key. This fixes problems with RDP sessions caused by modifiers being sent at exactly the same time as the action key. Default value is 10.
 
 ## Error handling
 
 This version of firmware includes basic error handling. If an error is encountered, led display will change to `ERR` and error message written into the status buffer. Error log can be retrieved via the `$printStatus` command. (E.g., focus some text area (for instance, open notepad), and press key with corresponding macro).)
 
-## Known issues
+## Known issues/limitations
 
 - Layers can be untoggled only via macro or "toggle" feature. The combined hold/doubletap will *not* release layer toggle (this is bug of the official firmware, waiting for reply from devs).  
 - Only one-liners are allowed, due to our need to respect firmware's indexation of actions.
+- Global settings and recorded macros are remembered until power cycling only. 
 
 ## Contributing
 

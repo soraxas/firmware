@@ -278,6 +278,23 @@ void deleteScancode(uint16_t scancode, macro_sub_action_t type)
     }
 }
 
+bool processDelay(uint32_t time)
+{
+    if (s->delayActive) {
+        if (Timer_GetElapsedTime(&s->delayStart) >= time) {
+            s->delayActive = false;
+        }
+    } else {
+        s->delayStart = CurrentTime;
+        s->delayActive = true;
+    }
+    return s->delayActive;
+}
+
+bool processDelayAction() {
+    return processDelay(s->currentMacroAction.delay.delay);
+}
+
 bool processKeyAction(void)
 {
     if(!Macros_ClaimReports()) {
@@ -287,8 +304,11 @@ bool processKeyAction(void)
     switch (s->currentMacroAction.key.action) {
         case MacroSubAction_Tap:
             if (!s->keyActionPressStarted) {
-                s->keyActionPressStarted = true;
                 addModifiers(s->currentMacroAction.key.modifierMask);
+                if (s->currentMacroAction.key.modifierMask != 0 && CompositeKeystrokeDelay != 0 && processDelay(CompositeKeystrokeDelay)) {
+                    return true;
+                }
+                s->keyActionPressStarted = true;
                 addScancode(s->currentMacroAction.key.scancode, s->currentMacroAction.key.type);
                 return true;
             }
@@ -306,23 +326,6 @@ bool processKeyAction(void)
             break;
     }
     return false;
-}
-
-bool processDelay(uint32_t time)
-{
-    if (s->delayActive) {
-        if (Timer_GetElapsedTime(&s->delayStart) >= time) {
-            s->delayActive = false;
-        }
-    } else {
-        s->delayStart = CurrentTime;
-        s->delayActive = true;
-    }
-    return s->delayActive;
-}
-
-bool processDelayAction() {
-    return processDelay(s->currentMacroAction.delay.delay);
 }
 
 bool processMouseButtonAction(void)
@@ -828,6 +831,13 @@ bool processSetStickyModsEnabledCommand(const char* arg, const char *argEnd)
     return false;
 }
 
+bool processSetCompositeKeystrokeDelayCommand(const char* arg, const char *argEnd)
+{
+    uint32_t delay = parseUInt32(arg,  argEnd);
+    CompositeKeystrokeDelay = delay > 50 ? 50 : delay;
+    return false;
+}
+
 bool processCommandAction(void)
 {
     const char* cmd = s->currentMacroAction.text.text+1;
@@ -995,6 +1005,9 @@ bool processCommandAction(void)
             }
             else if(tokenMatches(cmd, cmdEnd, "setStickyModsEnabled")) {
                 return processSetStickyModsEnabledCommand(arg1, cmdEnd);
+            }
+            else if(tokenMatches(cmd, cmdEnd, "setCompositeKeystrokeDelay")) {
+                return processSetCompositeKeystrokeDelayCommand(arg1, cmdEnd);
             }
             else {
                 goto failed;

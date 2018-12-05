@@ -78,6 +78,7 @@
     extern uint8_t SuppressedModifierState;
     extern bool SuppressMods;
     extern bool StickyModifiersEnabled;
+    extern uint16_t CompositeKeystrokeDelay;
 
 // Functions:
 
