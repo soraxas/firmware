@@ -1024,6 +1024,7 @@ bool processCommandAction(void)
         default:
         failed:
             reportError("unrecognized command", cmd, cmdEnd);
+            return false;
             break;
         }
         cmd = arg1;
