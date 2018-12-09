@@ -7,14 +7,14 @@ bool RuntimeMacroPlaying = false;
 bool RuntimeMacroRecording = false;
 
 static uint8_t reportBuffer[REPORT_BUFFER_MAX_LENGTH];
-static uint8_t reportBufferLength = 0;
+static uint16_t reportBufferLength = 0;
 
 static runtime_macro_header headers[MAX_RUNTIME_MACROS];
-static uint8_t headersLen = 0;
+static uint16_t headersLen = 0;
 
 static runtime_macro_header *recordingHeader;
 static runtime_macro_header *playbackHeader;
-static uint8_t playbackPosition;
+static uint16_t playbackPosition;
 
 static bool delayActive;
 static uint32_t delayStart;
