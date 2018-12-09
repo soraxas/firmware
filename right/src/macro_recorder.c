@@ -53,7 +53,6 @@ void resolveRecordingHeader(uint8_t id) {
     }
     while(headersLen == MAX_RUNTIME_MACROS || reportBufferLength > REPORT_BUFFER_MAX_LENGTH - REPORT_BUFFER_MIN_GAP) {
         discardHeaderSlot(0);
-        return;
     }
     initHeaderSlot(id);
 }
@@ -91,31 +90,6 @@ void writeByte(uint8_t b) {
 void writeUInt16(uint16_t b) {
     writeByte(((uint8_t*)&b)[0]);
     writeByte(((uint8_t*)&b)[1]);
-}
-
-void MacroRecorder_RecordBasicReport(usb_basic_keyboard_report_t *report) {
-    if(!RuntimeMacroRecording) {
-        return;
-    }
-    if(report->modifiers == 0 && report->scancodes[0] == 0) {
-        writeByte(BasicKeyboardEmpty);
-        return;
-    }
-    if(report->modifiers == 0 && report->scancodes[1] == 0) {
-        writeByte(BasicKeyboardSimple);
-        writeByte(report->scancodes[0]);
-        return;
-    }
-    writeByte(BasicKeyboard);
-    uint8_t size = 0;
-    while( size < USB_BASIC_KEYBOARD_MAX_KEYS && report->scancodes[size] != 0) {
-        size++;
-    }
-    writeByte(size);
-    writeByte(report->modifiers);
-    for(int i = 0; i < size; i++) {
-        writeByte(report->scancodes[i]);
-    }
 }
 
 void recordRuntimeMacroEnd() {
@@ -192,6 +166,35 @@ bool playRuntimeMacroContinue(usb_basic_keyboard_report_t* report) {
     playReport(report);
     RuntimeMacroPlaying = playbackPosition < playbackHeader->offset + playbackHeader->length;
     return RuntimeMacroPlaying;
+}
+
+void MacroRecorder_RecordBasicReport(usb_basic_keyboard_report_t *report) {
+    if(!RuntimeMacroRecording) {
+        return;
+    }
+    if(RuntimeMacroRecording && reportBufferLength + REPORT_BUFFER_SAFETY_MARGIN >= REPORT_BUFFER_MAX_LENGTH) {
+        recordRuntimeMacroEnd();
+        return;
+    }
+    if(report->modifiers == 0 && report->scancodes[0] == 0) {
+        writeByte(BasicKeyboardEmpty);
+        return;
+    }
+    if(report->modifiers == 0 && report->scancodes[1] == 0) {
+        writeByte(BasicKeyboardSimple);
+        writeByte(report->scancodes[0]);
+        return;
+    }
+    writeByte(BasicKeyboard);
+    uint8_t size = 0;
+    while( size < USB_BASIC_KEYBOARD_MAX_KEYS && report->scancodes[size] != 0) {
+        size++;
+    }
+    writeByte(size);
+    writeByte(report->modifiers);
+    for(int i = 0; i < size; i++) {
+        writeByte(report->scancodes[i]);
+    }
 }
 
 void MacroRecorder_RecordDelay(uint16_t delay) {

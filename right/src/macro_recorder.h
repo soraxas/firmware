@@ -13,8 +13,9 @@
 // Macros:
 
     #define MAX_RUNTIME_MACROS 32
-    #define REPORT_BUFFER_MAX_LENGTH 2048
-    #define REPORT_BUFFER_MIN_GAP 512
+    #define REPORT_BUFFER_MAX_LENGTH 4096
+    #define REPORT_BUFFER_MIN_GAP 1024
+    #define REPORT_BUFFER_SAFETY_MARGIN 11
 
 // Typedefs:
 
