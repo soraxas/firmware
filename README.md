@@ -143,7 +143,7 @@ If you wish some functionality, feel free to fire tickets with feature requests.
 
 ## Adding new features
 
-Practically all high-level functionality of the firmware is implemented in the following three files:
+Practically all high-level functionality of the firmware is implemented in the following files:
 
 - `usb_report_updater.c` - logic of key activation, layer switching, debouncing, etc.. Almost all important stuff is here.
 - `layer.c` - some suport for "hold" layer switching (beware, there are two independent layer switching mechanisms and this one is the less important one).
