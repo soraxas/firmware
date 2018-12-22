@@ -125,7 +125,7 @@ The following grammar is supported:
   - `holdLayerMax <layer> <timeout in ms>` will timeout after <timeout> ms if no action is performed in that time.
   - `switchKeymap` will toggle the keymap by its abbreviation. Last will toggle the last keymap toggled via this command.
 - `suppressMods` will supress any modifiers except those applied via macro engine. Can be used to remap shift and nonShift characters independently.
-- `suppressKeys` will supress postpone all new key activations. Can be used to mess with timing - e.g., to postpone activation of other keys.
+- `suppressKeys` will postpone all new key activations for as long as any instance of this modifier is active. If such key is released prior to its postponed activation, it is effectively ignored. Can be used to mess with timing of other keys, e.g., for resolution of secondary roles.
 - `delayUntilRelease` sleeps the macro until its activation key is released. Can be used to set action on key release. 
 - `delayUntilReleaseMax <timeout>` same as `delayUntilRelease`, but is also broken when timeout is reached.
 - `break` will end playback of the current macro
