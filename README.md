@@ -67,10 +67,11 @@ Mapping shift/nonshift scancodes independently:
     $ifShift suppressMods write 4
     $ifNotShift write %
     
-Applies the corresponding settings globaly. Namely turns off sticky modifiers (i.e., modifiers of composite keystrokes will apply but will no longer stick), and sets keystroke delay (i.e., application of keystroke of a composite keystroke action will be postponed by 50 ms).
+Applies the corresponding settings globaly. Namely turns off sticky modifiers (i.e., modifiers of composite keystrokes will apply but will no longer stick) so that composite actions don't affect external mouse. Furthermore, it enables separation of composite keystrokes, and increases update delay - this may be useful if macro playback needs to be slown down or if artificial delays need to be introduced for some reason. (Recommended values are 0,1,0.)
 
     $setStickyModsEnabled 0 
-    $setCompositeKeystrokeDelay 50
+    $setSplitCompositeKeystroke 1
+    $setKeystrokeDelay 10
     
 ## Reference manual
 
@@ -93,7 +94,8 @@ The following grammar is supported:
     COMMAND = {recordMacro|playMacro} <slot identifier>
     COMMAND = {startMouse|stopMouse} {move DIRECTION|scroll DIRECTION|accelerate|decelerate}
     COMMAND = setStickyModsEnabled {0|1}
-    COMMAND = setCompositeKeystrokeDelay <delay in ms, at most 50>
+    COMMAND = setSplitCompositeKeystroke {0|1}
+    COMMAND = setKeystrokeDelay <time in ms, at most 250>
     LAYERID = fn|mouse|mod|base|last
     DIRECTION = {left|right|up|down}
     MODIFIER = suppressMods
@@ -125,7 +127,8 @@ The following grammar is supported:
 - `recordMacro|playMacro <slot identifier>` targets vim-like macro functionality. Slot identifier is a single character. Usage (e.g.): call `recordMacro a`, do some work, end recording by another `recordMacro a`. Now you can play the actions (i.e., sequence of keyboard reports) back by calling `playMacro a`. Only BasicKeyboard scancodes are available at the moment. These macros are recorded into RAM only. Number of macros is limited by memory (current limit is set to approximately 500 keystrokes (4kb) (maximum is ~1000 if we used all available memory)). If less than 1/4 of dedicated memory is free, oldest macro slot is freed.
 - `recordMacroDelay` will measure time until key release (i.e., works like `delayUntilRelease`) and insert delay of that length into the currently recorded macro. This can be used to wait for window manager's reaction etc. 
 - `setStickyModsEnabled` globally turns on or off sticky modifiers
-- `setCompositeKeystrokeDelay` <delay in ms, at most 50>` sets the global variable CompositeKeystrokeDelay. This alters behaviour of standard key tap actions. Namely, if if the keystroke action contains implicit modifiers, then the scancode will not be added until the delay has passed. This way, modifiers are added into USB reports first while scancodes follow after the delay. This fixes problems with RDP sessions caused by modifiers being sent at exactly the same time as the action key. Default value is 10.
+- `setSplitCompositeKeystroke {0|1}` If enabled, composite keystrokes (e.g., Ctrl+c sent by a single key) are separated into distinct usb reports. This makes order of keypresses clearly determined. Enabled by default.
+- `setKeystrokeDelay <time in ms, at most 250>` will stop event processing for the specified time after every usb report change. May be used to slow down macroes, to insert delay between composite keystrokes. Beware, this does not queue keypresses - if the delay is too long, some keypresses may be skipped entirelly!
 
 ## Error handling
 

@@ -303,18 +303,23 @@ bool processKeyAction(void)
 
     switch (s->currentMacroAction.key.action) {
         case MacroSubAction_Tap:
-            if (!s->keyActionPressStarted) {
+            if (s->keyActionPressPhase == 0) {
+                s->keyActionPressPhase = 1;
                 addModifiers(s->currentMacroAction.key.modifierMask);
-                if (s->currentMacroAction.key.modifierMask != 0 && CompositeKeystrokeDelay != 0 && processDelay(CompositeKeystrokeDelay)) {
+                if (s->currentMacroAction.key.modifierMask != 0 && SplitCompositeKeystroke != 0) {
                     return true;
                 }
-                s->keyActionPressStarted = true;
+            }
+            if (s->keyActionPressPhase == 1) {
+                s->keyActionPressPhase = 2;
                 addScancode(s->currentMacroAction.key.scancode, s->currentMacroAction.key.type);
                 return true;
             }
-            s->keyActionPressStarted = false;
-            deleteModifiers(s->currentMacroAction.key.modifierMask);
-            deleteScancode(s->currentMacroAction.key.scancode, s->currentMacroAction.key.type);
+            if (s->keyActionPressPhase > 1) {
+                s->keyActionPressPhase = 0;
+                deleteModifiers(s->currentMacroAction.key.modifierMask);
+                deleteScancode(s->currentMacroAction.key.scancode, s->currentMacroAction.key.type);
+            }
             break;
         case MacroSubAction_Release:
             deleteModifiers(s->currentMacroAction.key.modifierMask);
@@ -831,10 +836,16 @@ bool processSetStickyModsEnabledCommand(const char* arg, const char *argEnd)
     return false;
 }
 
-bool processSetCompositeKeystrokeDelayCommand(const char* arg, const char *argEnd)
+bool processSetSplitCompositeKeystrokeCommand(const char* arg, const char *argEnd)
 {
-    uint32_t delay = parseUInt32(arg,  argEnd);
-    CompositeKeystrokeDelay = delay > 50 ? 50 : delay;
+    SplitCompositeKeystroke  = parseUInt32(arg,  argEnd);
+    return false;
+}
+
+bool processSetKeystrokeDelayCommand(const char* arg, const char *argEnd)
+{
+    KeystrokeDelay  = parseUInt32(arg,  argEnd);
+    KeystrokeDelay = KeystrokeDelay < 250 ? KeystrokeDelay : 250;
     return false;
 }
 
@@ -1006,8 +1017,11 @@ bool processCommandAction(void)
             else if(tokenMatches(cmd, cmdEnd, "setStickyModsEnabled")) {
                 return processSetStickyModsEnabledCommand(arg1, cmdEnd);
             }
-            else if(tokenMatches(cmd, cmdEnd, "setCompositeKeystrokeDelay")) {
-                return processSetCompositeKeystrokeDelayCommand(arg1, cmdEnd);
+            else if(tokenMatches(cmd, cmdEnd, "setSplitCompositeKeystroke")) {
+                return processSetSplitCompositeKeystrokeCommand(arg1, cmdEnd);
+            }
+            else if(tokenMatches(cmd, cmdEnd, "setKeystrokeDelay")) {
+                return processSetKeystrokeDelayCommand(arg1, cmdEnd);
             }
             else {
                 goto failed;

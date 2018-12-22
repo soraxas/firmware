@@ -35,8 +35,9 @@ uint8_t OldModifierState;
 uint8_t SuppressedModifierState;
 bool SuppressMods = false;
 bool StickyModifiersEnabled = true;
-uint16_t CompositeKeystrokeDelay = 10;
-uint32_t CompositeKeystrokeStarted = 0;
+bool SplitCompositeKeystroke = 0;
+uint16_t KeystrokeDelay = 0;
+uint32_t KeystrokeDelayStarted = 0;
 
 mouse_kinetic_state_t MouseMoveState = {
     .isScroll = false,
@@ -274,9 +275,6 @@ static void applyKeyAction(key_state_t *keyState, key_action_t *action)
             if (action->keystroke.scancode) {
                 if (!keyState->previous) {
                     stickyModifiers = action->keystroke.modifiers;
-                    if(action->keystroke.modifiers != 0) {
-                        CompositeKeystrokeStarted = CurrentTime;
-                    }
                 }
             }
             if(!SuppressMods) {
@@ -285,7 +283,7 @@ static void applyKeyAction(key_state_t *keyState, key_action_t *action)
             else {
                 SuppressedModifierState |= action->keystroke.modifiers;
             }
-            if (action->keystroke.modifiers == 0 || CompositeKeystrokeDelay == 0 || Timer_GetElapsedTime(&CompositeKeystrokeStarted) > CompositeKeystrokeDelay) {
+            if (action->keystroke.modifiers == 0 || SplitCompositeKeystroke == 0 || keyState->previous) {
                 switch (action->keystroke.keystrokeType) {
                     case KeystrokeType_Basic:
                         if (basicScancodeIndex >= USB_BASIC_KEYBOARD_MAX_KEYS || action->keystroke.scancode == 0) {
@@ -513,6 +511,10 @@ void UpdateUsbReports(void)
         }
     }
 
+    if(KeystrokeDelay > Timer_GetElapsedTime(&KeystrokeDelayStarted)) {
+        return;
+    }
+
     lastUpdateTime = CurrentTime;
     UsbReportUpdateCounter++;
 
@@ -527,6 +529,10 @@ void UpdateUsbReports(void)
     bool HasUsbMediaKeyboardReportChanged = memcmp(ActiveUsbMediaKeyboardReport, GetInactiveUsbMediaKeyboardReport(), sizeof(usb_media_keyboard_report_t)) != 0;
     bool HasUsbSystemKeyboardReportChanged = memcmp(ActiveUsbSystemKeyboardReport, GetInactiveUsbSystemKeyboardReport(), sizeof(usb_system_keyboard_report_t)) != 0;
     bool HasUsbMouseReportChanged = memcmp(ActiveUsbMouseReport, GetInactiveUsbMouseReport(), sizeof(usb_mouse_report_t)) != 0;
+
+    if(HasUsbBasicKeyboardReportChanged || HasUsbMediaKeyboardReportChanged || HasUsbSystemKeyboardReportChanged || HasUsbMouseReportChanged) {
+        KeystrokeDelayStarted = CurrentTime;
+    }
 
     if (HasUsbBasicKeyboardReportChanged) {
         OldModifierState = ActiveUsbBasicKeyboardReport->modifiers | SuppressedModifierState;
