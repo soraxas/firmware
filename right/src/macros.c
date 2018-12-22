@@ -472,13 +472,15 @@ bool dispatchText(const char* text, uint16_t textLen)
     char character;
     uint8_t scancode;
 
+    uint8_t max_keys = USB_BASIC_KEYBOARD_MAX_KEYS/2;
+
     if (s->dispatchTextIndex == textLen) {
         s->dispatchTextIndex = 0;
-        s->dispatchReportIndex = USB_BASIC_KEYBOARD_MAX_KEYS;
+        s->dispatchReportIndex = max_keys;
         memset(&s->macroBasicKeyboardReport, 0, sizeof s->macroBasicKeyboardReport);
         return false;
     }
-    if (s->dispatchReportIndex == USB_BASIC_KEYBOARD_MAX_KEYS) {
+    if (s->dispatchReportIndex == max_keys) {
         s->dispatchReportIndex = 0;
         memset(&s->macroBasicKeyboardReport, 0, sizeof s->macroBasicKeyboardReport);
         return true;
@@ -487,7 +489,7 @@ bool dispatchText(const char* text, uint16_t textLen)
     scancode = characterToScancode(character);
     for (uint8_t i = 0; i < s->dispatchReportIndex; i++) {
         if (s->macroBasicKeyboardReport.scancodes[i] == scancode) {
-            s->dispatchReportIndex = USB_BASIC_KEYBOARD_MAX_KEYS;
+            s->dispatchReportIndex = max_keys;
             return true;
         }
     }
