@@ -7,6 +7,7 @@
 #include "bool_array_converter.h"
 #include "crc16.h"
 #include "key_states.h"
+#include "usb_report_updater.h"
 
 uhk_module_state_t UhkModuleStates[UHK_MODULE_MAX_COUNT];
 static uint8_t keyStatesBuffer[MAX_KEY_COUNT_PER_MODULE];
@@ -224,7 +225,7 @@ status_t UhkModuleSlaveDriver_Update(uint8_t uhkModuleDriverId)
                 uint8_t slotId = uhkModuleDriverId + 1;
                 BoolBitsToBytes(rxMessage->data, keyStatesBuffer, uhkModuleState->keyCount);
                 for (uint8_t keyId=0; keyId<uhkModuleState->keyCount; keyId++) {
-                    KeyStates[slotId][keyId].current = keyStatesBuffer[keyId];
+                    KeyStates[slotId][keyId].current = keyStatesBuffer[keyId] && (!SuppressingKeys || KeyStates[slotId][keyId].previous);
                 }
             }
             status = kStatus_Uhk_IdleCycle;

@@ -34,6 +34,8 @@ volatile uint8_t UsbReportUpdateSemaphore = 0;
 uint8_t OldModifierState;
 uint8_t SuppressedModifierState;
 bool SuppressMods = false;
+bool SuppressKeys = false;
+bool SuppressingKeys = false;
 bool StickyModifiersEnabled = true;
 bool SplitCompositeKeystroke = 0;
 uint16_t KeystrokeDelay = 0;
@@ -374,6 +376,7 @@ static void updateActiveUsbReports(void)
     mediaScancodeIndex = 0;
     systemScancodeIndex = 0;
     SuppressMods = false;
+    SuppressKeys = false;
     SuppressedModifierState = 0;
 
     if (MacroPlaying) {
@@ -499,8 +502,11 @@ void UpdateUsbReports(void)
 {
     static uint32_t lastUpdateTime;
 
+    SuppressingKeys = SuppressKeys || KeystrokeDelay > Timer_GetElapsedTime(&KeystrokeDelayStarted);
+
     for (uint8_t keyId = 0; keyId < RIGHT_KEY_MATRIX_KEY_COUNT; keyId++) {
-        KeyStates[SlotId_RightKeyboardHalf][keyId].current = RightKeyMatrix.keyStates[keyId];
+        KeyStates[SlotId_RightKeyboardHalf][keyId].current = RightKeyMatrix.keyStates[keyId] && (!SuppressingKeys || KeyStates[SlotId_RightKeyboardHalf][keyId].previous);
+
     }
 
     if (UsbReportUpdateSemaphore && !SleepModeActive) {

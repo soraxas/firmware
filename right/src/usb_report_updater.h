@@ -77,6 +77,8 @@
     extern uint8_t OldModifierState;
     extern uint8_t SuppressedModifierState;
     extern bool SuppressMods;
+    extern bool SuppressKeys;
+    extern bool SuppressingKeys;
     extern bool StickyModifiersEnabled;
     extern bool SplitCompositeKeystroke;
     extern uint16_t KeystrokeDelay;

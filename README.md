@@ -72,6 +72,14 @@ Applies the corresponding settings globaly. Namely turns off sticky modifiers (i
     $setStickyModsEnabled 0 
     $setSplitCompositeKeystroke 1
     $setKeystrokeDelay 10
+
+Postponed secondary role switch. This modification will postpone all other key activations by 250ms. This modification prevents secondary role hiccups on alphabetic keys.
+
+    $suppressKeys delayUntilReleaseMax 250
+    $suppressKeys ifNotPlaytime 249 goTo 4
+    $holdLayer mouse
+    $break
+    $suppressKeys write d
     
 ## Reference manual
 
@@ -99,6 +107,7 @@ The following grammar is supported:
     LAYERID = fn|mouse|mod|base|last
     DIRECTION = {left|right|up|down}
     MODIFIER = suppressMods
+    MODIFIER = suppressKeys
     CONDITION = ifDoubletap | ifNotDoubletap
     CONDITION = ifInterrupted | ifNotInterrupted
     CONDITION = {ifPlaytime | ifNotPlaytime} <timeout in ms>
@@ -116,6 +125,7 @@ The following grammar is supported:
   - `holdLayerMax <layer> <timeout in ms>` will timeout after <timeout> ms if no action is performed in that time.
   - `switchKeymap` will toggle the keymap by its abbreviation. Last will toggle the last keymap toggled via this command.
 - `suppressMods` will supress any modifiers except those applied via macro engine. Can be used to remap shift and nonShift characters independently.
+- `suppressKeys` will supress postpone all new key activations. Can be used to mess with timing - e.g., to postpone activation of other keys.
 - `delayUntilRelease` sleeps the macro until its activation key is released. Can be used to set action on key release. 
 - `delayUntilReleaseMax <timeout>` same as `delayUntilRelease`, but is also broken when timeout is reached.
 - `break` will end playback of the current macro

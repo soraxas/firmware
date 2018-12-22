@@ -831,6 +831,12 @@ bool processSuppressModsCommand()
     return false;
 }
 
+bool processSuppressKeysCommand()
+{
+    SuppressKeys = true;
+    return false;
+}
+
 bool processSetStickyModsEnabledCommand(const char* arg, const char *argEnd)
 {
     uint8_t enabled = parseUInt32(arg,  argEnd);
@@ -1015,6 +1021,9 @@ bool processCommandAction(void)
             }
             else if(tokenMatches(cmd, cmdEnd, "suppressMods")) {
                 processSuppressModsCommand();
+            }
+            else if(tokenMatches(cmd, cmdEnd, "suppressKeys")) {
+                processSuppressKeysCommand();
             }
             else if(tokenMatches(cmd, cmdEnd, "setStickyModsEnabled")) {
                 return processSetStickyModsEnabledCommand(arg1, cmdEnd);
