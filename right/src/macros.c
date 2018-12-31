@@ -28,6 +28,8 @@ static uint8_t layerIdxStackSize;
 static uint8_t lastLayerIdx;
 static uint8_t lastKeymapIdx;
 
+static int32_t regs[32];
+
 macro_state_t MacroState[MACRO_STATE_POOL_SIZE];
 static macro_state_t *s = MacroState;
 
@@ -539,19 +541,37 @@ const char* nextTok(const char* cmd, const char *cmdEnd)
     return cmd;
 }
 
-uint32_t parseUInt32(const char *a, const char *aEnd)
+int32_t parseInt32(const char *a, const char *aEnd)
 {
-    uint32_t n = 0;
-    bool numFound = false;
-    while(*a > 47 && *a < 58 && a < aEnd) {
-        n = n*10 + ((uint8_t)(*a))-48;
+    if(*a == '#') {
         a++;
-        numFound = true;
+        uint8_t adr = parseInt32(a, aEnd);
+        return regs[adr];
     }
-    if(!numFound) {
-        reportError("Integer expected", NULL, NULL);
+    else
+    {
+        bool negate = false;
+        if(*a == '-')
+        {
+            negate = !negate;
+            a++;
+        }
+        int32_t n = 0;
+        bool numFound = false;
+        while(*a > 47 && *a < 58 && a < aEnd) {
+            n = n*10 + ((uint8_t)(*a))-48;
+            a++;
+            numFound = true;
+        }
+        if(negate)
+        {
+            n = -n;
+        }
+        if(!numFound) {
+            reportError("Integer expected", NULL, NULL);
+        }
+        return n;
     }
-    return n;
 }
 
 bool processSwitchKeymapCommand(const char* arg1, const char* cmdEnd)
@@ -661,13 +681,13 @@ bool processHoldLayerCommand(const char* arg1, const char* cmdEnd)
 bool processHoldLayerMaxCommand(const char* arg1, const char* cmdEnd)
 {
     const char* arg2 = nextTok(arg1, cmdEnd);
-    uint16_t timeout = parseUInt32(arg2, cmdEnd);
+    uint16_t timeout = parseInt32(arg2, cmdEnd);
     return processHoldLayer(parseLayerId(arg1, cmdEnd), timeout);
 }
 
 bool processDelayUntilReleaseMaxCommand(const char* arg1, const char* cmdEnd)
 {
-    uint32_t timeout = parseUInt32(arg1, cmdEnd);
+    uint32_t timeout = parseInt32(arg1, cmdEnd);
     //debouncing takes place later in the event loop, i.e., at this time, only s->currentMacroKey->previous is debounced
     if(s->currentMacroKey->previous && Timer_GetElapsedTime(&s->currentMacroStartTime) < timeout) {
         return true;
@@ -681,6 +701,12 @@ bool processDelayUntilReleaseCommand()
         return true;
     }
     return false;
+}
+
+bool processDelayUntilCommand(const char* arg1, const char* cmdEnd)
+{
+    uint32_t time = parseInt32(arg1,  cmdEnd);
+    return processDelay(time);
 }
 
 bool processRecordMacroDelayCommand()
@@ -716,7 +742,7 @@ bool processIfModifierCommand(bool negate, uint8_t modmask)
 
 bool processIfPlaytimeCommand(bool negate, const char* arg, const char *argEnd)
 {
-    uint32_t timeout = parseUInt32(arg, argEnd);
+    uint32_t timeout = parseInt32(arg, argEnd);
     uint32_t delay = Timer_GetElapsedTime(&s->currentMacroStartTime);
     return (delay > timeout) != negate;
 }
@@ -724,6 +750,15 @@ bool processIfPlaytimeCommand(bool negate, const char* arg, const char *argEnd)
 bool processIfInterruptedCommand(bool negate)
 {
    return s->macroInterrupted != negate;
+}
+
+
+bool processIfRegEqCommand(bool negate, const char* arg1, const char *argEnd)
+{
+    uint8_t address = parseInt32(arg1, argEnd);
+    uint8_t param = parseInt32(nextTok(arg1, argEnd), argEnd);
+    bool res = regs[address] == param;
+    return res != negate;
 }
 
 bool processBreakCommand()
@@ -748,9 +783,17 @@ bool processSetStatusCommand(const char* arg, const char *argEnd)
     return false;
 }
 
+bool processSetRegCommand(const char* arg1, const char *argEnd)
+{
+    uint8_t address = parseInt32(arg1, argEnd);
+    uint8_t param = parseInt32(nextTok(arg1, argEnd), argEnd);
+    regs[address] = param;
+    return false;
+}
+
 bool processGoToCommand(const char* arg, const char *argEnd)
 {
-    uint8_t address = parseUInt32(arg, argEnd);
+    uint8_t address = parseInt32(arg, argEnd);
     s->currentMacroActionIndex = address - 1;
     ValidatedUserConfigBuffer.offset = AllMacros[s->currentMacroIndex].firstMacroActionOffset;
     for(uint8_t i = 0; i < address; i++) {
@@ -839,20 +882,20 @@ bool processSuppressKeysCommand()
 
 bool processSetStickyModsEnabledCommand(const char* arg, const char *argEnd)
 {
-    uint8_t enabled = parseUInt32(arg,  argEnd);
+    uint8_t enabled = parseInt32(arg,  argEnd);
     StickyModifiersEnabled = enabled;
     return false;
 }
 
 bool processSetSplitCompositeKeystrokeCommand(const char* arg, const char *argEnd)
 {
-    SplitCompositeKeystroke  = parseUInt32(arg,  argEnd);
+    SplitCompositeKeystroke  = parseInt32(arg,  argEnd);
     return false;
 }
 
 bool processSetKeystrokeDelayCommand(const char* arg, const char *argEnd)
 {
-    KeystrokeDelay  = parseUInt32(arg,  argEnd);
+    KeystrokeDelay  = parseInt32(arg,  argEnd);
     KeystrokeDelay = KeystrokeDelay < 250 ? KeystrokeDelay : 250;
     return false;
 }
@@ -878,6 +921,9 @@ bool processCommandAction(void)
             }
             else if(tokenMatches(cmd, cmdEnd, "delayUntilReleaseMax")) {
                 return processDelayUntilReleaseMaxCommand(arg1, cmdEnd);
+            }
+            else if(tokenMatches(cmd, cmdEnd, "delayUntil")) {
+                return processDelayUntilCommand(cmd, cmdEnd);
             }
             else {
                 goto failed;
@@ -923,19 +969,43 @@ bool processCommandAction(void)
                     return false;
                 }
             }
+            else if(tokenMatches(cmd, cmdEnd, "ifRegEq")) {
+                if(!processIfRegEqCommand(false, arg1, cmdEnd) && !s->currentConditionPassed) {
+                    return false;
+                }
+                cmd = nextTok(arg1, cmdEnd); //shift by 2
+                arg1 = nextTok(cmd, cmdEnd);
+            }
+            else if(tokenMatches(cmd, cmdEnd, "ifNotRegEq")) {
+                if(!processIfRegEqCommand(true, arg1, cmdEnd) && !s->currentConditionPassed) {
+                    return false;
+                }
+                cmd = nextTok(arg1, cmdEnd); //shift by 2
+                arg1 = nextTok(cmd, cmdEnd);
+            }
             else if(tokenMatches(cmd, cmdEnd, "ifPlaytime")) {
                 if(!processIfPlaytimeCommand(false, arg1, cmdEnd) && !s->currentConditionPassed) {
                     return false;
                 }
-                cmd = arg1;
-                arg1 = nextTok(arg1, cmdEnd);
+                cmd = arg1;  //shift by 1
+                arg1 = nextTok(cmd, cmdEnd);
             }
             else if(tokenMatches(cmd, cmdEnd, "ifNotPlaytime")) {
                 if(!processIfPlaytimeCommand(true, arg1, cmdEnd) && !s->currentConditionPassed) {
                     return false;
                 }
                 cmd = arg1;
-                arg1 = nextTok(arg1, cmdEnd);
+                arg1 = nextTok(cmd, cmdEnd);
+            }
+            else if(tokenMatches(cmd, cmdEnd, "ifAnyMod")) {
+                if(!processIfModifierCommand(false, 0xFF)  && !s->currentConditionPassed) {
+                    return false;
+                }
+            }
+            else if(tokenMatches(cmd, cmdEnd, "ifNotAnyMod")) {
+                if(!processIfModifierCommand(true, 0xFF)  && !s->currentConditionPassed) {
+                    return false;
+                }
             }
             else if(tokenMatches(cmd, cmdEnd, "ifShift")) {
                 if(!processIfModifierCommand(false, SHIFTMASK)  && !s->currentConditionPassed) {
@@ -1006,6 +1076,9 @@ bool processCommandAction(void)
         case 's':
             if(tokenMatches(cmd, cmdEnd, "setStatus")) {
                 return processSetStatusCommand(arg1, cmdEnd);
+            }
+            else if(tokenMatches(cmd, cmdEnd, "setReg")) {
+                return processSetRegCommand(arg1, cmdEnd);
             }
             else if(tokenMatches(cmd, cmdEnd, "switchKeymap")) {
                 return processSwitchKeymapCommand(arg1, cmdEnd);

@@ -88,10 +88,11 @@ The following grammar is supported:
     BODY = $COMMAND
     COMMAND = [CONDITION|MODIFIER]* COMMAND
     COMMAND = delayUntilRelease
-    COMMAND = delayUntilReleaseMax <timeout>
+    COMMAND = delayUntil <timeout (NUMBER)>
+    COMMAND = delayUntilReleaseMax <timeout (NUMBER)>
     COMMAND = switchLayer {LAYERID|previous}
     COMMAND = holdLayer LAYERID
-    COMMAND = holdLayerMax LAYERID <time in ms>
+    COMMAND = holdLayerMax LAYERID <time in ms (NUMBER)>
     COMMAND = switchKeymap {<abbrev>|last}
     COMMAND = break
     COMMAND = printStatus
@@ -99,24 +100,28 @@ The following grammar is supported:
     COMMAND = write <custom text>
     COMMAND = goTo <index>
     COMMAND = recordMacroDelay
-    COMMAND = {recordMacro|playMacro} <slot identifier>
+    COMMAND = {recordMacro|playMacro} <slot identifier (CHAR)>
     COMMAND = {startMouse|stopMouse} {move DIRECTION|scroll DIRECTION|accelerate|decelerate}
     COMMAND = setStickyModsEnabled {0|1}
     COMMAND = setSplitCompositeKeystroke {0|1}
-    COMMAND = setKeystrokeDelay <time in ms, at most 250>
-    LAYERID = fn|mouse|mod|base|last
-    DIRECTION = {left|right|up|down}
-    MODIFIER = suppressMods
-    MODIFIER = suppressKeys
+    COMMAND = setKeystrokeDelay <time in ms, at most 250 (NUMBER)>
+    COMMAND = setReg <register index (NUMBER)> <value (NUMBER)> 
     CONDITION = ifDoubletap | ifNotDoubletap
     CONDITION = ifInterrupted | ifNotInterrupted
     CONDITION = {ifPlaytime | ifNotPlaytime} <timeout in ms>
-    CONDITION = ifShift | ifAlt | ifCtrl | ifGui | ifNotShift | ifNotAlt | ifNotCtrl | ifNotGui
+    CONDITION = ifShift | ifAlt | ifCtrl | ifGui | ifAnyMod | ifNotShift | ifNotAlt | ifNotCtrl | ifNotGui | ifNotAnyMod
+    CONDITION = {ifRegEq | ifNotRegEq} <register index (NUMBER)> <value (NUMBER)>
+    MODIFIER = suppressMods
+    MODIFIER = suppressKeys
+    DIRECTION = {left|right|up|down}
+    LAYERID = fn|mouse|mod|base|last
+    NUMBER = #NUMBER | [0-9]+
+    CHAR = <any ascii char>
 
 - `ifDoubletap/ifNotDoubletap` is true if previous played macro had the same index and finished at most 250ms ago
 - `ifInterrupted/ifNotInterrupted` is true if a keystroke action or mouse action was triggered during macro runtime. Allows fake implementation of secondary roles. Also allows interruption of cycles.
 - `ifPlaytime/ifNotPlaytime <timeout in ms>` is true if at least `timeout` milliseconds passed since macro was started.
-- `ifShift/ifAlt/ifCtrl/ifGui/ifNotShift/ifNotAlt/ifNotCtrl/ifNotGui` is true if either right or left modifier was held in the previous update cycle.
+- `ifShift/ifAlt/ifCtrl/ifGui/ifAnyMod/ifNotShift/ifNotAlt/ifNotCtrl/ifNotGui/ifNotAnyMod` is true if either right or left modifier was held in the previous update cycle.
 - Layer/Keymap switching:
   - `switchLayer` toggles layer. We keep a stack of limited size, which can be used for nested toggling and/or holds.
     - `last` will toggle last layer toggled via this command and push it onto stack
@@ -126,8 +131,9 @@ The following grammar is supported:
   - `switchKeymap` will toggle the keymap by its abbreviation. Last will toggle the last keymap toggled via this command.
 - `suppressMods` will supress any modifiers except those applied via macro engine. Can be used to remap shift and nonShift characters independently.
 - `suppressKeys` will supress postpone all new key activations. Can be used to mess with timing - e.g., to postpone activation of other keys.
+- `delayUntil <timeout>` sleeps the macro until timeout (in ms) is reached.
 - `delayUntilRelease` sleeps the macro until its activation key is released. Can be used to set action on key release. 
-- `delayUntilReleaseMax <timeout>` same as `delayUntilRelease`, but is also broken when timeout is reached.
+- `delayUntilReleaseMax <timeout>` same as `delayUntilRelease`, but is also broken when timeout (in ms) is reached.
 - `break` will end playback of the current macro
 - `printStatus` will "type" content of error status buffer (256 chars) on the keyboard. Mainly for debug purposes.
 - `setStatus <custom text>` will append <custom text> to the error report buffer, if there is enough space for that
@@ -139,6 +145,10 @@ The following grammar is supported:
 - `setStickyModsEnabled` globally turns on or off sticky modifiers
 - `setSplitCompositeKeystroke {0|1}` If enabled, composite keystrokes (e.g., Ctrl+c sent by a single key) are separated into distinct usb reports. This makes order of keypresses clearly determined. Enabled by default.
 - `setKeystrokeDelay <time in ms, at most 250>` will stop event processing for the specified time after every usb report change. May be used to slow down macroes, to insert delay between composite keystrokes. Beware, this does not queue keypresses - if the delay is too long, some keypresses may be skipped entirelly!
+- Registers - for the purpose of toggling functionality on and off, we provide 32 numeric registers (namely of type int32_t). 
+  - `setReg <register index> <value>` will set register identified by index to value.
+  - `{ifRegEq|ifNotRegEq} <register inex> <value>` will test if the value in the register identified by first argument equals second argument.
+  - Register values can also be used in place of all numeric arguments by prefixing register index by '#'. E.g., waiting until release or for amount of time defined by reg 1 can be achieved by `$delayUntilReleaseMax #1`
 
 ## Error handling
 
@@ -152,7 +162,7 @@ This version of firmware includes basic error handling. If an error is encounter
 
 ## Contributing
 
-If you wish some functionality, feel free to fire tickets with feature requests... Or fork the repo and post PR. 
+If you wish some functionality, feel free to fire tickets with feature requests. If you wish something already present on the tracker (e.g., in 'idea' tickets), say so in comments. If feel brave, fork the repo, implement the desired functionality and post a PR.
 
 ## Adding new features
 
@@ -164,6 +174,8 @@ Practically all high-level functionality of the firmware is implemented in the f
 - `macros.c` - the macro engine. We furthermore extend it by `macro_recorder.c`
 
 Our command actions are rooted in `processCommandAction(...)` in `macros.c`.
+
+If you have any questions regarding the code, simply ask (via tickets or email).
 
 ## Building the firmware
 
