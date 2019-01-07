@@ -92,9 +92,11 @@ The following grammar is supported:
     COMMAND = delayUntil <timeout (NUMBER)>
     COMMAND = delayUntilReleaseMax <timeout (NUMBER)>
     COMMAND = switchLayer {LAYERID|previous}
+    COMMAND = switchKeymap KEYMAPID
     COMMAND = holdLayer LAYERID
     COMMAND = holdLayerMax LAYERID <time in ms (NUMBER)>
-    COMMAND = switchKeymap {<abbrev>|last}
+    COMMAND = holdKeymapLayer KEYMAPID LAYERID
+    COMMAND = holdKeymapLayerMax KEYMAPID LAYERID <time in ms (NUMBER)>
     COMMAND = break
     COMMAND = printStatus
     COMMAND = setStatus <custom text>
@@ -115,7 +117,8 @@ The following grammar is supported:
     MODIFIER = suppressMods
     MODIFIER = suppressKeys
     DIRECTION = {left|right|up|down}
-    LAYERID = fn|mouse|mod|base|last
+    LAYERID = {fn|mouse|mod|base}|last
+    KEYMAPID = <abbrev>|last
     NUMBER = #NUMBER | [0-9]+
     CHAR = <any ascii char>
 
@@ -132,11 +135,12 @@ The following grammar is supported:
   - `delayUntilReleaseMax <timeout>` same as `delayUntilRelease`, but is also broken when timeout (in ms) is reached.
 - Layer/Keymap switching:
   - `switchLayer` toggles layer. We keep a stack of limited size, which can be used for nested toggling and/or holds.
-    - `last` will toggle last layer toggled via this command and push it onto stack
+    - `last` will toggle last layer/keymap toggled via switch commands and push it onto stack
     - `previous` will pop the stack
-  - `holdLayer <layer>` mostly corresponds to the sequence `switchLayer <layer>; delayUntilRelease; switchLayer previous`, except for more elaborate conflict resolution (releasing holds in incorrect order, correct releasing of holds in case layer is locked via `$switchLayer` command.
-  - `holdLayerMax <layer> <timeout in ms>` will timeout after <timeout> ms if no action is performed in that time.
-  - `switchKeymap` will toggle the keymap by its abbreviation. Last will toggle the last keymap toggled via this command.
+  - `switchKeymap` will toggle the keymap by its abbreviation. (Formally, it will also overwrite all keymap records stored in layer stack so that keymap switching works even from held keymaps.)
+  - `holdLayer LAYERID` mostly corresponds to the sequence `switchLayer <layer>; delayUntilRelease; switchLayer previous`, except for more elaborate conflict resolution (releasing holds in incorrect order, correct releasing of holds in case layer is locked via `$switchLayer` command.
+  - `holdKeymapLayer KEYMAPID LAYERID` just as holdLayer (still retains semantics of a layer switch and not a keymap switch), but takes both keymap and layer as parameters. This reloads the entire keymap, so it may be very inefficient.
+  - `holdLayerMax/holdKeymapLayerMax` will timeout after <timeout> ms if no action is performed in that time.
 - Conditions are checked before processing the rest of the command. If the condition does not hold, the rest of the command is skipped entirelly. If the command is evaluated multiple times (i.e., if it internally consists of multiple steps, such as the delay, which is evaluated repeatedly until the desired time has passed), the condition is evaluated only in the first iteration.  
   - `ifDoubletap/ifNotDoubletap` is true if previous played macro had the same index and finished at most 250ms ago
   - `ifInterrupted/ifNotInterrupted` is true if a keystroke action or mouse action was triggered during macro runtime. Allows fake implementation of secondary roles. Also allows interruption of cycles.

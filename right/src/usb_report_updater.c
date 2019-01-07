@@ -322,6 +322,7 @@ static void applyKeyAction(key_state_t *keyState, key_action_t *action)
                 stickyModifiers = 0;
                 secondaryRoleState = SecondaryRoleState_Released;
                 SwitchKeymapById(action->switchKeymap.keymapId);
+                Macros_UpdateLayerStack();
             }
             break;
         case KeyActionType_PlayMacro:

@@ -30,6 +30,8 @@ static uint8_t lastKeymapIdx;
 
 static int32_t regs[32];
 
+static bool initialized = false;
+
 macro_state_t MacroState[MACRO_STATE_POOL_SIZE];
 static macro_state_t *s = MacroState;
 
@@ -574,19 +576,6 @@ int32_t parseInt32(const char *a, const char *aEnd)
     }
 }
 
-bool processSwitchKeymapCommand(const char* arg1, const char* cmdEnd)
-{
-    int tmpKeymapIdx = CurrentKeymapIndex;
-    if(tokenMatches(arg1, cmdEnd, "last")) {
-        SwitchKeymapById(lastKeymapIdx);
-    }
-    else {
-        SwitchKeymapByAbbreviation(tokLen(arg1, cmdEnd), arg1);
-    }
-    lastKeymapIdx = tmpKeymapIdx;
-    return false;
-}
-
 void removeStackTop(void) {
     layerIdxStackTop = (layerIdxStackTop + LAYER_STACK_SIZE - 1) % LAYER_STACK_SIZE;
     layerIdxStackSize--;
@@ -602,8 +591,43 @@ void popLayerStack(bool forceRemoveTop) {
     if(layerIdxStackSize == 0) {
         layerIdxStack[layerIdxStackTop].layer = LayerId_Base;
         layerIdxStack[layerIdxStackTop].removed = false;
+        layerIdxStack[layerIdxStackTop].held = false;
+    }
+    if(layerIdxStack[layerIdxStackTop].keymap != CurrentKeymapIndex) {
+        SwitchKeymapById(layerIdxStack[layerIdxStackTop].keymap);
     }
     ToggleLayer(layerIdxStack[layerIdxStackTop].layer);
+}
+
+void Macros_UpdateLayerStack() {
+    for(int i = 0; i < LAYER_STACK_SIZE; i++) {
+        layerIdxStack[i].keymap = CurrentKeymapIndex;
+    }
+}
+
+void pushStack(uint8_t layer, uint8_t keymap, bool hold) {
+    layerIdxStackTop = (layerIdxStackTop + 1) % LAYER_STACK_SIZE;
+    layerIdxStack[layerIdxStackTop].layer = layer;
+    layerIdxStack[layerIdxStackTop].keymap = keymap;
+    layerIdxStack[layerIdxStackTop].held = hold;
+    layerIdxStack[layerIdxStackTop].removed = false;
+    if(keymap != CurrentKeymapIndex) {
+        SwitchKeymapById(keymap);
+    }
+    ToggleLayer(layerIdxStack[layerIdxStackTop].layer);
+    layerIdxStackSize = layerIdxStackSize < LAYER_STACK_SIZE - 1 ? layerIdxStackSize+1 : layerIdxStackSize;
+}
+
+uint8_t parseKeymapId(const char* arg1, const char* cmdEnd) {
+    if(tokenMatches(arg1, cmdEnd, "last")) {
+        return lastKeymapIdx;
+    } else {
+        uint8_t idx = FindKeymapByAbbreviation(tokLen(arg1, cmdEnd), arg1);
+        if(idx == 0xFF) {
+            reportError("Keymap not recognized: ", arg1, cmdEnd);
+        }
+        return idx;
+    }
 }
 
 uint8_t parseLayerId(const char* arg1, const char* cmdEnd) {
@@ -623,17 +647,20 @@ uint8_t parseLayerId(const char* arg1, const char* cmdEnd) {
         return lastLayerIdx;
     }
     else {
-        reportError("unrecognized layer id", arg1, cmdEnd);
         return false;
     }
 }
 
-void pushStack(uint8_t layer) {
-    layerIdxStackTop = (layerIdxStackTop + 1) % LAYER_STACK_SIZE;
-    layerIdxStack[layerIdxStackTop].layer = layer;
-    layerIdxStack[layerIdxStackTop].removed = false;
-    ToggleLayer(layerIdxStack[layerIdxStackTop].layer);
-    layerIdxStackSize = layerIdxStackSize < LAYER_STACK_SIZE - 1 ? layerIdxStackSize+1 : layerIdxStackSize;
+bool processSwitchKeymapCommand(const char* arg1, const char* cmdEnd)
+{
+    uint8_t tmpKeymapIdx = CurrentKeymapIndex;
+    {
+        uint8_t newKeymapIdx = parseKeymapId(arg1, cmdEnd);
+        SwitchKeymapById(newKeymapIdx);
+        Macros_UpdateLayerStack();
+    }
+    lastKeymapIdx = tmpKeymapIdx;
+    return false;
 }
 
 bool processSwitchLayerCommand(const char* arg1, const char* cmdEnd)
@@ -643,18 +670,18 @@ bool processSwitchLayerCommand(const char* arg1, const char* cmdEnd)
         popLayerStack(true);
     }
     else {
-        pushStack(parseLayerId(arg1, cmdEnd));
+        pushStack(parseLayerId(arg1, cmdEnd), CurrentKeymapIndex, false);
     }
     lastLayerIdx = tmpLayerIdx;
     return false;
 }
 
 
-bool processHoldLayer(uint8_t layer, uint16_t timeout)
+bool processHoldLayer(uint8_t layer, uint8_t keymap, uint16_t timeout)
 {
     if(!s->holdActive) {
         s->holdActive = true;
-        pushStack(layer);
+        pushStack(layer, keymap, true);
         s->holdLayerIdx = layerIdxStackTop;
         return true;
     }
@@ -664,9 +691,8 @@ bool processHoldLayer(uint8_t layer, uint16_t timeout)
         }
         else {
             s->holdActive = false;
-            if(layerIdxStack[s->holdLayerIdx].layer == layer) {
-                layerIdxStack[s->holdLayerIdx].removed = true;
-            }
+            layerIdxStack[s->holdLayerIdx].removed = true;
+            layerIdxStack[s->holdLayerIdx].held = false;
             popLayerStack(false);
             return false;
         }
@@ -675,14 +701,26 @@ bool processHoldLayer(uint8_t layer, uint16_t timeout)
 
 bool processHoldLayerCommand(const char* arg1, const char* cmdEnd)
 {
-    return processHoldLayer(parseLayerId(arg1, cmdEnd), 0xFFFF);
+    return processHoldLayer(parseLayerId(arg1, cmdEnd), CurrentKeymapIndex, 0xFFFF);
 }
 
 bool processHoldLayerMaxCommand(const char* arg1, const char* cmdEnd)
 {
     const char* arg2 = nextTok(arg1, cmdEnd);
-    uint16_t timeout = parseInt32(arg2, cmdEnd);
-    return processHoldLayer(parseLayerId(arg1, cmdEnd), timeout);
+    return processHoldLayer(parseLayerId(arg1, cmdEnd), CurrentKeymapIndex, parseInt32(arg2, cmdEnd));
+}
+
+bool processHoldKeymapLayerCommand(const char* arg1, const char* cmdEnd)
+{
+    const char* arg2 = nextTok(arg1, cmdEnd);
+    return processHoldLayer(parseLayerId(arg2, cmdEnd), parseKeymapId(arg1, cmdEnd), 0xFFFF);
+}
+
+bool processHoldKeymapLayerMaxCommand(const char* arg1, const char* cmdEnd)
+{
+    const char* arg2 = nextTok(arg1, cmdEnd);
+    const char* arg3 = nextTok(arg2, cmdEnd);
+    return processHoldLayer(parseLayerId(arg2, cmdEnd), parseKeymapId(arg1, cmdEnd), parseInt32(arg3, cmdEnd));
 }
 
 bool processDelayUntilReleaseMaxCommand(const char* arg1, const char* cmdEnd)
@@ -944,6 +982,12 @@ bool processCommandAction(void)
             else if(tokenMatches(cmd, cmdEnd, "holdLayerMax")) {
                 return processHoldLayerMaxCommand(arg1, cmdEnd);
             }
+            else if(tokenMatches(cmd, cmdEnd, "holdKeymapLayer")) {
+                return processHoldKeymapLayerCommand(arg1, cmdEnd);
+            }
+            else if(tokenMatches(cmd, cmdEnd, "holdKeymapLayerMax")) {
+                return processHoldKeymapLayerMaxCommand(arg1, cmdEnd);
+            }
             else {
                 goto failed;
             }
@@ -1138,7 +1182,6 @@ bool processTextOrCommandAction(void)
         return actionInProgress;
     } else if (s->currentMacroAction.text.text[0] == '#') {
         return false;
-
     } else {
         return processTextAction();
     }
@@ -1174,10 +1217,18 @@ bool findFreeStateSlot() {
     return false;
 }
 
+void initialize() {
+    Macros_UpdateLayerStack();
+    initialized = true;
+}
+
 void Macros_StartMacro(uint8_t index, key_state_t *keyState)
 {
     if(!findFreeStateSlot()) {
         return;
+    }
+    if(!initialized) {
+        initialize();
     }
     MacroPlaying = true;
     s->macroPlaying = true;

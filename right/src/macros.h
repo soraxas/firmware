@@ -30,6 +30,8 @@
 
     typedef struct {
         uint8_t layer;
+        uint8_t keymap;
+        bool held;
         bool removed;
     } layerStackRecord;
 
@@ -131,5 +133,6 @@
     bool Macros_ClaimReports(void);
     void Macros_ReportError(const char* err, const char* arg, const char *argEnd);
     void Macros_ReportErrorNum(const char* err, uint32_t num);
+    void Macros_UpdateLayerStack();
 
 #endif
