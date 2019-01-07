@@ -1136,8 +1136,10 @@ bool processTextOrCommandAction(void)
         bool actionInProgress = processCommandAction();
         s->currentConditionPassed = actionInProgress;
         return actionInProgress;
-    }
-    else {
+    } else if (s->currentMacroAction.text.text[0] == '#') {
+        return false;
+
+    } else {
         return processTextAction();
     }
 }

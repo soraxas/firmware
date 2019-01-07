@@ -86,6 +86,7 @@ Postponed secondary role switch. This modification will postpone all other key a
 The following grammar is supported:
 
     BODY = $COMMAND
+    BODY = #<comment>
     COMMAND = [CONDITION|MODIFIER]* COMMAND
     COMMAND = delayUntilRelease
     COMMAND = delayUntil <timeout (NUMBER)>
