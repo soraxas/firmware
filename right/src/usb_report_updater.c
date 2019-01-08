@@ -254,17 +254,15 @@ static void handleSwitchLayerAction(key_state_t *keyState, key_action_t *action)
 static uint8_t basicScancodeIndex = 0;
 static uint8_t mediaScancodeIndex = 0;
 static uint8_t systemScancodeIndex = 0;
-static uint8_t stickyModifiers;
+static uint8_t stickyModifiers, stickySlotId, stickyKeyId;
 static uint8_t secondaryRoleState = SecondaryRoleState_Released;
 static uint8_t secondaryRoleSlotId;
 static uint8_t secondaryRoleKeyId;
 static secondary_role_t secondaryRole;
 
-static void applyKeyAction(key_state_t *keyState, key_action_t *action)
+static void applyKeyAction(key_state_t *keyState, key_action_t *action, uint8_t slotId, uint8_t keyId)
 {
-    if (keyState->suppressed) {
-        return;
-    }
+  if (keyState->current) {
 
     handleSwitchLayerAction(keyState, action);
 
@@ -277,6 +275,8 @@ static void applyKeyAction(key_state_t *keyState, key_action_t *action)
             if (action->keystroke.scancode) {
                 if (!keyState->previous) {
                     stickyModifiers = action->keystroke.modifiers;
+                    stickySlotId = slotId;
+                    stickyKeyId = keyId;
                 }
             }
             if(!SuppressMods) {
@@ -331,6 +331,19 @@ static void applyKeyAction(key_state_t *keyState, key_action_t *action)
                 Macros_StartMacro(action->playMacro.macroId, keyState);
             }
             break;
+        }
+    } else {
+        switch (action->type) {
+            case KeyActionType_Keystroke:
+                if (keyState->previous) {
+                    if (slotId == stickySlotId && keyId == stickyKeyId) {
+                        if (!IsLayerHeld() && !(secondaryRoleState == SecondaryRoleState_Triggered && IS_SECONDARY_ROLE_LAYER_SWITCHER(secondaryRole))) {
+                            stickyModifiers = 0;
+                        }
+                    }
+                }
+                break;
+        }
     }
 }
 
@@ -458,22 +471,22 @@ static void updateActiveUsbReports(void)
                         secondaryRoleSlotId = slotId;
                         secondaryRoleKeyId = keyId;
                         secondaryRole = action->keystroke.secondaryRole;
-                        keyState->suppressed = true;
                     }
                 } else {
-                    applyKeyAction(keyState, action);
+                    applyKeyAction(keyState, action, slotId, keyId);
                 }
             } else {
-                keyState->suppressed = false;
-
                 // Release secondary role key.
-                if (keyState->previous && secondaryRoleSlotId == slotId && secondaryRoleKeyId == keyId) {
+                if (keyState->previous && secondaryRoleSlotId == slotId && secondaryRoleKeyId == keyId && secondaryRoleState != SecondaryRoleState_Released) {
                     // Trigger primary role.
                     if (secondaryRoleState == SecondaryRoleState_Pressed) {
                         keyState->previous = false;
-                        applyKeyAction(keyState, action);
+                        keyState->current = true;
+                        applyKeyAction(keyState, action, slotId, keyId);
                     }
                     secondaryRoleState = SecondaryRoleState_Released;
+                } else {
+                    applyKeyAction(keyState, action, slotId, keyId);
                 }
             }
 

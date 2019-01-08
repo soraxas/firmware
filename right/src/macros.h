@@ -134,5 +134,6 @@
     void Macros_ReportError(const char* err, const char* arg, const char *argEnd);
     void Macros_ReportErrorNum(const char* err, uint32_t num);
     void Macros_UpdateLayerStack();
+    bool Macros_IsLayerHeld();
 
 #endif

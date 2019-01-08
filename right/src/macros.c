@@ -699,6 +699,10 @@ bool processHoldLayer(uint8_t layer, uint8_t keymap, uint16_t timeout)
     }
 }
 
+bool Macros_IsLayerHeld() {
+    return layerIdxStack[layerIdxStackTop].held;
+}
+
 bool processHoldLayerCommand(const char* arg1, const char* cmdEnd)
 {
     return processHoldLayer(parseLayerId(arg1, cmdEnd), CurrentKeymapIndex, 0xFFFF);
