@@ -37,7 +37,7 @@ bool SuppressMods = false;
 bool SuppressKeys = false;
 bool SuppressingKeys = false;
 bool StickyModifiersEnabled = true;
-bool SplitCompositeKeystroke = 0;
+bool SplitCompositeKeystroke = 1;
 uint16_t KeystrokeDelay = 0;
 uint32_t KeystrokeDelayStarted = 0;
 
