@@ -3,6 +3,7 @@
 #include "module.h"
 #include "key_states.h"
 #include "keymap.h"
+#include "macros.h"
 
 static bool heldLayers[LAYER_COUNT];
 static bool toggledLayers[LAYER_COUNT];
