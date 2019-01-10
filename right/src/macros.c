@@ -475,6 +475,7 @@ bool dispatchText(const char* text, uint16_t textLen)
     }
     char character;
     uint8_t scancode;
+    uint8_t mods;
 
     uint8_t max_keys = USB_BASIC_KEYBOARD_MAX_KEYS/2;
 
@@ -490,6 +491,7 @@ bool dispatchText(const char* text, uint16_t textLen)
         return true;
     }
     character = text[s->dispatchTextIndex];
+    mods = characterToShift(character) ? HID_KEYBOARD_MODIFIER_LEFTSHIFT : 0;
     scancode = characterToScancode(character);
     for (uint8_t i = 0; i < s->dispatchReportIndex; i++) {
         if (s->macroBasicKeyboardReport.scancodes[i] == scancode) {
@@ -497,9 +499,13 @@ bool dispatchText(const char* text, uint16_t textLen)
             return true;
         }
     }
-    s->macroBasicKeyboardReport.scancodes[s->dispatchReportIndex++] = scancode;
-    s->macroBasicKeyboardReport.modifiers = characterToShift(character) ? HID_KEYBOARD_MODIFIER_LEFTSHIFT : 0;
-    ++s->dispatchTextIndex;
+    if(mods != 0 && (s->macroBasicKeyboardReport.modifiers & mods) != mods && SplitCompositeKeystroke) {
+        s->macroBasicKeyboardReport.modifiers = mods;
+    } else {
+        s->macroBasicKeyboardReport.scancodes[s->dispatchReportIndex++] = scancode;
+        s->macroBasicKeyboardReport.modifiers = mods;
+        ++s->dispatchTextIndex;
+    }
     return true;
 }
 
