@@ -839,9 +839,21 @@ bool processSetRegCommand(const char* arg1, const char *argEnd)
     return false;
 }
 
-bool processGoToCommand(const char* arg, const char *argEnd)
+bool processRegAddCommand(const char* arg1, const char *argEnd, bool invert)
 {
-    uint8_t address = parseInt32(arg, argEnd);
+    uint8_t address = parseInt32(arg1, argEnd);
+    int32_t param = parseInt32(nextTok(arg1, argEnd), argEnd);
+    //substract is needed when referencing other registers via param
+    if(invert) {
+        regs[address] = regs[address] - param;
+    } else {
+        regs[address] = regs[address] + param;
+    }
+    return false;
+}
+
+bool goTo(uint8_t address)
+{
     s->currentMacroActionIndex = address - 1;
     ValidatedUserConfigBuffer.offset = AllMacros[s->currentMacroIndex].firstMacroActionOffset;
     for(uint8_t i = 0; i < address; i++) {
@@ -849,6 +861,12 @@ bool processGoToCommand(const char* arg, const char *argEnd)
     }
     s->bufferOffset = ValidatedUserConfigBuffer.offset;
     return false;
+}
+
+bool processGoToCommand(const char* arg, const char *argEnd)
+{
+    uint8_t address = parseInt32(arg, argEnd);
+    return goTo(address);
 }
 
 bool processMouseCommand(bool enable, const char* arg1, const char *argEnd)
@@ -948,6 +966,33 @@ bool processSetKeystrokeDelayCommand(const char* arg, const char *argEnd)
     return false;
 }
 
+void suppressNext(uint8_t count) {
+    s->suppressNext = count + 1;
+}
+
+bool processResolveSecondaryCommand(const char* arg1, const char* argEnd)
+{
+    const char* arg2 = nextTok(arg1, argEnd);
+    const char* arg3 = nextTok(arg2, argEnd);
+    uint16_t timeout = parseInt32(arg1, argEnd);
+    uint8_t primaryAdr = parseInt32(arg2, argEnd);
+    uint8_t secondaryAdr = parseInt32(arg3, argEnd);
+    SuppressKeys = true;
+    if(s->currentMacroKey->previous && Timer_GetElapsedTime(&s->currentMacroStartTime) < timeout && !PendingPostponedAndReleased) {
+        return true;
+    }
+    if(Timer_GetElapsedTime(&s->currentMacroStartTime) >= timeout || PendingPostponedAndReleased) {
+        //secondary action
+        return goTo(secondaryAdr);
+    }
+    else {
+        //primary action
+        suppressNext(1);
+        return goTo(primaryAdr);
+    }
+
+}
+
 bool processCommandAction(void)
 {
     const char* cmd = s->currentMacroAction.text.text+1;
@@ -955,6 +1000,14 @@ bool processCommandAction(void)
     while(*cmd) {
         const char* arg1 = nextTok(cmd, cmdEnd);
         switch(*cmd) {
+        case 'a':
+            if(tokenMatches(cmd, cmdEnd, "addReg")) {
+                return processRegAddCommand(arg1, cmdEnd, false);
+            }
+            else {
+                goto failed;
+            }
+            break;
         case 'b':
             if(tokenMatches(cmd, cmdEnd, "break")) {
                 return processBreakCommand();
@@ -1123,6 +1176,9 @@ bool processCommandAction(void)
             else if(tokenMatches(cmd, cmdEnd, "recordMacroDelay")) {
                 return processRecordMacroDelayCommand();
             }
+            else if(tokenMatches(cmd, cmdEnd, "resolveSecondary")) {
+                return processResolveSecondaryCommand(arg1, cmdEnd);
+            }
             else {
                 goto failed;
             }
@@ -1133,6 +1189,9 @@ bool processCommandAction(void)
             }
             else if(tokenMatches(cmd, cmdEnd, "setReg")) {
                 return processSetRegCommand(arg1, cmdEnd);
+            }
+            else if(tokenMatches(cmd, cmdEnd, "subReg")) {
+                return processRegAddCommand(arg1, cmdEnd, true);
             }
             else if(tokenMatches(cmd, cmdEnd, "switchKeymap")) {
                 return processSwitchKeymapCommand(arg1, cmdEnd);
@@ -1249,6 +1308,7 @@ void Macros_StartMacro(uint8_t index, key_state_t *keyState)
     s->currentMacroStartTime = CurrentTime;
     s->currentConditionPassed = false;
     s->reportsUsed = false;
+    s->suppressNext = 0;
     ValidatedUserConfigBuffer.offset = AllMacros[index].firstMacroActionOffset;
     ParseMacroAction(&ValidatedUserConfigBuffer, &s->currentMacroAction);
     s->bufferOffset = ValidatedUserConfigBuffer.offset;
@@ -1260,9 +1320,11 @@ void Macros_StartMacro(uint8_t index, key_state_t *keyState)
 
 void continueMacro(void)
 {
+    SuppressKeys = s->suppressNext > 0;
     if (processCurrentMacroAction() && !s->macroBroken) {
         return;
     }
+    s->suppressNext = s->suppressNext > 0 ? s->suppressNext - 1 : 0;
     if (++s->currentMacroActionIndex == AllMacros[s->currentMacroIndex].macroActionsCount || s->macroBroken) {
         s->macroPlaying = false;
         s->macroBroken = false;

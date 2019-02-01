@@ -38,6 +38,7 @@ bool SuppressKeys = false;
 bool SuppressingKeys = false;
 bool StickyModifiersEnabled = true;
 bool SplitCompositeKeystroke = 1;
+bool PendingPostponedAndReleased = false;
 uint16_t KeystrokeDelay = 0;
 uint32_t KeystrokeDelayStarted = 0;
 
@@ -519,8 +520,9 @@ void UpdateUsbReports(void)
     SuppressingKeys = SuppressKeys || KeystrokeDelay > Timer_GetElapsedTime(&KeystrokeDelayStarted);
 
     for (uint8_t keyId = 0; keyId < RIGHT_KEY_MATRIX_KEY_COUNT; keyId++) {
-        KeyStates[SlotId_RightKeyboardHalf][keyId].current = RightKeyMatrix.keyStates[keyId] && (!SuppressingKeys || KeyStates[SlotId_RightKeyboardHalf][keyId].previous);
-
+        KeyStates[SlotId_RightKeyboardHalf][keyId].current = (RightKeyMatrix.keyStates[keyId] || KeyStates[SlotId_RightKeyboardHalf][keyId].postponed ) && (!SuppressingKeys || KeyStates[SlotId_RightKeyboardHalf][keyId].previous);
+        KeyStates[SlotId_RightKeyboardHalf][keyId].postponed = (RightKeyMatrix.keyStates[keyId] || KeyStates[SlotId_RightKeyboardHalf][keyId].postponed ) && SuppressingKeys && !KeyStates[SlotId_RightKeyboardHalf][keyId].previous;
+        PendingPostponedAndReleased |= KeyStates[SlotId_RightKeyboardHalf][keyId].postponed && !RightKeyMatrix.keyStates[keyId];
     }
 
     if (UsbReportUpdateSemaphore && !SleepModeActive) {
@@ -584,5 +586,9 @@ void UpdateUsbReports(void)
         if (status == kStatus_USB_Success) {
             UsbReportUpdateSemaphore |= 1 << USB_MOUSE_INTERFACE_INDEX;
         }
+    }
+
+    if(PendingPostponedAndReleased && !SuppressingKeys) {
+        PendingPostponedAndReleased = false;
     }
 }

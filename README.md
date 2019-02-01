@@ -62,6 +62,12 @@ Smart switch (if tapped, locks layer; if used with a key, acts as a secondary ro
     $ifNotInterrupted switchLayer mouse
     
 
+Regular secondary role:
+
+    $holdLayer mouse
+    $ifInterrupted break
+    <regular action>
+
 Mapping shift/nonshift scancodes independently:
 
     $ifShift suppressMods write 4
@@ -73,13 +79,13 @@ Applies the corresponding settings globaly. Namely turns off sticky modifiers (i
     $setSplitCompositeKeystroke 1
     $setKeystrokeDelay 10
 
-Postponed secondary role switch. This modification will postpone all other key activations by 250ms. This modification prevents secondary role hiccups on alphabetic keys.
+Postponed secondary role switch. This modification prevents secondary role hiccups on alphabetic keys. The `resolveSecondary` will listen for some time and once it decides whether the current situation fits primary or secondary action, it will issue goTo to the "second" line (line 1 since we index from 0) or the last line (line 3). Actions are indexed from 0. Any keys pressed during resolution are postponed until the first command after the jump is performed.
 
-    $suppressKeys delayUntilReleaseMax 250
-    $suppressKeys ifNotPlaytime 249 goTo 4
-    $holdLayer mouse
+    $resolveSecondary 250 1 3
+    $write f
     $break
-    $suppressKeys write d
+    $holdLayer mod
+
     
 ## Reference manual
 
@@ -97,6 +103,7 @@ The following grammar is supported:
     COMMAND = holdLayerMax LAYERID <time in ms (NUMBER)>
     COMMAND = holdKeymapLayer KEYMAPID LAYERID
     COMMAND = holdKeymapLayerMax KEYMAPID LAYERID <time in ms (NUMBER)>
+    COMMAND = resolveSecondary <time in ms (NUMBER)> <primary action macro action index (NUMBER)> <secondary action macro action index (NUMBER)>
     COMMAND = break
     COMMAND = printStatus
     COMMAND = setStatus <custom text>
@@ -109,6 +116,7 @@ The following grammar is supported:
     COMMAND = setSplitCompositeKeystroke {0|1}
     COMMAND = setKeystrokeDelay <time in ms, at most 250 (NUMBER)>
     COMMAND = setReg <register index (NUMBER)> <value (NUMBER)> 
+    COMMAND = {addReg|subReg} <register index (NUMBER)> <value (NUMBER)>
     CONDITION = ifDoubletap | ifNotDoubletap
     CONDITION = ifInterrupted | ifNotInterrupted
     CONDITION = {ifPlaytime | ifNotPlaytime} <timeout in ms (NUMBER)>
@@ -141,6 +149,7 @@ The following grammar is supported:
   - `holdLayer LAYERID` mostly corresponds to the sequence `switchLayer <layer>; delayUntilRelease; switchLayer previous`, except for more elaborate conflict resolution (releasing holds in incorrect order, correct releasing of holds in case layer is locked via `$switchLayer` command.
   - `holdKeymapLayer KEYMAPID LAYERID` just as holdLayer (still retains semantics of a layer switch and not a keymap switch), but takes both keymap and layer as parameters. This reloads the entire keymap, so it may be very inefficient.
   - `holdLayerMax/holdKeymapLayerMax` will timeout after <timeout> ms if no action is performed in that time.
+  - `resolveSecondary <time in ms> <primary action macro action index> <secondary action macro action index>` is a very special action used to resolve secondary roles on alphabetic keys. The next command is supposed to be primary action, and the next after it a secondary role. The command takes liberty to wait for specified time. If the key is held for more than the time, or if the algorithm decides that secondary role should be activated, goTo to secondary action is issued. Otherwise goTo to primary action is issued. Actions are indexed from 0. Any keys pressed during resolution are postponed until the first command after the jump is performed. See examples.
 - Conditions are checked before processing the rest of the command. If the condition does not hold, the rest of the command is skipped entirelly. If the command is evaluated multiple times (i.e., if it internally consists of multiple steps, such as the delay, which is evaluated repeatedly until the desired time has passed), the condition is evaluated only in the first iteration.  
   - `ifDoubletap/ifNotDoubletap` is true if previous played macro had the same index and finished at most 250ms ago
   - `ifInterrupted/ifNotInterrupted` is true if a keystroke action or mouse action was triggered during macro runtime. Allows fake implementation of secondary roles. Also allows interruption of cycles.
@@ -156,6 +165,7 @@ The following grammar is supported:
 - Registers - for the purpose of toggling functionality on and off, and for global constants management, we provide 32 numeric registers (namely of type int32_t). 
   - `setReg <register index> <value>` will set register identified by index to value.
   - `ifRegEq|ifNotRegEq` see CONDITION section
+  - `addReg|subReg <register index> <value>` adds value to the register 
   - Register values can also be used in place of all numeric arguments by prefixing register index by '#'. E.g., waiting until release or for amount of time defined by reg 1 can be achieved by `$delayUntilReleaseMax #1`
 - Global configuration options:
   - `setStickyModsEnabled` globally turns on or off sticky modifiers

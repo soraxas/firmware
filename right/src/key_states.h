@@ -14,6 +14,7 @@
         bool previous : 1;
         bool current : 1;
         bool debouncing : 1;
+        bool postponed : 1;
     } key_state_t;
 
 // Variables:

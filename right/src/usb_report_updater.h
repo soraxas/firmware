@@ -82,6 +82,7 @@
     extern bool StickyModifiersEnabled;
     extern bool SplitCompositeKeystroke;
     extern uint16_t KeystrokeDelay;
+    extern bool PendingPostponedAndReleased;
 
 // Functions:
 

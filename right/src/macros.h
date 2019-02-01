@@ -102,6 +102,7 @@
         uint8_t dispatchReportIndex;
 
         bool currentConditionPassed;
+        uint8_t suppressNext;
 
         bool delayActive;
         uint32_t delayStart;
