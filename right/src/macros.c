@@ -834,7 +834,7 @@ bool processSetStatusCommand(const char* arg, const char *argEnd)
 bool processSetRegCommand(const char* arg1, const char *argEnd)
 {
     uint8_t address = parseInt32(arg1, argEnd);
-    uint8_t param = parseInt32(nextTok(arg1, argEnd), argEnd);
+    int32_t param = parseInt32(nextTok(arg1, argEnd), argEnd);
     regs[address] = param;
     return false;
 }
