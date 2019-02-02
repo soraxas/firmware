@@ -182,14 +182,14 @@ static void processMouseActions()
     mouseElapsedTime = Timer_GetElapsedTimeAndSetCurrent(&mouseUsbReportUpdateTime);
 
     processMouseKineticState(&MouseMoveState);
-    ActiveUsbMouseReport->x = MouseMoveState.xOut;
-    ActiveUsbMouseReport->y = MouseMoveState.yOut;
+    ActiveUsbMouseReport->x += MouseMoveState.xOut;
+    ActiveUsbMouseReport->y += MouseMoveState.yOut;
     MouseMoveState.xOut = 0;
     MouseMoveState.yOut = 0;
 
     processMouseKineticState(&MouseScrollState);
-    ActiveUsbMouseReport->wheelX = MouseScrollState.xOut;
-    ActiveUsbMouseReport->wheelY = MouseScrollState.yOut;
+    ActiveUsbMouseReport->wheelX += MouseScrollState.xOut;
+    ActiveUsbMouseReport->wheelY += MouseScrollState.yOut;
     MouseScrollState.xOut = 0;
     MouseScrollState.yOut = 0;
 
@@ -361,17 +361,17 @@ void mergeReports(void)
         if(MacroState[j].macroPlaying && MacroState[j].reportsUsed) {
             macro_state_t *s = &MacroState[j];
             ActiveUsbBasicKeyboardReport->modifiers |= s->macroBasicKeyboardReport.modifiers;
-            for ( int i = 0; s->macroBasicKeyboardReport.scancodes[i] != 0; i++) {
+            for ( int i = 0; i < USB_BASIC_KEYBOARD_MAX_KEYS && s->macroBasicKeyboardReport.scancodes[i] != 0; i++) {
                 if( basicScancodeIndex < USB_BASIC_KEYBOARD_MAX_KEYS ) {
                     ActiveUsbBasicKeyboardReport->scancodes[basicScancodeIndex++] = s->macroBasicKeyboardReport.scancodes[i];
                 }
             }
-            for ( int i = 0; s->macroMediaKeyboardReport.scancodes[i] != 0; i++) {
+            for ( int i = 0; i < USB_MEDIA_KEYBOARD_MAX_KEYS && s->macroMediaKeyboardReport.scancodes[i] != 0 ; i++) {
                 if( mediaScancodeIndex < USB_MEDIA_KEYBOARD_MAX_KEYS ) {
                     ActiveUsbMediaKeyboardReport->scancodes[mediaScancodeIndex++] = s->macroMediaKeyboardReport.scancodes[i];
                 }
             }
-            for ( int i = 0; s->macroSystemKeyboardReport.scancodes[i] != 0; i++) {
+            for ( int i = 0; i < USB_SYSTEM_KEYBOARD_MAX_KEYS && s->macroSystemKeyboardReport.scancodes[i] != 0; i++) {
                 if( systemScancodeIndex < USB_SYSTEM_KEYBOARD_MAX_KEYS ) {
                     ActiveUsbSystemKeyboardReport->scancodes[systemScancodeIndex++] = s->macroSystemKeyboardReport.scancodes[i];
                 }
