@@ -81,7 +81,7 @@ Applies the corresponding settings globaly. Namely turns off sticky modifiers (i
 
 Postponed secondary role switch. This modification prevents secondary role hiccups on alphabetic keys. The `resolveSecondary` will listen for some time and once it decides whether the current situation fits primary or secondary action, it will issue goTo to the "second" line (line 1 since we index from 0) or the last line (line 3). Actions are indexed from 0. Any keys pressed during resolution are postponed until the first command after the jump is performed.
 
-    $resolveSecondary 250 1 3
+    $resolveSecondary 350 1 3
     $write f
     $break
     $holdLayer mod
