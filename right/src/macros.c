@@ -966,9 +966,26 @@ bool processSetKeystrokeDelayCommand(const char* arg, const char *argEnd)
     return false;
 }
 
+bool processStatsRuntimeCommand()
+{
+    int ms = Timer_GetElapsedTime(&s->currentMacroStartTime);
+    setStatusString("macro runtime is: ", NULL);
+    setStatusNum(ms);
+    setStatusString(" ms\n", NULL);
+    return false;
+}
+
+
+bool processNoOpCommand()
+{
+    return false;
+}
+
+
 void suppressNext(uint8_t count) {
     s->suppressNext = count + 1;
 }
+
 
 bool processResolveSecondaryCommand(const char* arg1, const char* argEnd)
 {
@@ -1158,6 +1175,14 @@ bool processCommandAction(void)
                 goto failed;
             }
             break;
+        case 'n':
+            if(tokenMatches(cmd, cmdEnd, "noOp")) {
+                return processNoOpCommand();
+            }
+            else {
+                goto failed;
+            }
+            break;
         case 'p':
             if(tokenMatches(cmd, cmdEnd, "printStatus")) {
                 return processPrintStatusCommand();
@@ -1189,6 +1214,9 @@ bool processCommandAction(void)
             }
             else if(tokenMatches(cmd, cmdEnd, "setReg")) {
                 return processSetRegCommand(arg1, cmdEnd);
+            }
+            else if(tokenMatches(cmd, cmdEnd, "statsRuntime")) {
+                return processStatsRuntimeCommand();
             }
             else if(tokenMatches(cmd, cmdEnd, "subReg")) {
                 return processRegAddCommand(arg1, cmdEnd, true);

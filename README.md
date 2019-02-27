@@ -105,6 +105,8 @@ The following grammar is supported:
     COMMAND = holdKeymapLayerMax KEYMAPID LAYERID <time in ms (NUMBER)>
     COMMAND = resolveSecondary <time in ms (NUMBER)> <primary action macro action index (NUMBER)> <secondary action macro action index (NUMBER)>
     COMMAND = break
+    COMMAND = noOp
+    COMMAND = statsRuntime
     COMMAND = printStatus
     COMMAND = setStatus <custom text>
     COMMAND = write <custom text>
@@ -133,10 +135,13 @@ The following grammar is supported:
 - Uncategorized commands:
   - `goTo <int>` will go to action index int. Actions are indexed from zero.
   - `break` will end playback of the current macro
-  - `printStatus` will "type" content of error status buffer (256 chars) on the keyboard. Mainly for debug purposes.
-  - `setStatus <custom text>` will append <custom text> to the error report buffer, if there is enough space for that
   - `write <custom text>` will type rest of the string. Same as the plain text command. This is just easier to use with conditionals...
   - `startMouse/stopMouse` start/stop corresponding mouse action. E.g., `startMouse move left`
+  - `noOp` does nothing - i.e., stops macro for exactly one update cycle and then continues.
+- Status buffer
+  - `printStatus` will "type" content of error status buffer (256 or 1024 chars, depends on my mood) on the keyboard. Mainly for debug purposes.
+  - `setStatus <custom text>` will append <custom text> to the error report buffer, if there is enough space for that
+  - `statsRuntime` will append information about runtime of current macro at the end of status buffer. The time is measured before the printing mechanism is initiated.
 - Delays:
   - `delayUntil <timeout>` sleeps the macro until timeout (in ms) is reached.
   - `delayUntilRelease` sleeps the macro until its activation key is released. Can be used to set action on key release. 
@@ -188,9 +193,19 @@ This version of firmware includes basic error handling. If an error is encounter
 - Only one-liners are allowed, due to our need to respect firmware's indexation of actions.
 - Global settings and recorded macros are remembered until power cycling only. 
 
+## Performance impact and other statistics
+
+Some measurements:
+
+- Typical update cycle without running macros takes approximately 2 ms.
+- With four macros running, the update cycle takes around 4 ms. (The parsing mechanism is stateless, therefore eating up performance on every update cycle.)
+- According to my measurements, typical key tap takes between 90 and 230 ms, with quite large variation (i.e., full range is encountered when writing regularly). Currently, debouncing delay is set to 50 ms, which means that after any change of state, the state is prevented from changing for the next 50 ms. This means that one key tap cannot last less than 50 ms with UHK (except for macro-induced taps and secondary roles). It also means that a key cannot be repeated faster than once per 100ms (in ideal conditions).
+- According to my experience, 250ms is a good double-tap delay trashold. 
+- According to my experience, 350ms is a good trashold for secondary role activation. I.e., at this time, it can be safely assumed that the key held was prolonged at purpose. 
+
 ## Contributing
 
-If you wish some functionality, feel free to fire tickets with feature requests. If you wish something already present on the tracker (e.g., in 'idea' tickets), say so in comments. If feel brave, fork the repo, implement the desired functionality and post a PR.
+If you wish some functionality, feel free to fire tickets with feature requests. If you wish something already present on the tracker (e.g., in 'idea' tickets), say so in comments. (Feel totally free to harass me over desired functionality :-).) If you feel brave, fork the repo, implement the desired functionality and post a PR.
 
 ## Adding new features
 
