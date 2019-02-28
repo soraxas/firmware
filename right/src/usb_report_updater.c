@@ -358,7 +358,9 @@ void mergeReports(void)
     mediaScancodeIndex = 0;
     systemScancodeIndex = 0;
     for(uint8_t j = 0; j < MACRO_STATE_POOL_SIZE; j++) {
-        if(MacroState[j].macroPlaying && MacroState[j].reportsUsed) {
+        if(MacroState[j].reportsUsed) {
+            //if the macro ended right now, we still want to flush the last report
+            MacroState[j].reportsUsed &= MacroState[j].macroPlaying;
             macro_state_t *s = &MacroState[j];
             ActiveUsbBasicKeyboardReport->modifiers |= s->macroBasicKeyboardReport.modifiers;
             for ( int i = 0; i < USB_BASIC_KEYBOARD_MAX_KEYS && s->macroBasicKeyboardReport.scancodes[i] != 0; i++) {
@@ -437,6 +439,7 @@ static void updateActiveUsbReports(void)
         for (uint8_t keyId=0; keyId<MAX_KEY_COUNT_PER_MODULE; keyId++) {
             key_state_t *keyState = &KeyStates[slotId][keyId];
             key_action_t *action;
+
 
             if (keyState->debouncing) {
                 if ((uint8_t)(CurrentTime - keyState->timestamp) > (keyState->previous ? DebounceTimePress : DebounceTimeRelease)) {
