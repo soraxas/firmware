@@ -991,14 +991,28 @@ bool processResolveSecondaryCommand(const char* arg1, const char* argEnd)
 {
     const char* arg2 = nextTok(arg1, argEnd);
     const char* arg3 = nextTok(arg2, argEnd);
-    uint16_t timeout = parseInt32(arg1, argEnd);
-    uint8_t primaryAdr = parseInt32(arg2, argEnd);
-    uint8_t secondaryAdr = parseInt32(arg3, argEnd);
+    const char* arg4 = nextTok(arg3, argEnd);
+    uint16_t timeout1 = parseInt32(arg1, argEnd);
+    uint16_t timeout2 = parseInt32(arg2, argEnd);
+    uint8_t primaryAdr = parseInt32(arg3, argEnd);
+    uint8_t secondaryAdr = parseInt32(arg4, argEnd);
     SuppressKeys = true;
-    if(s->currentMacroKey->previous && Timer_GetElapsedTime(&s->currentMacroStartTime) < timeout && !PendingPostponedAndReleased) {
+    //phase 1 - wait until some other key is released, then write down its release time
+    bool timer1Exceeded = Timer_GetElapsedTime(&s->currentMacroStartTime) >= timeout1;
+    if(!timer1Exceeded && s->currentMacroKey->previous && !PendingPostponedAndReleased) {
+        s->resolveSecondaryPhase2StartTime = 0;
         return true;
     }
-    if(Timer_GetElapsedTime(&s->currentMacroStartTime) >= timeout || PendingPostponedAndReleased) {
+    if(s->resolveSecondaryPhase2StartTime == 0) {
+        s->resolveSecondaryPhase2StartTime = CurrentTime;
+    }
+    //phase 2 - "safety margin" - wait another `timeout2` ms, and if the switcher is released during this time, still interpret it as a primary action
+    bool timer2Exceeded = Timer_GetElapsedTime(&s->resolveSecondaryPhase2StartTime) >= timeout2;
+    if(!timer1Exceeded && !timer2Exceeded && s->currentMacroKey->previous && PendingPostponedAndReleased) {
+        return true;
+    }
+    //phase 3 - resolve the situation - if the switcher is released first or within the "safety margin", interpret it as primary action, otherwise secondary
+    if(timer1Exceeded || (PendingPostponedAndReleased && timer2Exceeded)) {
         //secondary action
         return goTo(secondaryAdr);
     }
