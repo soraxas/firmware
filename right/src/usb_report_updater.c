@@ -41,6 +41,7 @@ bool SplitCompositeKeystroke = 1;
 bool PendingPostponedAndReleased = false;
 uint16_t KeystrokeDelay = 0;
 uint32_t KeystrokeDelayStarted = 0;
+bool ActivateOnRelease = false;
 
 mouse_kinetic_state_t MouseMoveState = {
     .isScroll = false,
@@ -263,7 +264,8 @@ static secondary_role_t secondaryRole;
 
 static void applyKeyAction(key_state_t *keyState, key_action_t *action, uint8_t slotId, uint8_t keyId)
 {
-  if (keyState->current) {
+  bool isKeystrokeActivatedOnRelease = ActivateOnRelease && action->type == KeyActionType_Keystroke && action->keystroke.modifiers == 0 && action->keystroke.secondaryRole == 0;
+  if (keyState->current || isKeystrokeActivatedOnRelease) {
 
     handleSwitchLayerAction(keyState, action);
 
@@ -467,7 +469,13 @@ static void updateActiveUsbReports(void)
 
             action = &actionCache[slotId][keyId];
 
-            if (keyState->current) {
+            bool isKeystrokeActivatedOnRelease = ActivateOnRelease && action->type == KeyActionType_Keystroke && action->keystroke.modifiers == 0 && action->keystroke.secondaryRole == 0;
+            if ( isKeystrokeActivatedOnRelease ) {
+                if(keyState->previous && !keyState->current) {
+                    applyKeyAction(keyState, action, slotId, keyId);
+                }
+            }
+            else if (keyState->current) {
                 if (action->type == KeyActionType_Keystroke && action->keystroke.secondaryRole) {
                     // Press released secondary role key.
                     if (!keyState->previous && secondaryRoleState == SecondaryRoleState_Released) {

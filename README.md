@@ -115,6 +115,7 @@ The following grammar is supported:
     COMMAND = {recordMacro|playMacro} <slot identifier (CHAR)>
     COMMAND = {startMouse|stopMouse} {move DIRECTION|scroll DIRECTION|accelerate|decelerate}
     COMMAND = setStickyModsEnabled {0|1}
+    COMMAND = setActivateOnRelease {0|1}
     COMMAND = setSplitCompositeKeystroke {0|1}
     COMMAND = setKeystrokeDelay <time in ms, at most 250 (NUMBER)>
     COMMAND = setReg <register index (NUMBER)> <value (NUMBER)> 
@@ -178,6 +179,7 @@ The following grammar is supported:
   - `setStickyModsEnabled` globally turns on or off sticky modifiers
   - `setSplitCompositeKeystroke {0|1}` If enabled, composite keystrokes (e.g., Ctrl+c sent by a single key) are separated into distinct usb reports. This makes order of keypresses clearly determined. Enabled by default.
   - `setKeystrokeDelay <time in ms, at most 250>` will stop event processing for the specified time after every usb report change. May be used to slow down macroes, to insert delay between composite keystrokes. Beware, this does not queue keypresses - if the delay is too long, some keypresses may be skipped entirelly!
+  - `setActivateOnRelease {0|1}` **experimental** if turned on, key actions are activated just once upon key release. This is a highly experimental feature, not guaranteed to work properly with all features of the keyboard! Intended usecase - if you wish to see whether or not you release keys in proper order. 
 - Argument parsing rules:
   - `NUMBER` is parsed as a 32 bit signed integer and then assigned into the target variable. However, the target variable is often only 8 or 16 bit unsigned. If a number is prefixed with '#', it is interpretted as a register address (index)
   - `abbrev` is assumed to be 3 characters long abbreviation of the keymap

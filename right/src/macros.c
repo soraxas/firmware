@@ -953,6 +953,13 @@ bool processSetStickyModsEnabledCommand(const char* arg, const char *argEnd)
     return false;
 }
 
+bool processSetActivateOnReleaseCommand(const char* arg, const char *argEnd)
+{
+    uint8_t enabled = parseInt32(arg,  argEnd);
+    ActivateOnRelease = enabled;
+    return false;
+}
+
 bool processSetSplitCompositeKeystrokeCommand(const char* arg, const char *argEnd)
 {
     SplitCompositeKeystroke  = parseInt32(arg,  argEnd);
@@ -1241,6 +1248,9 @@ bool processCommandAction(void)
             }
             else if(tokenMatches(cmd, cmdEnd, "setStickyModsEnabled")) {
                 return processSetStickyModsEnabledCommand(arg1, cmdEnd);
+            }
+            else if(tokenMatches(cmd, cmdEnd, "setActivateOnRelease")) {
+                return processSetActivateOnReleaseCommand(arg1, cmdEnd);
             }
             else if(tokenMatches(cmd, cmdEnd, "setSplitCompositeKeystroke")) {
                 return processSetSplitCompositeKeystrokeCommand(arg1, cmdEnd);
