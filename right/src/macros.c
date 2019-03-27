@@ -669,6 +669,14 @@ bool processSwitchKeymapCommand(const char* arg1, const char* cmdEnd)
     return false;
 }
 
+bool processSwitchKeymapLayerCommand(const char* arg1, const char* cmdEnd)
+{
+    uint8_t tmpLayerIdx = ToggledLayer;
+    pushStack(parseLayerId(nextTok(arg1, cmdEnd), cmdEnd), parseKeymapId(arg1, cmdEnd), false);
+    lastLayerIdx = tmpLayerIdx;
+    return false;
+}
+
 bool processSwitchLayerCommand(const char* arg1, const char* cmdEnd)
 {
     uint8_t tmpLayerIdx = ToggledLayer;
@@ -1252,6 +1260,9 @@ bool processCommandAction(void)
             }
             else if(tokenMatches(cmd, cmdEnd, "switchKeymap")) {
                 return processSwitchKeymapCommand(arg1, cmdEnd);
+            }
+            else if(tokenMatches(cmd, cmdEnd, "switchKeymapLayer")) {
+                return processSwitchKeymapLayerCommand(arg1, cmdEnd);
             }
             else if(tokenMatches(cmd, cmdEnd, "switchLayer")) {
                 return processSwitchLayerCommand(arg1, cmdEnd);
