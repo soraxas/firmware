@@ -517,7 +517,7 @@ static void updateActiveUsbReports(void)
                     applyKeyAction(keyState, action, slotId, keyId);
                 }
             }
-            if (ACTIVE(keyState)) {
+            else if (ACTIVE(keyState)) {
                 if (action->type == KeyActionType_Keystroke && action->keystroke.secondaryRole) {
                     // Press released secondary role key.
                     if (ACTIVATED_NOW(keyState) && secondaryRoleState == SecondaryRoleState_Released) {
