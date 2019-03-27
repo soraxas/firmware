@@ -222,7 +222,7 @@ static void handleSwitchLayerAction(key_state_t *keyState, key_action_t *action)
     static uint32_t doubleTapSwitchLayerTriggerTime;
     static bool isLayerDoubleTapToggled;
 
-    if (doubleTapSwitchLayerKey && doubleTapSwitchLayerKey != keyState && !keyState->previous) {
+    if (doubleTapSwitchLayerKey && doubleTapSwitchLayerKey != keyState && ACTIVATED_NOW(keyState)) {
         doubleTapSwitchLayerKey = NULL;
     }
 
@@ -230,18 +230,18 @@ static void handleSwitchLayerAction(key_state_t *keyState, key_action_t *action)
         return;
     }
 
-    if (!keyState->previous && isLayerDoubleTapToggled && ToggledLayer == action->switchLayer.layer) {
+    if (ACTIVATED_NOW(keyState) && isLayerDoubleTapToggled && ToggledLayer == action->switchLayer.layer) {
         ToggledLayer = LayerId_Base;
         isLayerDoubleTapToggled = false;
     }
 
-    if (keyState->previous && doubleTapSwitchLayerKey == keyState &&
+    if (ACTIVE(keyState) && doubleTapSwitchLayerKey == keyState &&
         Timer_GetElapsedTime(&doubleTapSwitchLayerTriggerTime) > DoubleTapSwitchLayerReleaseTimeout)
     {
         ToggledLayer = LayerId_Base;
     }
 
-    if (!keyState->previous && previousLayer == LayerId_Base && action->switchLayer.mode == SwitchLayerMode_HoldAndDoubleTapToggle) {
+    if (ACTIVATED_NOW(keyState) && previousLayer == LayerId_Base && action->switchLayer.mode == SwitchLayerMode_HoldAndDoubleTapToggle) {
         if (doubleTapSwitchLayerKey && Timer_GetElapsedTimeAndSetCurrent(&doubleTapSwitchLayerStartTime) < DoubleTapSwitchLayerTimeout) {
             ToggledLayer = action->switchLayer.layer;
             isLayerDoubleTapToggled = true;
@@ -265,18 +265,18 @@ static secondary_role_t secondaryRole;
 static void applyKeyAction(key_state_t *keyState, key_action_t *action, uint8_t slotId, uint8_t keyId)
 {
   bool isKeystrokeActivatedOnRelease = ActivateOnRelease && action->type == KeyActionType_Keystroke && action->keystroke.modifiers == 0 && action->keystroke.secondaryRole == 0;
-  if (keyState->current || isKeystrokeActivatedOnRelease) {
+  if (ACTIVE(keyState) || isKeystrokeActivatedOnRelease) {
 
     handleSwitchLayerAction(keyState, action);
 
-    if (!keyState->previous) {
+    if (ACTIVATED_NOW(keyState)) {
         Macros_SignalInterrupt();
     }
 
     switch (action->type) {
         case KeyActionType_Keystroke:
             if (action->keystroke.scancode) {
-                if (!keyState->previous) {
+                if (ACTIVATED_NOW(keyState)) {
                     stickyModifiers = action->keystroke.modifiers;
                     stickySlotId = slotId;
                     stickyKeyId = keyId;
@@ -288,7 +288,7 @@ static void applyKeyAction(key_state_t *keyState, key_action_t *action, uint8_t 
             else {
                 SuppressedModifierState |= action->keystroke.modifiers;
             }
-            if (action->keystroke.modifiers == 0 || SplitCompositeKeystroke == 0 || keyState->previous) {
+            if (action->keystroke.modifiers == 0 || SplitCompositeKeystroke == 0 || ACTIVATED_EARLIER(keyState)) {
                 switch (action->keystroke.keystrokeType) {
                     case KeystrokeType_Basic:
                         if (basicScancodeIndex >= USB_BASIC_KEYBOARD_MAX_KEYS || action->keystroke.scancode == 0) {
@@ -312,7 +312,7 @@ static void applyKeyAction(key_state_t *keyState, key_action_t *action, uint8_t 
             }
             break;
         case KeyActionType_Mouse:
-            if (!keyState->previous) {
+            if (ACTIVATED_NOW(keyState)) {
                 stickyModifiers = 0;
             }
             activeMouseStates[action->mouseAction] = true;
@@ -321,7 +321,7 @@ static void applyKeyAction(key_state_t *keyState, key_action_t *action, uint8_t 
             // Handled by handleSwitchLayerAction()
             break;
         case KeyActionType_SwitchKeymap:
-            if (!keyState->previous) {
+            if (ACTIVATED_NOW(keyState)) {
                 stickyModifiers = 0;
                 secondaryRoleState = SecondaryRoleState_Released;
                 SwitchKeymapById(action->switchKeymap.keymapId);
@@ -329,7 +329,7 @@ static void applyKeyAction(key_state_t *keyState, key_action_t *action, uint8_t 
             }
             break;
         case KeyActionType_PlayMacro:
-            if (!keyState->previous) {
+            if (ACTIVATED_NOW(keyState)) {
                 stickyModifiers = 0;
                 Macros_StartMacro(action->playMacro.macroId, keyState);
             }
@@ -338,7 +338,7 @@ static void applyKeyAction(key_state_t *keyState, key_action_t *action, uint8_t 
     } else {
         switch (action->type) {
             case KeyActionType_Keystroke:
-                if (keyState->previous) {
+                if (ACTIVATED_EARLIER(keyState)) {
                     if (slotId == stickySlotId && keyId == stickyKeyId) {
                         if (!IsLayerHeld() && !(secondaryRoleState == SecondaryRoleState_Triggered && IS_SECONDARY_ROLE_LAYER_SWITCHER(secondaryRole))) {
                             stickyModifiers = 0;
@@ -389,8 +389,71 @@ void mergeReports(void)
     }
 }
 
+static void activateKey(key_state_t *keyState, bool debounce) {
+    keyState->previous = 0;
+    keyState->current = KeyState_Hw | KeyState_HwDebounced | KeyState_Sw;
+    if(debounce) {
+        keyState->timestamp = CurrentTime;
+        keyState->debouncing = true;
+    }
+}
+
+static inline void preprocessKeyState(key_state_t *keyState) {
+    bool prevHW = keyState->previous & KeyState_Hw;
+    bool prevDB = keyState->previous & KeyState_HwDebounced;
+    bool prevSW = keyState->previous & KeyState_Sw;
+    bool currHW = keyState->current & KeyState_Hw;
+    bool currDB = currHW;
+
+    if (keyState->debouncing) {
+        if ((uint8_t)(CurrentTime - keyState->timestamp) > (prevDB ? DebounceTimePress : DebounceTimeRelease)) {
+            keyState->debouncing = false;
+        } else {
+            currDB = prevDB;
+        }
+    } else if (prevDB != currHW) {
+        keyState->timestamp = CurrentTime;
+        keyState->debouncing = true;
+    }
+
+    bool currSW = currDB;
+
+    if (SuppressingKeys) {
+        currSW = currDB && prevSW;
+        keyState->postponed += (currDB && !prevDB) ? 1 : 0;
+    } else if(keyState->postponed && !SuppressingKeys && !prevSW) {
+        keyState->postponed--;
+        currDB = true;
+        currSW = true;
+        activateKey(keyState, true);
+    }
+
+    PendingPostponedAndReleased |= keyState->postponed && !currDB;
+    /*
+    <<<<<<< HEAD
+            KeyStates[SlotId_RightKeyboardHalf][keyId].current = (RightKeyMatrix.keyStates[keyId] || KeyStates[SlotId_RightKeyboardHalf][keyId].postponed ) && (!SuppressingKeys || KeyStates[SlotId_RightKeyboardHalf][keyId].previous);
+            KeyStates[SlotId_RightKeyboardHalf][keyId].postponed = (RightKeyMatrix.keyStates[keyId] || KeyStates[SlotId_RightKeyboardHalf][keyId].postponed ) && SuppressingKeys && !KeyStates[SlotId_RightKeyboardHalf][keyId].previous;
+            PendingPostponedAndReleased |= KeyStates[SlotId_RightKeyboardHalf][keyId].postponed && !RightKeyMatrix.keyStates[keyId];
+    =======
+            KeyStates[SlotId_RightKeyboardHalf][keyId].current = RightKeyMatrix.keyStates[keyId] ? KeyState_Hw : 0;;
+    >>>>>>> origin_state_refactor*/
+
+    keyState->current = KEYSTATE(currHW, currDB, currSW);
+}
+
+static void preprocessKeyStates() {
+    for (uint8_t slotId=0; slotId<SLOT_COUNT; slotId++) {
+        for (uint8_t keyId=0; keyId<MAX_KEY_COUNT_PER_MODULE; keyId++) {
+            key_state_t *keyState = &KeyStates[slotId][keyId];
+            preprocessKeyState(keyState);
+        }
+    }
+}
+
 static void updateActiveUsbReports(void)
 {
+    preprocessKeyStates();
+
     basicScancodeIndex = 0;
     mediaScancodeIndex = 0;
     systemScancodeIndex = 0;
@@ -423,7 +486,7 @@ static void updateActiveUsbReports(void)
         static uint32_t mediaCounter = 0;
         key_state_t *testKeyState = &KeyStates[SlotId_LeftKeyboardHalf][0];
 
-        if (activeLayer == LayerId_Fn && testKeyState->current && !testKeyState->previous) {
+        if (activeLayer == LayerId_Fn && ACTIVATED_NOW(testKeyState)) {
             simulateKeypresses = !simulateKeypresses;
         }
         if (simulateKeypresses) {
@@ -442,26 +505,14 @@ static void updateActiveUsbReports(void)
             key_state_t *keyState = &KeyStates[slotId][keyId];
             key_action_t *action;
 
-
-            if (keyState->debouncing) {
-                if ((uint8_t)(CurrentTime - keyState->timestamp) > (keyState->previous ? DebounceTimePress : DebounceTimeRelease)) {
-                    keyState->debouncing = false;
-                } else {
-                    keyState->current = keyState->previous;
-                }
-            } else if (keyState->previous != keyState->current) {
-                keyState->timestamp = CurrentTime;
-                keyState->debouncing = true;
-            }
-
-            if (keyState->current && !keyState->previous) {
+            if (ACTIVATED_NOW(keyState)) {
                 if (SleepModeActive) {
                     WakeUpHost();
                 }
                 if (secondaryRoleState == SecondaryRoleState_Pressed) {
                     // Trigger secondary role.
                     secondaryRoleState = SecondaryRoleState_Triggered;
-                    keyState->current = false;
+                    keyState->current = 0;
                 } else {
                     actionCache[slotId][keyId] = CurrentKeymap[activeLayer][slotId][keyId];
                 }
@@ -471,14 +522,14 @@ static void updateActiveUsbReports(void)
 
             bool isKeystrokeActivatedOnRelease = ActivateOnRelease && action->type == KeyActionType_Keystroke && action->keystroke.modifiers == 0 && action->keystroke.secondaryRole == 0;
             if ( isKeystrokeActivatedOnRelease ) {
-                if(keyState->previous && !keyState->current) {
+                if(DEACTIVATED_NOW(keyState)) {
                     applyKeyAction(keyState, action, slotId, keyId);
                 }
             }
-            else if (keyState->current) {
+            if (ACTIVE(keyState)) {
                 if (action->type == KeyActionType_Keystroke && action->keystroke.secondaryRole) {
                     // Press released secondary role key.
-                    if (!keyState->previous && secondaryRoleState == SecondaryRoleState_Released) {
+                    if (ACTIVATED_NOW(keyState) && secondaryRoleState == SecondaryRoleState_Released) {
                         secondaryRoleState = SecondaryRoleState_Pressed;
                         secondaryRoleSlotId = slotId;
                         secondaryRoleKeyId = keyId;
@@ -489,11 +540,10 @@ static void updateActiveUsbReports(void)
                 }
             } else {
                 // Release secondary role key.
-                if (keyState->previous && secondaryRoleSlotId == slotId && secondaryRoleKeyId == keyId && secondaryRoleState != SecondaryRoleState_Released) {
+                if (DEACTIVATED_NOW(keyState) && secondaryRoleSlotId == slotId && secondaryRoleKeyId == keyId && secondaryRoleState != SecondaryRoleState_Released) {
                     // Trigger primary role.
                     if (secondaryRoleState == SecondaryRoleState_Pressed) {
-                        keyState->previous = false;
-                        keyState->current = true;
+                        activateKey(keyState, true);
                         applyKeyAction(keyState, action, slotId, keyId);
                     }
                     secondaryRoleState = SecondaryRoleState_Released;
@@ -531,9 +581,7 @@ void UpdateUsbReports(void)
     SuppressingKeys = SuppressKeys || KeystrokeDelay > Timer_GetElapsedTime(&KeystrokeDelayStarted);
 
     for (uint8_t keyId = 0; keyId < RIGHT_KEY_MATRIX_KEY_COUNT; keyId++) {
-        KeyStates[SlotId_RightKeyboardHalf][keyId].current = (RightKeyMatrix.keyStates[keyId] || KeyStates[SlotId_RightKeyboardHalf][keyId].postponed ) && (!SuppressingKeys || KeyStates[SlotId_RightKeyboardHalf][keyId].previous);
-        KeyStates[SlotId_RightKeyboardHalf][keyId].postponed = (RightKeyMatrix.keyStates[keyId] || KeyStates[SlotId_RightKeyboardHalf][keyId].postponed ) && SuppressingKeys && !KeyStates[SlotId_RightKeyboardHalf][keyId].previous;
-        PendingPostponedAndReleased |= KeyStates[SlotId_RightKeyboardHalf][keyId].postponed && !RightKeyMatrix.keyStates[keyId];
+        KeyStates[SlotId_RightKeyboardHalf][keyId].current = RightKeyMatrix.keyStates[keyId] ? KeyState_Hw : 0;
     }
 
     if (UsbReportUpdateSemaphore && !SleepModeActive) {

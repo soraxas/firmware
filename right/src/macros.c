@@ -692,7 +692,7 @@ bool processHoldLayer(uint8_t layer, uint8_t keymap, uint16_t timeout)
         return true;
     }
     else {
-        if(s->currentMacroKey->previous && (Timer_GetElapsedTime(&s->currentMacroStartTime) < timeout || s->macroInterrupted)) {
+        if(ACTIVE(s->currentMacroKey) && (Timer_GetElapsedTime(&s->currentMacroStartTime) < timeout || s->macroInterrupted)) {
             return true;
         }
         else {
@@ -736,8 +736,7 @@ bool processHoldKeymapLayerMaxCommand(const char* arg1, const char* cmdEnd)
 bool processDelayUntilReleaseMaxCommand(const char* arg1, const char* cmdEnd)
 {
     uint32_t timeout = parseInt32(arg1, cmdEnd);
-    //debouncing takes place later in the event loop, i.e., at this time, only s->currentMacroKey->previous is debounced
-    if(s->currentMacroKey->previous && Timer_GetElapsedTime(&s->currentMacroStartTime) < timeout) {
+    if(ACTIVE(s->currentMacroKey) && Timer_GetElapsedTime(&s->currentMacroStartTime) < timeout) {
         return true;
     }
     return false;
@@ -745,7 +744,7 @@ bool processDelayUntilReleaseMaxCommand(const char* arg1, const char* cmdEnd)
 
 bool processDelayUntilReleaseCommand()
 {
-    if(s->currentMacroKey->previous) {
+    if(ACTIVE(s->currentMacroKey)) {
         return true;
     }
     return false;
@@ -759,7 +758,7 @@ bool processDelayUntilCommand(const char* arg1, const char* cmdEnd)
 
 bool processRecordMacroDelayCommand()
 {
-    if(s->currentMacroKey->previous) {
+    if(ACTIVE(s->currentMacroKey)) {
         return true;
     }
     uint16_t delay = Timer_GetElapsedTime(&s->currentMacroStartTime);
@@ -1002,7 +1001,7 @@ bool processResolveSecondaryCommand(const char* arg1, const char* argEnd)
     uint8_t primaryAdr = parseInt32(arg2, argEnd);
     uint8_t secondaryAdr = parseInt32(arg3, argEnd);
     SuppressKeys = true;
-    if(s->currentMacroKey->previous && Timer_GetElapsedTime(&s->currentMacroStartTime) < timeout && !PendingPostponedAndReleased) {
+    if(ACTIVE(s->currentMacroKey) && Timer_GetElapsedTime(&s->currentMacroStartTime) < timeout && !PendingPostponedAndReleased) {
         return true;
     }
     if(Timer_GetElapsedTime(&s->currentMacroStartTime) >= timeout || PendingPostponedAndReleased) {

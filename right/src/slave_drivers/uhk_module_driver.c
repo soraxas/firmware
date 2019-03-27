@@ -225,9 +225,7 @@ status_t UhkModuleSlaveDriver_Update(uint8_t uhkModuleDriverId)
                 uint8_t slotId = uhkModuleDriverId + 1;
                 BoolBitsToBytes(rxMessage->data, keyStatesBuffer, uhkModuleState->keyCount);
                 for (uint8_t keyId=0; keyId<uhkModuleState->keyCount; keyId++) {
-                    KeyStates[slotId][keyId].current = (keyStatesBuffer[keyId] || KeyStates[slotId][keyId].postponed ) && (!SuppressingKeys || KeyStates[slotId][keyId].previous);
-                    KeyStates[slotId][keyId].postponed = (keyStatesBuffer[keyId] || KeyStates[slotId][keyId].postponed ) && SuppressingKeys && !KeyStates[slotId][keyId].previous;
-                    PendingPostponedAndReleased |= KeyStates[slotId][keyId].postponed && !keyStatesBuffer[keyId];
+                    KeyStates[slotId][keyId].current = (KeyStates[slotId][keyId].current & ~KeyState_Hw) | (keyStatesBuffer[keyId] ? KeyState_Hw : 0);
                 }
             }
             status = kStatus_Uhk_IdleCycle;
