@@ -3,6 +3,7 @@
 #include "config_parser/config_globals.h"
 #include "timer.h"
 #include "keymap.h"
+#include "key_matrix.h"
 #include "usb_report_updater.h"
 #include "led_display.h"
 #include "macro_recorder.h"
@@ -980,6 +981,15 @@ bool processSetKeystrokeDelayCommand(const char* arg, const char *argEnd)
     return false;
 }
 
+bool processSetDebounceDelayCommand(const char* arg, const char *argEnd)
+{
+    uint16_t delay = parseInt32(arg,  argEnd);
+    delay = delay < 250 ? delay : 250;
+    DebounceTimePress = delay;
+    DebounceTimeRelease = delay;
+    return false;
+}
+
 bool processStatsRuntimeCommand()
 {
     int ms = Timer_GetElapsedTime(&s->currentMacroStartTime);
@@ -1290,6 +1300,9 @@ bool processCommandAction(void)
             }
             else if(tokenMatches(cmd, cmdEnd, "setKeystrokeDelay")) {
                 return processSetKeystrokeDelayCommand(arg1, cmdEnd);
+            }
+            else if(tokenMatches(cmd, cmdEnd, "setDebounceDelay")) {
+                return processSetDebounceDelayCommand(arg1, cmdEnd);
             }
             else {
                 goto failed;
