@@ -106,6 +106,7 @@
 
         bool delayActive;
         uint32_t delayStart;
+        uint32_t resolveSecondaryPhase2StartTime;
 
         bool holdActive;
         uint8_t holdLayerIdx;

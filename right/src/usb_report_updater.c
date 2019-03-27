@@ -399,7 +399,6 @@ static void activateKey(key_state_t *keyState, bool debounce) {
 }
 
 static inline void preprocessKeyState(key_state_t *keyState) {
-    bool prevHW = keyState->previous & KeyState_Hw;
     bool prevDB = keyState->previous & KeyState_HwDebounced;
     bool prevSW = keyState->previous & KeyState_Sw;
     bool currHW = keyState->current & KeyState_Hw;
@@ -429,14 +428,6 @@ static inline void preprocessKeyState(key_state_t *keyState) {
     }
 
     PendingPostponedAndReleased |= keyState->postponed && !currDB;
-    /*
-    <<<<<<< HEAD
-            KeyStates[SlotId_RightKeyboardHalf][keyId].current = (RightKeyMatrix.keyStates[keyId] || KeyStates[SlotId_RightKeyboardHalf][keyId].postponed ) && (!SuppressingKeys || KeyStates[SlotId_RightKeyboardHalf][keyId].previous);
-            KeyStates[SlotId_RightKeyboardHalf][keyId].postponed = (RightKeyMatrix.keyStates[keyId] || KeyStates[SlotId_RightKeyboardHalf][keyId].postponed ) && SuppressingKeys && !KeyStates[SlotId_RightKeyboardHalf][keyId].previous;
-            PendingPostponedAndReleased |= KeyStates[SlotId_RightKeyboardHalf][keyId].postponed && !RightKeyMatrix.keyStates[keyId];
-    =======
-            KeyStates[SlotId_RightKeyboardHalf][keyId].current = RightKeyMatrix.keyStates[keyId] ? KeyState_Hw : 0;;
-    >>>>>>> origin_state_refactor*/
 
     keyState->current = KEYSTATE(currHW, currDB, currSW);
 }
