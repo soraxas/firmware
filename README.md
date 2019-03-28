@@ -226,7 +226,11 @@ Practically all high-level functionality of the firmware is implemented in the f
 - `usb_report_updater.c` - logic of key activation, layer switching, debouncing, etc.. Almost all important stuff is here.
 - `layer.c` - some suport for "hold" layer switching (beware, there are two independent layer switching mechanisms and this one is the less important one).
 - `keymap.c` - keymap switching functions.
-- `macros.c` - the macro engine. We furthermore extend it by `macro_recorder.c`
+- `macros.c` - the macro engine. 
+
+We furthermore add the following:
+- `macro_recorder.c` - includes the actual recorder of runtime macros.
+- `postponer.c` - contains simple circular buffer which keeps track of postponed keys. This is vital for proper function of postponed secondary roles. 
 
 Our command actions are rooted in `processCommandAction(...)` in `macros.c`.
 
