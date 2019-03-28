@@ -8,7 +8,6 @@
 #include "slave_drivers/is31fl3731_driver.h"
 #include "slave_drivers/uhk_module_driver.h"
 #include "macros.h"
-#include "key_states.h"
 #include "right_key_matrix.h"
 #include "layer.h"
 #include "usb_report_updater.h"
@@ -17,6 +16,7 @@
 #include "usb_commands/usb_command_get_debug_buffer.h"
 #include "arduino_hid/ConsumerAPI.h"
 #include "macro_recorder.h"
+#include "postponer.h"
 
 static uint32_t mouseUsbReportUpdateTime = 0;
 static uint32_t mouseElapsedTime;
@@ -389,7 +389,7 @@ void mergeReports(void)
     }
 }
 
-static void activateKey(key_state_t *keyState, bool debounce) {
+void ActivateKey(key_state_t *keyState, bool debounce) {
     keyState->previous = 0;
     keyState->current = KeyState_Hw | KeyState_HwDebounced | KeyState_Sw;
     if(debounce) {
@@ -417,17 +417,14 @@ static inline void preprocessKeyState(key_state_t *keyState) {
 
     bool currSW = currDB;
 
-    if (SuppressingKeys) {
+    if (SuppressingKeys || Postponer_PendingCount() > 0) {
         currSW = currDB && prevSW;
-        keyState->postponed += (currDB && !prevDB) ? 1 : 0;
-    } else if(keyState->postponed && !SuppressingKeys && !prevSW) {
-        keyState->postponed--;
-        currDB = true;
-        currSW = true;
-        activateKey(keyState, true);
+        if(currDB && !prevDB) {
+            Postponer_TrackKey(keyState);
+        }
     }
 
-    PendingPostponedAndReleased |= keyState->postponed && !currDB;
+    PendingPostponedAndReleased |= prevDB && !prevSW && !currDB;
 
     keyState->current = KEYSTATE(currHW, currDB, currSW);
 }
@@ -438,6 +435,9 @@ static void preprocessKeyStates() {
             key_state_t *keyState = &KeyStates[slotId][keyId];
             preprocessKeyState(keyState);
         }
+    }
+    if(!SuppressingKeys || Postponer_PendingCount() > POSTPONER_MAX_FILL) {
+        Postponer_RunPostponed();
     }
 }
 
@@ -534,7 +534,7 @@ static void updateActiveUsbReports(void)
                 if (DEACTIVATED_NOW(keyState) && secondaryRoleSlotId == slotId && secondaryRoleKeyId == keyId && secondaryRoleState != SecondaryRoleState_Released) {
                     // Trigger primary role.
                     if (secondaryRoleState == SecondaryRoleState_Pressed) {
-                        activateKey(keyState, true);
+                        ActivateKey(keyState, true);
                         applyKeyAction(keyState, action, slotId, keyId);
                     }
                     secondaryRoleState = SecondaryRoleState_Released;

@@ -6,6 +6,7 @@
 #include "key_matrix.h"
 #include "usb_report_updater.h"
 #include "led_display.h"
+#include "postponer.h"
 #include "macro_recorder.h"
 
 macro_reference_t AllMacros[MAX_MACRO_NUM];
@@ -1024,7 +1025,7 @@ bool processResolveSecondary(uint16_t timeout1, uint16_t timeout2, uint8_t prima
     }
     //phase 2 - "safety margin" - wait another `timeout2` ms, and if the switcher is released during this time, still interpret it as a primary action
     bool timer2Exceeded = Timer_GetElapsedTime(&s->resolveSecondaryPhase2StartTime) >= timeout2;
-    if(!timer1Exceeded && !timer2Exceeded && ACTIVE(s->currentMacroKey) && PendingPostponedAndReleased) {
+    if(!timer1Exceeded && !timer2Exceeded && ACTIVE(s->currentMacroKey) && PendingPostponedAndReleased && Postponer_PendingCount() < 3) {
         return true;
     }
     //phase 3 - resolve the situation - if the switcher is released first or within the "safety margin", interpret it as primary action, otherwise secondary

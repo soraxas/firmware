@@ -14,6 +14,7 @@
     #define ACTIVATED_NOW(A) (((A)->current & KeyState_Sw) && !((A)->previous & KeyState_Sw) )
     #define ACTIVATED_EARLIER(A) (((A)->current & KeyState_Sw) && ((A)->previous & KeyState_Sw) )
     #define DEACTIVATED_NOW(A) (!((A)->current & KeyState_Sw) && ((A)->previous & KeyState_Sw) )
+    #define DEACTIVATED_EARLIER(A) (!((A)->current & KeyState_Sw) && !((A)->previous & KeyState_Sw) )
     #define KEYSTATE(A, B, C) (((A) ? KeyState_Hw : 0 ) | ((B) ? KeyState_HwDebounced : 0) | ((C) ? KeyState_Sw : 0))
 
 // Typedefs:
@@ -28,7 +29,6 @@
         uint8_t timestamp;
         uint8_t previous;
         uint8_t current;
-        uint8_t postponed;
         bool debouncing : 1;
     } key_state_t;
 

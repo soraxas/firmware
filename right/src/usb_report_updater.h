@@ -4,6 +4,7 @@
 // Includes:
 
     #include "config_parser/parse_keymap.h"
+    #include "key_states.h"
 
 // Macros:
 
@@ -89,5 +90,6 @@
 
     void UpdateUsbReports(void);
     void ToggleMouseState(serialized_mouse_action_t action, bool activate);
+    void ActivateKey(key_state_t *keyState, bool debounce);
 
 #endif
