@@ -254,7 +254,7 @@ void deleteSystemScancode(uint8_t scancode)
     }
 }
 
-void addScancode(uint16_t scancode, macro_sub_action_t type)
+void addScancode(uint16_t scancode, keystroke_type_t type)
 {
     switch (type) {
         case KeystrokeType_Basic:
@@ -269,7 +269,7 @@ void addScancode(uint16_t scancode, macro_sub_action_t type)
     }
 }
 
-void deleteScancode(uint16_t scancode, macro_sub_action_t type)
+void deleteScancode(uint16_t scancode, keystroke_type_t type)
 {
     switch (type) {
         case KeystrokeType_Basic:
