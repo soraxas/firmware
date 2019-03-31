@@ -34,11 +34,11 @@ volatile uint8_t UsbReportUpdateSemaphore = 0;
 uint8_t OldModifierState;
 uint8_t SuppressedModifierState;
 bool SuppressMods = false;
+bool PostponeKeys = false;
 bool SuppressKeys = false;
 bool SuppressingKeys = false;
 bool StickyModifiersEnabled = true;
 bool SplitCompositeKeystroke = 1;
-bool PendingPostponedAndReleased = false;
 uint16_t KeystrokeDelay = 0;
 uint32_t KeystrokeDelayStarted = 0;
 bool ActivateOnRelease = false;
@@ -417,14 +417,14 @@ static inline void preprocessKeyState(key_state_t *keyState) {
 
     bool currSW = currDB;
 
-    if (SuppressingKeys || Postponer_PendingCount() > 0) {
+     if (PostponeKeys || Postponer_PendingCount() > 0) {
         currSW = currDB && prevSW;
         if(currDB && !prevDB) {
             Postponer_TrackKey(keyState);
         }
+    } else if (SuppressKeys) {
+        currSW = currDB && prevSW;
     }
-
-    PendingPostponedAndReleased |= prevDB && !prevSW && !currDB;
 
     keyState->current = KEYSTATE(currHW, currDB, currSW);
 }
@@ -436,26 +436,27 @@ static void preprocessKeyStates() {
             preprocessKeyState(keyState);
         }
     }
-    if(!SuppressingKeys || Postponer_PendingCount() > POSTPONER_MAX_FILL) {
+    if(!PostponeKeys || Postponer_PendingCount() > POSTPONER_MAX_FILL) {
         Postponer_RunPostponed();
     }
 }
 
 static void updateActiveUsbReports(void)
 {
-    preprocessKeyStates();
-
     basicScancodeIndex = 0;
     mediaScancodeIndex = 0;
     systemScancodeIndex = 0;
+    SuppressedModifierState = 0;
     SuppressMods = false;
     SuppressKeys = false;
-    SuppressedModifierState = 0;
+    PostponeKeys = false;
 
     if (MacroPlaying) {
         Macros_ContinueMacro();
         mergeReports();
     }
+
+    preprocessKeyStates();
 
     memcpy(activeMouseStates, toggledMouseStates, ACTIVE_MOUSE_STATES_COUNT);
 
@@ -569,10 +570,8 @@ void UpdateUsbReports(void)
 {
     static uint32_t lastUpdateTime;
 
-    SuppressingKeys = SuppressKeys || KeystrokeDelay > Timer_GetElapsedTime(&KeystrokeDelayStarted);
-
     for (uint8_t keyId = 0; keyId < RIGHT_KEY_MATRIX_KEY_COUNT; keyId++) {
-        KeyStates[SlotId_RightKeyboardHalf][keyId].current = RightKeyMatrix.keyStates[keyId] ? KeyState_Hw : 0;
+        KeyStates[SlotId_RightKeyboardHalf][keyId].current = (KeyStates[SlotId_RightKeyboardHalf][keyId].current & ~KeyState_Hw) | (RightKeyMatrix.keyStates[keyId] ? KeyState_Hw : 0);
     }
 
     if (UsbReportUpdateSemaphore && !SleepModeActive) {
@@ -636,9 +635,5 @@ void UpdateUsbReports(void)
         if (status == kStatus_USB_Success) {
             UsbReportUpdateSemaphore |= 1 << USB_MOUSE_INTERFACE_INDEX;
         }
-    }
-
-    if(PendingPostponedAndReleased && !SuppressingKeys) {
-        PendingPostponedAndReleased = false;
     }
 }

@@ -79,7 +79,7 @@
     extern uint8_t SuppressedModifierState;
     extern bool SuppressMods;
     extern bool SuppressKeys;
-    extern bool SuppressingKeys;
+    extern bool PostponeKeys;
     extern bool StickyModifiersEnabled;
     extern bool SplitCompositeKeystroke;
     extern uint16_t KeystrokeDelay;

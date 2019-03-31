@@ -130,6 +130,7 @@ The following grammar is supported:
     CONDITION = {ifRegEq | ifNotRegEq} <register index (NUMBER)> <value (NUMBER)>
     MODIFIER = suppressMods
     MODIFIER = suppressKeys
+    MODIFIER = postponeKeys
     DIRECTION = {left|right|up|down}
     LAYERID = {fn|mouse|mod|base}|last
     KEYMAPID = <abbrev>|last
@@ -177,7 +178,8 @@ The following grammar is supported:
   - `{ifRegEq|ifNotRegEq} <register inex> <value>` will test if the value in the register identified by first argument equals second argument.
 - `MODIFIER`s modify behaviour of the rest of the keyboard while the rest of the command is active (e.g., a delay) is active.
   - `suppressMods` will supress any modifiers except those applied via macro engine. Can be used to remap shift and nonShift characters independently.
-  - `suppressKeys` will postpone all new key activations for as long as any instance of this modifier is active. If such key is released prior to its postponed activation, it is effectively ignored. Can be used to mess with timing of other keys, e.g., for resolution of secondary roles.
+  - `suppressKeys` will suppress all new key activations for as long as any instance of this modifier is active. If such key is released prior to its postponed activation, it is effectively ignored. 
+  - `postponeKeys` will postpone all new key activations for as long as any instance of this modifier is active. If such key is released prior to its postponed activation, it is saved into a buffer. If the buffer overflows, keys are activated despite the active modifier. Can be used to mess with timing of other keys, e.g., for resolution of secondary roles.
 - Runtime macros:
   - `recordMacro|playMacro <slot identifier>` targets vim-like macro functionality. Slot identifier is a single character. Usage (e.g.): call `recordMacro a`, do some work, end recording by another `recordMacro a`. Now you can play the actions (i.e., sequence of keyboard reports) back by calling `playMacro a`. Only BasicKeyboard scancodes are available at the moment. These macros are recorded into RAM only. Number of macros is limited by memory (current limit is set to approximately 500 keystrokes (4kb) (maximum is ~1000 if we used all available memory)). If less than 1/4 of dedicated memory is free, oldest macro slot is freed.
   - `recordMacroDelay` will measure time until key release (i.e., works like `delayUntilRelease`) and insert delay of that length into the currently recorded macro. This can be used to wait for window manager's reaction etc. 

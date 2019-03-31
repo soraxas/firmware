@@ -355,19 +355,18 @@ bool processKeyAction()
     return processKey(s->currentMacroAction);
 }
 
-bool processMouseButton(macro_action_t action)
+bool processMouseButton(macro_action_t macro_action)
 {
     if(!Macros_ClaimReports()) {
         return true;
     }
-    uint8_t mouseButtonMask = action.mouseButton.mouseButtonsMask;
+    uint8_t mouseButtonMask = macro_action.mouseButton.mouseButtonsMask;
+    macro_sub_action_t action = macro_action.mouseButton.action;
 
-    switch (action.mouseButton.action) {
+    switch (macro_action.mouseButton.action) {
         case MacroSubAction_Hold:
         case MacroSubAction_Tap:
             if (s->pressPhase == 0) {
-            if (!s->mouseButtonPressStarted) {
-                s->mouseButtonPressStarted = true;
                 s->macroMouseReport.buttons |= mouseButtonMask;
                 s->pressPhase = 1;
                 return true;
@@ -379,7 +378,6 @@ bool processMouseButton(macro_action_t action)
                 s->pressPhase = 2;
             }
             if (s->pressPhase == 2) {
-                s->mouseButtonPressStarted = false;
                 s->macroMouseReport.buttons &= ~mouseButtonMask;
                 s->pressPhase = 0;
             }
@@ -989,6 +987,12 @@ bool processSuppressKeysCommand()
     return false;
 }
 
+bool processPostponeKeysCommand()
+{
+    PostponeKeys = true;
+    return false;
+}
+
 bool processSetStickyModsEnabledCommand(const char* arg, const char *argEnd)
 {
     uint8_t enabled = parseInt32(arg,  argEnd);
@@ -1041,16 +1045,16 @@ bool processNoOpCommand()
 }
 
 
-void suppressNext(uint8_t count) {
-    s->suppressNext = count + 1;
+void postponeNextN(uint8_t count) {
+    s->postponeNext = count + 1;
 }
 
 bool processResolveSecondary(uint16_t timeout1, uint16_t timeout2, uint8_t primaryAdr, uint8_t secondaryAdr) {
-    SuppressKeys = true;
+    PostponeKeys = true;
 
     //phase 1 - wait until some other key is released, then write down its release time
     bool timer1Exceeded = Timer_GetElapsedTime(&s->currentMacroStartTime) >= timeout1;
-    if(!timer1Exceeded && ACTIVE(s->currentMacroKey) && !PendingPostponedAndReleased) {
+    if(!timer1Exceeded && ACTIVE(s->currentMacroKey) && !Postponer_PendingReleased()) {
         s->resolveSecondaryPhase2StartTime = 0;
         return true;
     }
@@ -1059,17 +1063,17 @@ bool processResolveSecondary(uint16_t timeout1, uint16_t timeout2, uint8_t prima
     }
     //phase 2 - "safety margin" - wait another `timeout2` ms, and if the switcher is released during this time, still interpret it as a primary action
     bool timer2Exceeded = Timer_GetElapsedTime(&s->resolveSecondaryPhase2StartTime) >= timeout2;
-    if(!timer1Exceeded && !timer2Exceeded && ACTIVE(s->currentMacroKey) && PendingPostponedAndReleased && Postponer_PendingCount() < 3) {
+    if(!timer1Exceeded && !timer2Exceeded && ACTIVE(s->currentMacroKey) && Postponer_PendingReleased() && Postponer_PendingCount() < 3) {
         return true;
     }
     //phase 3 - resolve the situation - if the switcher is released first or within the "safety margin", interpret it as primary action, otherwise secondary
-    if(timer1Exceeded || (PendingPostponedAndReleased && timer2Exceeded)) {
+    if(timer1Exceeded || (Postponer_PendingReleased() && timer2Exceeded)) {
         //secondary action
         return goTo(secondaryAdr);
     }
     else {
         //primary action
-        suppressNext(1);
+        postponeNextN(1);
         return goTo(primaryAdr);
     }
 
@@ -1101,6 +1105,7 @@ macro_action_t decodeKey(const char* arg1, const char* argEnd) {
         action.key.modifierMask = characterToShift(*arg1) ? HID_KEYBOARD_MODIFIER_LEFTSHIFT : 0;
     } else {
         reportError("Failed to decode key ", arg1, argEnd);
+        //TODO: implement decoding of all keys
     }
     return action;
 }
@@ -1297,6 +1302,9 @@ bool processCommandAction(void)
             else if(tokenMatches(cmd, cmdEnd, "pressKey")) {
                 return processKeyCommand(MacroSubAction_Press, arg1, cmdEnd);
             }
+            else if(tokenMatches(cmd, cmdEnd, "postponeKeys")) {
+                processPostponeKeysCommand();
+            }
             else {
                 goto failed;
             }
@@ -1463,7 +1471,7 @@ void Macros_StartMacro(uint8_t index, key_state_t *keyState)
     s->currentMacroStartTime = CurrentTime;
     s->currentConditionPassed = false;
     s->reportsUsed = false;
-    s->suppressNext = 0;
+    s->postponeNext = 0;
     ValidatedUserConfigBuffer.offset = AllMacros[index].firstMacroActionOffset;
     ParseMacroAction(&ValidatedUserConfigBuffer, &s->currentMacroAction);
     s->bufferOffset = ValidatedUserConfigBuffer.offset;
@@ -1475,11 +1483,11 @@ void Macros_StartMacro(uint8_t index, key_state_t *keyState)
 
 void continueMacro(void)
 {
-    SuppressKeys = s->suppressNext > 0;
+    PostponeKeys = s->postponeNext > 0;
     if (processCurrentMacroAction() && !s->macroBroken) {
         return;
     }
-    s->suppressNext = s->suppressNext > 0 ? s->suppressNext - 1 : 0;
+    s->postponeNext = s->postponeNext > 0 ? s->postponeNext - 1 : 0;
     if (++s->currentMacroActionIndex == AllMacros[s->currentMacroIndex].macroActionsCount || s->macroBroken) {
         s->macroPlaying = false;
         s->macroBroken = false;

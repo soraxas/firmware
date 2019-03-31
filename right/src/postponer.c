@@ -38,3 +38,11 @@ void Postponer_TrackKey(key_state_t *keyState) {
 uint8_t Postponer_PendingCount() {
     return buffer_size;
 }
+
+bool Postponer_PendingReleased() {
+    if(buffer_size == 0) {
+        return false;
+    }
+    uint8_t pos = (buffer_position + buffer_size) % POSTPONER_BUFFER_SIZE;
+    return (buffer[pos].key->current & KeyState_HwDebounced) == 0 ;
+}

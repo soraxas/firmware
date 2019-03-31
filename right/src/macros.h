@@ -96,14 +96,13 @@
         uint32_t currentMacroStartTime;
 
         uint8_t pressPhase;
-        bool mouseButtonPressStarted;
         bool mouseMoveInMotion;
         bool mouseScrollInMotion;
         uint16_t dispatchTextIndex;
         uint8_t dispatchReportIndex;
 
         bool currentConditionPassed;
-        uint8_t suppressNext;
+        uint8_t postponeNext;
 
         bool delayActive;
         uint32_t delayStart;
