@@ -95,7 +95,7 @@
         uint32_t previousMacroEndTime;
         uint32_t currentMacroStartTime;
 
-        uint8_t keyActionPhase;
+        uint8_t pressPhase;
         bool mouseButtonPressStarted;
         bool mouseMoveInMotion;
         bool mouseScrollInMotion;

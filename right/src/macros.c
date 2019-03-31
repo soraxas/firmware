@@ -314,26 +314,26 @@ bool processKey(macro_action_t macro_action)
     switch (action) {
         case MacroSubAction_Hold:
         case MacroSubAction_Tap:
-            if (s->keyActionPhase == 0) {
-                s->keyActionPhase = 1;
+            if (s->pressPhase == 0) {
+                s->pressPhase = 1;
                 addModifiers(modifierMask);
                 if (modifierMask != 0 && SplitCompositeKeystroke != 0) {
                     return true;
                 }
             }
-            if (s->keyActionPhase == 1) {
-                s->keyActionPhase = 2;
+            if (s->pressPhase == 1) {
+                s->pressPhase = 2;
                 addScancode(scancode, type);
                 return true;
             }
-            if (s->keyActionPhase == 2) {
+            if (s->pressPhase == 2) {
                 if(ACTIVE(s->currentMacroKey) && action == MacroSubAction_Hold) {
                     return true;
                 }
-                s->keyActionPhase = 3;
+                s->pressPhase = 3;
             }
-            if (s->keyActionPhase == 3) {
-                s->keyActionPhase = 0;
+            if (s->pressPhase == 3) {
+                s->pressPhase = 0;
                 deleteModifiers(modifierMask);
                 deleteScancode(scancode, type);
             }
@@ -355,29 +355,47 @@ bool processKeyAction()
     return processKey(s->currentMacroAction);
 }
 
-bool processMouseButtonAction(void)
+bool processMouseButton(macro_action_t action)
 {
     if(!Macros_ClaimReports()) {
         return true;
     }
-    switch (s->currentMacroAction.key.action) {
+    uint8_t mouseButtonMask = action.mouseButton.mouseButtonsMask;
+
+    switch (action.mouseButton.action) {
+        case MacroSubAction_Hold:
         case MacroSubAction_Tap:
+            if (s->pressPhase == 0) {
             if (!s->mouseButtonPressStarted) {
                 s->mouseButtonPressStarted = true;
-                s->macroMouseReport.buttons |= s->currentMacroAction.mouseButton.mouseButtonsMask;
+                s->macroMouseReport.buttons |= mouseButtonMask;
+                s->pressPhase = 1;
                 return true;
             }
-            s->mouseButtonPressStarted = false;
-            s->macroMouseReport.buttons &= ~s->currentMacroAction.mouseButton.mouseButtonsMask;
+            if (s->pressPhase == 1) {
+                if(ACTIVE(s->currentMacroKey) && action == MacroSubAction_Hold) {
+                    return true;
+                }
+                s->pressPhase = 2;
+            }
+            if (s->pressPhase == 2) {
+                s->mouseButtonPressStarted = false;
+                s->macroMouseReport.buttons &= ~mouseButtonMask;
+                s->pressPhase = 0;
+            }
             break;
         case MacroSubAction_Release:
-            s->macroMouseReport.buttons &= ~s->currentMacroAction.mouseButton.mouseButtonsMask;
+            s->macroMouseReport.buttons &= ~mouseButtonMask;
             break;
         case MacroSubAction_Press:
-            s->macroMouseReport.buttons |= s->currentMacroAction.mouseButton.mouseButtonsMask;
+            s->macroMouseReport.buttons |= mouseButtonMask;
             break;
     }
     return false;
+}
+
+bool processMouseButtonAction(void) {
+    return processMouseButton(s->currentMacroAction);
 }
 
 bool processMoveMouseAction(void)
