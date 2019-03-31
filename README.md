@@ -122,6 +122,7 @@ The following grammar is supported:
     COMMAND = setDebounceDelay <time in ms, at most 250 (NUMBER)>
     COMMAND = setReg <register index (NUMBER)> <value (NUMBER)> 
     COMMAND = {addReg|subReg} <register index (NUMBER)> <value (NUMBER)>
+    COMMAND = pressKey/holdKey/tapKey/releaseKey KEY
     CONDITION = ifDoubletap | ifNotDoubletap
     CONDITION = ifInterrupted | ifNotInterrupted
     CONDITION = {ifPlaytime | ifNotPlaytime} <timeout in ms (NUMBER)>
@@ -134,12 +135,15 @@ The following grammar is supported:
     KEYMAPID = <abbrev>|last
     NUMBER = #NUMBER | [0-9]+
     CHAR = <any ascii char>
+    KEY = CHAR|KEYABBREV
+    KEYABBREV = <to be implemented>
 
 - Uncategorized commands:
   - `goTo <int>` will go to action index int. Actions are indexed from zero.
   - `break` will end playback of the current macro
   - `write <custom text>` will type rest of the string. Same as the plain text command. This is just easier to use with conditionals...
   - `startMouse/stopMouse` start/stop corresponding mouse action. E.g., `startMouse move left`
+  - `pressKey/holdKey/tapKey/releaseKey` ...
   - `noOp` does nothing - i.e., stops macro for exactly one update cycle and then continues.
 - Status buffer
   - `printStatus` will "type" content of error status buffer (256 or 1024 chars, depends on my mood) on the keyboard. Mainly for debug purposes.

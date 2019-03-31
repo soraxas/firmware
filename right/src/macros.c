@@ -301,42 +301,58 @@ bool processDelayAction() {
     return processDelay(s->currentMacroAction.delay.delay);
 }
 
-bool processKeyAction(void)
+bool processKey(macro_action_t macro_action)
 {
     if(!Macros_ClaimReports()) {
         return true;
     }
+    macro_sub_action_t action = macro_action.key.action;
+    keystroke_type_t type = macro_action.key.type;
+    uint8_t modifierMask = macro_action.key.modifierMask;
+    uint16_t scancode = macro_action.key.scancode;
 
-    switch (s->currentMacroAction.key.action) {
+    switch (action) {
+        case MacroSubAction_Hold:
         case MacroSubAction_Tap:
-            if (s->keyActionPressPhase == 0) {
-                s->keyActionPressPhase = 1;
-                addModifiers(s->currentMacroAction.key.modifierMask);
-                if (s->currentMacroAction.key.modifierMask != 0 && SplitCompositeKeystroke != 0) {
+            if (s->keyActionPhase == 0) {
+                s->keyActionPhase = 1;
+                addModifiers(modifierMask);
+                if (modifierMask != 0 && SplitCompositeKeystroke != 0) {
                     return true;
                 }
             }
-            if (s->keyActionPressPhase == 1) {
-                s->keyActionPressPhase = 2;
-                addScancode(s->currentMacroAction.key.scancode, s->currentMacroAction.key.type);
+            if (s->keyActionPhase == 1) {
+                s->keyActionPhase = 2;
+                addScancode(scancode, type);
                 return true;
             }
-            if (s->keyActionPressPhase > 1) {
-                s->keyActionPressPhase = 0;
-                deleteModifiers(s->currentMacroAction.key.modifierMask);
-                deleteScancode(s->currentMacroAction.key.scancode, s->currentMacroAction.key.type);
+            if (s->keyActionPhase == 2) {
+                if(ACTIVE(s->currentMacroKey) && action == MacroSubAction_Hold) {
+                    return true;
+                }
+                s->keyActionPhase = 3;
+            }
+            if (s->keyActionPhase == 3) {
+                s->keyActionPhase = 0;
+                deleteModifiers(modifierMask);
+                deleteScancode(scancode, type);
             }
             break;
         case MacroSubAction_Release:
-            deleteModifiers(s->currentMacroAction.key.modifierMask);
-            deleteScancode(s->currentMacroAction.key.scancode, s->currentMacroAction.key.type);
+            deleteModifiers(modifierMask);
+            deleteScancode(scancode, type);
             break;
         case MacroSubAction_Press:
-            addModifiers(s->currentMacroAction.key.modifierMask);
-            addScancode(s->currentMacroAction.key.scancode, s->currentMacroAction.key.type);
+            addModifiers(modifierMask);
+            addScancode(scancode, type);
             break;
     }
     return false;
+}
+
+bool processKeyAction()
+{
+    return processKey(s->currentMacroAction);
 }
 
 bool processMouseButtonAction(void)
@@ -1058,6 +1074,25 @@ bool processResolveSecondaryCommand(const char* arg1, const char* argEnd)
     }
 }
 
+macro_action_t decodeKey(const char* arg1, const char* argEnd) {
+    macro_action_t action;
+    uint8_t len = tokLen(arg1, argEnd);
+    if(len == 1) {
+        action.type = KeystrokeType_Basic;
+        action.key.scancode = characterToScancode(*arg1);
+        action.key.modifierMask = characterToShift(*arg1) ? HID_KEYBOARD_MODIFIER_LEFTSHIFT : 0;
+    } else {
+        reportError("Failed to decode key ", arg1, argEnd);
+    }
+    return action;
+}
+
+bool processKeyCommand(macro_sub_action_t type, const char* arg1, const char* argEnd) {
+    macro_action_t action = decodeKey(arg1, argEnd);
+    action.key.action = type;
+    return processKey(action);
+}
+
 bool processCommandAction(void)
 {
     const char* cmd = s->currentMacroAction.text.text+1;
@@ -1115,6 +1150,9 @@ bool processCommandAction(void)
             }
             else if(tokenMatches(cmd, cmdEnd, "holdKeymapLayerMax")) {
                 return processHoldKeymapLayerMaxCommand(arg1, cmdEnd);
+            }
+            else if(tokenMatches(cmd, cmdEnd, "holdKey")) {
+                return processKeyCommand(MacroSubAction_Hold, arg1, cmdEnd);
             }
             else {
                 goto failed;
@@ -1238,6 +1276,9 @@ bool processCommandAction(void)
             else if(tokenMatches(cmd, cmdEnd, "playMacro")) {
                 return processPlayMacroCommand(arg1, cmdEnd);
             }
+            else if(tokenMatches(cmd, cmdEnd, "pressKey")) {
+                return processKeyCommand(MacroSubAction_Press, arg1, cmdEnd);
+            }
             else {
                 goto failed;
             }
@@ -1251,6 +1292,9 @@ bool processCommandAction(void)
             }
             else if(tokenMatches(cmd, cmdEnd, "resolveSecondary")) {
                 return processResolveSecondaryCommand(arg1, cmdEnd);
+            }
+            else if(tokenMatches(cmd, cmdEnd, "releaseKey")) {
+                return processKeyCommand(MacroSubAction_Release, arg1, cmdEnd);
             }
             else {
                 goto failed;
@@ -1304,6 +1348,14 @@ bool processCommandAction(void)
             }
             else if(tokenMatches(cmd, cmdEnd, "setDebounceDelay")) {
                 return processSetDebounceDelayCommand(arg1, cmdEnd);
+            }
+            else {
+                goto failed;
+            }
+            break;
+        case 't':
+            if(tokenMatches(cmd, cmdEnd, "tapKey")) {
+                return processKeyCommand(MacroSubAction_Tap, arg1, cmdEnd);
             }
             else {
                 goto failed;

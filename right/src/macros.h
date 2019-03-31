@@ -39,6 +39,7 @@
         MacroSubAction_Tap,
         MacroSubAction_Press,
         MacroSubAction_Release,
+        MacroSubAction_Hold
     } macro_sub_action_t;
 
     typedef enum {
@@ -94,7 +95,7 @@
         uint32_t previousMacroEndTime;
         uint32_t currentMacroStartTime;
 
-        uint8_t keyActionPressPhase;
+        uint8_t keyActionPhase;
         bool mouseButtonPressStarted;
         bool mouseMoveInMotion;
         bool mouseScrollInMotion;
