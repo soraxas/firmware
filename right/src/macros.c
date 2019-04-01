@@ -1529,8 +1529,8 @@ void initialize() {
 
 void Macros_StartMacro(uint8_t index, key_state_t *keyState)
 {
-    if(!findFreeStateSlot()) {
-        return;
+    if(!findFreeStateSlot() || AllMacros[index].macroActionsCount == 0)  {
+       return;
     }
     if(!initialized) {
         initialize();
