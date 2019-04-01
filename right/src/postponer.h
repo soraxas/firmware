@@ -21,6 +21,6 @@
     uint8_t Postponer_PendingCount();
     bool Postponer_IsPendingReleased();
     uint16_t Postponer_PendingId();
-    void Postponer_ConsumePending();
+    void Postponer_ConsumePending(int count, bool suppress);
 
 #endif /* SRC_POSTPONER_H_ */

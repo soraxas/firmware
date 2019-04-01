@@ -1073,7 +1073,7 @@ bool processResolveSecondary(uint16_t timeout1, uint16_t timeout2, uint8_t prima
     }
     else {
         //primary action
-        //postponeNextN(1);
+        postponeNextN(1);
         return goTo(primaryAdr);
     }
 
@@ -1127,7 +1127,7 @@ bool processResolveNextKeyIdCommand() {
     num[2] = Postponer_PendingId() % 10 + 48;
     num[3] = '\0';
     if(!dispatchText(num, 3)){
-        Postponer_ConsumePending();
+        Postponer_ConsumePending(1, true);
         return false;
     }
     return true;
@@ -1145,6 +1145,10 @@ bool processResolveNextKeyEqCommand(const char* arg1, const char* argEnd) {
     uint16_t adr1 = parseInt32(arg4, argEnd);
     uint16_t adr2 = parseInt32(arg5, argEnd);
 
+    if(idx > POSTPONER_MAX_FILL) {
+        Macros_ReportErrorNum("Invalid argument 1, allowed at most: ", idx);
+    }
+
     if(Timer_GetElapsedTime(&s->currentMacroStartTime) >= timeout) {
         return goTo(adr2);
     }
@@ -1161,7 +1165,7 @@ bool processResolveNextKeyEqCommand(const char* arg1, const char* argEnd) {
 
 bool processConsumePendingCommand(const char* arg1, const char* argEnd) {
     uint16_t cnt = parseInt32(arg1, argEnd);
-    Postponer_ConsumePending(cnt);
+    Postponer_ConsumePending(cnt, true);
     return false;
 }
 
@@ -1370,7 +1374,7 @@ bool processCommandAction(void)
                 processPostponeKeysCommand();
             }
             else if(tokenMatches(cmd, cmdEnd, "postponeNext")) {
-                processPostponeNextNCommand(arg1, cmdEnd);
+                return processPostponeNextNCommand(arg1, cmdEnd);
             }
             else {
                 goto failed;

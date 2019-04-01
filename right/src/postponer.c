@@ -6,11 +6,15 @@ postponer_buffer_record_type_t buffer[POSTPONER_BUFFER_SIZE];
 uint8_t buffer_size = 0;
 uint8_t buffer_position = 0;
 
-void Postponer_ConsumePending( int count ) {
+void Postponer_ConsumePending(int count, bool suppress) {
     if(buffer_size == 0) {
         return;
     }
-    buffer[buffer_position].key->suppressed = true;
+    if( suppress ) {
+        for(int i = 0; i < count; i++) {
+            buffer[(buffer_position + i) % POSTPONER_BUFFER_SIZE].key->suppressed = true;
+        }
+    }
     buffer_position = (buffer_position + count) % POSTPONER_BUFFER_SIZE;
     buffer_size = count > buffer_size ? 0 : buffer_size - count;
 
@@ -24,7 +28,7 @@ void Postponer_RunPostponed(void) {
 
     if(DEACTIVATED_EARLIER(buffer[buffer_position].key)) {
         ActivateKey(buffer[buffer_position].key, true);
-        Postponer_ConsumePending(1);
+        Postponer_ConsumePending(1, false);
     } else if(ACTIVATED_EARLIER(buffer[buffer_position].key) && !buffer[buffer_position].key->debouncing) {
         /*if the user taps a key twice and holds, we need to "end" the first tap even if the
          * key is physically being held
@@ -35,7 +39,7 @@ void Postponer_RunPostponed(void) {
     //try prevent loss of keys if some mechanism postpones more keys than we can properly let through
     while(buffer_size > POSTPONER_MAX_FILL) {
         ActivateKey(buffer[buffer_position].key, true);
-        Postponer_ConsumePending(1);
+        Postponer_ConsumePending(1, false);
     }
 }
 
