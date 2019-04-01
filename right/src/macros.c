@@ -1054,7 +1054,7 @@ bool processResolveSecondary(uint16_t timeout1, uint16_t timeout2, uint8_t prima
 
     //phase 1 - wait until some other key is released, then write down its release time
     bool timer1Exceeded = Timer_GetElapsedTime(&s->currentMacroStartTime) >= timeout1;
-    if(!timer1Exceeded && ACTIVE(s->currentMacroKey) && !Postponer_PendingReleased()) {
+    if(!timer1Exceeded && ACTIVE(s->currentMacroKey) && !Postponer_IsPendingReleased()) {
         s->resolveSecondaryPhase2StartTime = 0;
         return true;
     }
@@ -1063,17 +1063,17 @@ bool processResolveSecondary(uint16_t timeout1, uint16_t timeout2, uint8_t prima
     }
     //phase 2 - "safety margin" - wait another `timeout2` ms, and if the switcher is released during this time, still interpret it as a primary action
     bool timer2Exceeded = Timer_GetElapsedTime(&s->resolveSecondaryPhase2StartTime) >= timeout2;
-    if(!timer1Exceeded && !timer2Exceeded && ACTIVE(s->currentMacroKey) && Postponer_PendingReleased() && Postponer_PendingCount() < 3) {
+    if(!timer1Exceeded && !timer2Exceeded && ACTIVE(s->currentMacroKey) && Postponer_IsPendingReleased() && Postponer_PendingCount() < 3) {
         return true;
     }
     //phase 3 - resolve the situation - if the switcher is released first or within the "safety margin", interpret it as primary action, otherwise secondary
-    if(timer1Exceeded || (Postponer_PendingReleased() && timer2Exceeded)) {
+    if(timer1Exceeded || (Postponer_IsPendingReleased() && timer2Exceeded)) {
         //secondary action
         return goTo(secondaryAdr);
     }
     else {
         //primary action
-        postponeNextN(1);
+        //postponeNextN(1);
         return goTo(primaryAdr);
     }
 
@@ -1100,7 +1100,7 @@ macro_action_t decodeKey(const char* arg1, const char* argEnd) {
     macro_action_t action;
     uint8_t len = tokLen(arg1, argEnd);
     if(len == 1) {
-        action.type = KeystrokeType_Basic;
+        action.key.type = KeystrokeType_Basic;
         action.key.scancode = characterToScancode(*arg1);
         action.key.modifierMask = characterToShift(*arg1) ? HID_KEYBOARD_MODIFIER_LEFTSHIFT : 0;
     } else {
@@ -1114,6 +1114,62 @@ bool processKeyCommand(macro_sub_action_t type, const char* arg1, const char* ar
     macro_action_t action = decodeKey(arg1, argEnd);
     action.key.action = type;
     return processKey(action);
+}
+
+bool processResolveNextKeyIdCommand() {
+    char num[4];
+    PostponeKeys = true;
+    if(Postponer_PendingCount() == 0) {
+        return true;
+    }
+    num[0] = Postponer_PendingId() / 100 % 10 + 48;
+    num[1] = Postponer_PendingId() / 10 % 10 + 48;
+    num[2] = Postponer_PendingId() % 10 + 48;
+    num[3] = '\0';
+    if(!dispatchText(num, 3)){
+        Postponer_ConsumePending();
+        return false;
+    }
+    return true;
+}
+
+bool processResolveNextKeyEqCommand(const char* arg1, const char* argEnd) {
+    PostponeKeys = true;
+    const char* arg2 = nextTok(arg1, argEnd);
+    const char* arg3 = nextTok(arg2, argEnd);
+    const char* arg4 = nextTok(arg3, argEnd);
+    const char* arg5 = nextTok(arg4, argEnd);
+    uint16_t idx = parseInt32(arg1, argEnd);
+    uint16_t key = parseInt32(arg2, argEnd);
+    uint16_t timeout = parseInt32(arg3, argEnd);
+    uint16_t adr1 = parseInt32(arg4, argEnd);
+    uint16_t adr2 = parseInt32(arg5, argEnd);
+
+    if(Timer_GetElapsedTime(&s->currentMacroStartTime) >= timeout) {
+        return goTo(adr2);
+    }
+    if(Postponer_PendingCount() < idx + 1) {
+        return true;
+    }
+
+    if(Postponer_PendingId(idx) == key) {
+        return goTo(adr1);
+    } else {
+        return goTo(adr2);
+    }
+}
+
+bool processConsumePendingCommand(const char* arg1, const char* argEnd) {
+    uint16_t cnt = parseInt32(arg1, argEnd);
+    Postponer_ConsumePending(cnt);
+    return false;
+}
+
+bool processPostponeNextNCommand(const char* arg1, const char* argEnd) {
+    uint16_t cnt = parseInt32(arg1, argEnd);
+    PostponeKeys = true;
+    postponeNextN(cnt);
+    return false;
 }
 
 bool processCommandAction(void)
@@ -1134,6 +1190,14 @@ bool processCommandAction(void)
         case 'b':
             if(tokenMatches(cmd, cmdEnd, "break")) {
                 return processBreakCommand();
+            }
+            else {
+                goto failed;
+            }
+            break;
+        case 'c':
+            if(tokenMatches(cmd, cmdEnd, "consumePending")) {
+                return processConsumePendingCommand(arg1, cmdEnd);
             }
             else {
                 goto failed;
@@ -1305,6 +1369,9 @@ bool processCommandAction(void)
             else if(tokenMatches(cmd, cmdEnd, "postponeKeys")) {
                 processPostponeKeysCommand();
             }
+            else if(tokenMatches(cmd, cmdEnd, "postponeNext")) {
+                processPostponeNextNCommand(arg1, cmdEnd);
+            }
             else {
                 goto failed;
             }
@@ -1318,6 +1385,12 @@ bool processCommandAction(void)
             }
             else if(tokenMatches(cmd, cmdEnd, "resolveSecondary")) {
                 return processResolveSecondaryCommand(arg1, cmdEnd);
+            }
+            else if(tokenMatches(cmd, cmdEnd, "resolveNextKeyId")) {
+                return processResolveNextKeyIdCommand();
+            }
+            else if(tokenMatches(cmd, cmdEnd, "resolveNextKeyEq")) {
+                return processResolveNextKeyEqCommand(arg1, cmdEnd);
             }
             else if(tokenMatches(cmd, cmdEnd, "releaseKey")) {
                 return processKeyCommand(MacroSubAction_Release, arg1, cmdEnd);

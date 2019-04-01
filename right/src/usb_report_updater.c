@@ -415,7 +415,7 @@ static inline void preprocessKeyState(key_state_t *keyState) {
         keyState->debouncing = true;
     }
 
-    bool currSW = currDB;
+    bool currSW = currDB && !keyState->suppressed;
 
      if (PostponeKeys || Postponer_PendingCount() > 0) {
         currSW = currDB && prevSW;
@@ -423,9 +423,11 @@ static inline void preprocessKeyState(key_state_t *keyState) {
             Postponer_TrackKey(keyState);
         }
     } else if (SuppressKeys) {
-        currSW = currDB && prevSW;
+        currSW = currDB && prevSW && !keyState->suppressed;
+        keyState->suppressed = !currSW;
     }
 
+    keyState->suppressed &= currDB;
     keyState->current = KEYSTATE(currHW, currDB, currSW);
 }
 

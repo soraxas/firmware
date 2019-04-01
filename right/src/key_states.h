@@ -30,6 +30,7 @@
         uint8_t previous;
         uint8_t current;
         bool debouncing : 1;
+        bool suppressed : 1;
     } key_state_t;
 
 // Variables:
