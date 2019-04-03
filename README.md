@@ -136,6 +136,7 @@ The following grammar is supported:
     COMMAND = {addReg|subReg} <register index (NUMBER)> <value (NUMBER)>
     COMMAND = pressKey/holdKey/tapKey/releaseKey KEY
     CONDITION = ifDoubletap | ifNotDoubletap
+    CONDITION = {ifPending|ifNotPending} <n (NUMBER)>
     CONDITION = ifInterrupted | ifNotInterrupted
     CONDITION = {ifPlaytime | ifNotPlaytime} <timeout in ms (NUMBER)>
     CONDITION = ifShift | ifAlt | ifCtrl | ifGui | ifAnyMod | ifNotShift | ifNotAlt | ifNotCtrl | ifNotGui | ifNotAnyMod
@@ -185,16 +186,18 @@ The following grammar is supported:
 - Postponing mechanisms. We allow postponing key activations in order to allow deciding between some scenarios depending on the next pressed key and then activate the keys pressed in "past" in the newly determined context. The following commands either use this feature or allow control of the queue.
   - `postponeKeys` modifier prefixed before another command keeps the firmware in postponing mode. Some commands apply this modifier implicitly. See MODIFIER section.
   - `postponeNext <n>` command will apply `postponeKeys` modifier on the current command and following next n commands (macro actions).
-  - `resolveSecondary` allows resolution of secondary roles depending on the next key - this allows us to accurately distinguish random press from intentional press of shortcut via secondary role. See `resolveSecondary` entry under Layer switching.
+  - `ifPending/ifNotPending <n>` is true if there is at least `n` postponed keys in the queue.
   - `consumePending <n>` will remove n records from the queue.
-  - `resolveNextKeyId` will wait for next key press. When the next key is pressed, it will type a unique identifier identifying the pressed hardware key. 
+  - `resolveSecondary` allows resolution of secondary roles depending on the next key - this allows us to accurately distinguish random press from intentional press of shortcut via secondary role. See `resolveSecondary` entry under Layer switching.
   - `resolveNextKeyEq <queue idx> <key id> <timeout> <adr1> <adr2>` will wait for next (n) key press(es). When the key press happens, it will compare its id with the `<key id>` argument. If the id equals, it issues goto to adr1. Otherwise, to adr2. See examples.
     - `arg1 - queue idx` idx of key to compare, indexed from 0. Typically 0, if we want to resolve the key after next key then 1, etc.
     - `arg2 - key id` key id obtained by `resolveNextKeyId`. This is static identifier of the hardware key.
     - `arg3 - timeout` timeout. If not enough keys is pressed within the time, goto to `arg5` is issued.
     - `arg4 - adr1` index of macro action to go to if the `arg1`th next key's hardware identifier equals `arg2`.
     - `arg5 - adr2` index of macro action to go to otherwise.
+  - `resolveNextKeyId` will wait for next key press. When the next key is pressed, it will type a unique identifier identifying the pressed hardware key. 
 - Conditions are checked before processing the rest of the command. If the condition does not hold, the rest of the command is skipped entirelly. If the command is evaluated multiple times (i.e., if it internally consists of multiple steps, such as the delay, which is evaluated repeatedly until the desired time has passed), the condition is evaluated only in the first iteration.  
+  - `ifPending/ifNotPending <n>` is true if there is at least `n` postponed keys in the postponing queue.
   - `ifDoubletap/ifNotDoubletap` is true if previous played macro had the same index and finished at most 250ms ago
   - `ifInterrupted/ifNotInterrupted` is true if a keystroke action or mouse action was triggered during macro runtime. Allows fake implementation of secondary roles. Also allows interruption of cycles.
   - `ifPlaytime/ifNotPlaytime <timeout in ms>` is true if at least `timeout` milliseconds passed since macro was started.
@@ -203,7 +206,7 @@ The following grammar is supported:
 - `MODIFIER`s modify behaviour of the rest of the keyboard while the rest of the command is active (e.g., a delay) is active.
   - `suppressMods` will supress any modifiers except those applied via macro engine. Can be used to remap shift and nonShift characters independently.
   - `suppressKeys` will suppress all new key activations triggered while this modifier is active. 
-  - `postponeKeys` will postpone all new key activations for as long as any instance of this modifier is active. If such key is released prior to its postponed activation, it is saved into a buffer. If the buffer overflows, keys are activated despite the active modifier. Can be used to mess with timing of other keys, e.g., for resolution of secondary roles.
+  - `postponeKeys` will postpone all new key activations for as long as any instance of this modifier is active. Postponed keys are saved into the postponing queue. If the queue overflows, keys are activated despite the active modifier. Can be used to mess with timing of other keys, e.g., for resolution of secondary roles.
 - Runtime macros:
   - `recordMacro|playMacro <slot identifier>` targets vim-like macro functionality. Slot identifier is a single character. Usage (e.g.): call `recordMacro a`, do some work, end recording by another `recordMacro a`. Now you can play the actions (i.e., sequence of keyboard reports) back by calling `playMacro a`. Only BasicKeyboard scancodes are available at the moment. These macros are recorded into RAM only. Number of macros is limited by memory (current limit is set to approximately 500 keystrokes (4kb) (maximum is ~1000 if we used all available memory)). If less than 1/4 of dedicated memory is free, oldest macro slot is freed.
   - `recordMacroDelay` will measure time until key release (i.e., works like `delayUntilRelease`) and insert delay of that length into the currently recorded macro. This can be used to wait for window manager's reaction etc. 

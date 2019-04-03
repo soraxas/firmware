@@ -829,6 +829,13 @@ bool processIfModifierCommand(bool negate, uint8_t modmask)
     return ((OldModifierState & modmask) > 0) != negate;
 }
 
+bool processIfPendingCommand(bool negate, const char* arg, const char *argEnd)
+{
+    uint32_t cnt = parseInt32(arg, argEnd);
+
+    return (Postponer_PendingCount() >= cnt) != negate;
+}
+
 bool processIfPlaytimeCommand(bool negate, const char* arg, const char *argEnd)
 {
     uint32_t timeout = parseInt32(arg, argEnd);
@@ -1347,6 +1354,20 @@ bool processCommandAction(void)
                 if(!processIfModifierCommand(true, GUIMASK) && !s->currentConditionPassed) {
                     return false;
                 }
+            }
+            else if(tokenMatches(cmd, cmdEnd, "ifNotPending")) {
+                if(!processIfPendingCommand(true, arg1, cmdEnd) && !s->currentConditionPassed) {
+                    return false;
+                }
+                cmd = arg1;
+                arg1 = nextTok(cmd, cmdEnd);
+            }
+            else if(tokenMatches(cmd, cmdEnd, "ifPending")) {
+                if(!processIfPendingCommand(false, arg1, cmdEnd) && !s->currentConditionPassed) {
+                    return false;
+                }
+                cmd = arg1;
+                arg1 = nextTok(cmd, cmdEnd);
             }
             else {
                 goto failed;
