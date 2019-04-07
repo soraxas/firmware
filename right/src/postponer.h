@@ -20,7 +20,7 @@
     void Postponer_TrackKey(key_state_t *keyState);
     uint8_t Postponer_PendingCount();
     bool Postponer_IsPendingReleased();
-    uint16_t Postponer_PendingId();
+    uint16_t Postponer_PendingId(int idx);
     void Postponer_ConsumePending(int count, bool suppress);
 
 #endif /* SRC_POSTPONER_H_ */

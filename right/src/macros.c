@@ -1129,9 +1129,9 @@ bool processResolveNextKeyIdCommand() {
     if(Postponer_PendingCount() == 0) {
         return true;
     }
-    num[0] = Postponer_PendingId() / 100 % 10 + 48;
-    num[1] = Postponer_PendingId() / 10 % 10 + 48;
-    num[2] = Postponer_PendingId() % 10 + 48;
+    num[0] = Postponer_PendingId(0) / 100 % 10 + 48;
+    num[1] = Postponer_PendingId(0) / 10 % 10 + 48;
+    num[2] = Postponer_PendingId(0) % 10 + 48;
     num[3] = '\0';
     if(!dispatchText(num, 3)){
         Postponer_ConsumePending(1, true);
