@@ -4,7 +4,7 @@ This is a fork of [UHK firmware](https://github.com/UltimateHackingKeyboard/firm
 
 ## Compatibility
 
-This firmware is 100% compatible with the original unmodified agent. All you need is to flash the modified firmware to your UHK. Configurations won't get lost in case you decide to switch back to official firmware, or if you then again flash the modified version too, since config formats were not altered in any way.
+This firmware is 100% compatible with the original unmodified agent. All you need is to flash the modified firmware to your UHK. Configurations won't get lost in case you decide to switch back to official firmware, or if you then again flash the modified version too, since config formats were not altered in any way. (Extended macros will not work when used within official firmware, obviously.)
 
 ## Features
 
@@ -25,7 +25,7 @@ Some of the usecases which can be achieved via these commands are:
 - runtime macros
 
 ## Examples
-**Note that every command (i.e., every line in the examples) has to be inputted as a separate action!**
+**Note that every command (i.e., every line in the examples) has to be inputted as a separate action!** Also note that macros are being run "asynchronously" (i.e., interleaved with other event handling) at a pace of at most one action per update cycle. A macro action may take one or more update cycles to complete (esp. delay commands and all commands which interfere with usb reports).
 
 For instance, if the following text is pasted as a macro text action, playing the macro will result in toggling of fn layer.
     
@@ -114,7 +114,7 @@ The following grammar is supported:
     COMMAND = holdKeymapLayerMax KEYMAPID LAYERID <time in ms (NUMBER)>
     COMMAND = resolveSecondary <time in ms (NUMBER)> [<time in ms (NUMBER)>] <primary action macro action index (NUMBER)> <secondary action macro action index (NUMBER)>
     COMMAND = resolveNextKeyId 
-    COMMAND = resolveNextKeyEq <queue position (NUMBER)> <key id (NUMBER)> <time in ms> <action adr (NUMBER)> <action adr (NUMBER)>
+    COMMAND = resolveNextKeyEq <queue position (NUMBER)> <key id (NUMBER)> {<time in ms>|untilRelease} <action adr (NUMBER)> <action adr (NUMBER)>
     COMMAND = consumePending
     COMMAND = postponeNext <number of commands (NUMER)>
     COMMAND = break
@@ -183,16 +183,16 @@ The following grammar is supported:
     - `arg1` - total timeout of the resolution. If the timeout is exceeded and the switcher key (the key which activated the macro) is still being held, goto to secondary action is issued. Recommended value is 350ms.
     - `arg2` - safety margin delay. If the postponed key is released first, we still wait for this delay (or for timeout of the arg1 delay - whichever happens first). If the switcher key is released within this delay (starting counting at release of the key), the switcher key is still taken to have been released first. Recommended value is between 0 and `arg1`. If only three arguments are passed, this argument defaults to `arg1`.   
     - `arg3`/`arg4` - primary/secondary action macro action index. When the resolution is finished, the macro jumps to one of the two indices (I.e., this command is a conditional goTo.).
-- Postponing mechanisms. We allow postponing key activations in order to allow deciding between some scenarios depending on the next pressed key and then activate the keys pressed in "past" in the newly determined context. The following commands either use this feature or allow control of the queue.
+- Postponing mechanisms. We allow postponing key activations in order to allow deciding between some scenarios depending on the next pressed key and then activating the keys pressed in "past" in the newly determined context. The postponing mechanism happens in key state preprocessing phase - i.e., works prior to activation of the key's action, including all macros. Postponing mechanism registers and postpones both key presses and releases, but does not preserve delays between them. Postponing affects even macro keystate queries, unless the macro in question is the one which initiates the postponing state (otherwise `$postponeKeys delayUntilRelease` would indefinitely postpone its own release). Replay of postponed keys happens every `CYCLES_PER_ACTIVATION` update cycles, currently 2.The following commands either use this feature or allow control of the queue.
   - `postponeKeys` modifier prefixed before another command keeps the firmware in postponing mode. Some commands apply this modifier implicitly. See MODIFIER section.
   - `postponeNext <n>` command will apply `postponeKeys` modifier on the current command and following next n commands (macro actions).
   - `ifPending/ifNotPending <n>` is true if there is at least `n` postponed keys in the queue.
   - `consumePending <n>` will remove n records from the queue.
-  - `resolveSecondary` allows resolution of secondary roles depending on the next key - this allows us to accurately distinguish random press from intentional press of shortcut via secondary role. See `resolveSecondary` entry under Layer switching.
-  - `resolveNextKeyEq <queue idx> <key id> <timeout> <adr1> <adr2>` will wait for next (n) key press(es). When the key press happens, it will compare its id with the `<key id>` argument. If the id equals, it issues goto to adr1. Otherwise, to adr2. See examples.
+  - `resolveSecondary` allows resolution of secondary roles depending on the next key - this allows us to accurately distinguish random press from intentional press of shortcut via secondary role. See `resolveSecondary` entry under Layer switching. Implicitly applies `postponeKeys` modifier.
+  - `resolveNextKeyEq <queue idx> <key id> <timeout> <adr1> <adr2>` will wait for next (n) key press(es). When the key press happens, it will compare its id with the `<key id>` argument. If the id equals, it issues goto to adr1. Otherwise, to adr2. See examples. Implicitly applies `postponeKeys` modifier.
     - `arg1 - queue idx` idx of key to compare, indexed from 0. Typically 0, if we want to resolve the key after next key then 1, etc.
     - `arg2 - key id` key id obtained by `resolveNextKeyId`. This is static identifier of the hardware key.
-    - `arg3 - timeout` timeout. If not enough keys is pressed within the time, goto to `arg5` is issued.
+    - `arg3 - timeout` timeout. If not enough keys is pressed within the time, goto to `arg5` is issued. Either number in ms, or `untilRelease`.
     - `arg4 - adr1` index of macro action to go to if the `arg1`th next key's hardware identifier equals `arg2`.
     - `arg5 - adr2` index of macro action to go to otherwise.
   - `resolveNextKeyId` will wait for next key press. When the next key is pressed, it will type a unique identifier identifying the pressed hardware key. 
@@ -287,5 +287,4 @@ If you wish to make changes into the source code, please follow the official rep
   
 If you have any problems with the build procedure, please create issue in the official agent repository. I made no changes into the proccedure and I will most likely not be able to help.
 
-- [https://github.com/p4elkin/firmware](https://github.com/p4elkin/firmware) - firmware fork which comes with an alternative implementation of the secondary key role mechanism making it possible to use the feature for keys actively involved in typing (e.g. alphanumeric ones).
 

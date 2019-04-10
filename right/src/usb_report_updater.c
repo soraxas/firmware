@@ -38,7 +38,7 @@ bool PostponeKeys = false;
 bool SuppressKeys = false;
 bool SuppressingKeys = false;
 bool StickyModifiersEnabled = true;
-bool SplitCompositeKeystroke = 1;
+bool SplitCompositeKeystroke = true;
 uint16_t KeystrokeDelay = 0;
 uint32_t KeystrokeDelayStarted = 0;
 bool ActivateOnRelease = false;
@@ -417,10 +417,10 @@ static inline void preprocessKeyState(key_state_t *keyState) {
 
     bool currSW = currDB && !keyState->suppressed;
 
-     if (PostponeKeys || Postponer_PendingCount() > 0) {
-        currSW = currDB && prevSW;
-        if(currDB && !prevDB) {
-            Postponer_TrackKey(keyState);
+     if (Postponer_IsActive()) {
+        currSW = prevSW;
+        if(currDB != prevDB) {
+            Postponer_TrackKey(keyState, currDB);
         }
     } else if (SuppressKeys) {
         currSW = currDB && prevSW && !keyState->suppressed;

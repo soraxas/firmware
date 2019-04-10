@@ -301,6 +301,32 @@ bool processDelayAction() {
     return processDelay(s->currentMacroAction.delay.delay);
 }
 
+
+void postponeNextN(uint8_t count) {
+    s->postponeNext = count + 1;
+    PostponeKeys = true;
+}
+
+void postponeCurrent() {
+    s->postponeNext = 1;
+    PostponeKeys = true;
+}
+
+/**
+ * Both key press and release are subject to postponing, therefore we need to ensure
+ * that macros which actively initiate postponing and wait until release ignore
+ * postponed key releases. The s->postponeNext indicates that the running macro
+ * initiates postponing in the current cycle.
+ */
+bool currentMacroKeyIsActive() {
+    if(s->postponeNext > 0) {
+        return ACTIVE(s->currentMacroKey) && !Postponer_IsKeyReleased(s->currentMacroKey);
+    } else {
+        return ACTIVE(s->currentMacroKey);
+    }
+}
+
+
 bool processKey(macro_action_t macro_action)
 {
     if(!Macros_ClaimReports()) {
@@ -327,7 +353,7 @@ bool processKey(macro_action_t macro_action)
                 return true;
             }
             if (s->pressPhase == 2) {
-                if(ACTIVE(s->currentMacroKey) && action == MacroSubAction_Hold) {
+                if(currentMacroKeyIsActive() && action == MacroSubAction_Hold) {
                     return true;
                 }
                 s->pressPhase = 3;
@@ -372,7 +398,7 @@ bool processMouseButton(macro_action_t macro_action)
                 return true;
             }
             if (s->pressPhase == 1) {
-                if(ACTIVE(s->currentMacroKey) && action == MacroSubAction_Hold) {
+                if(currentMacroKeyIsActive() && action == MacroSubAction_Hold) {
                     return true;
                 }
                 s->pressPhase = 2;
@@ -724,7 +750,6 @@ bool processSwitchLayerCommand(const char* arg1, const char* cmdEnd)
     return false;
 }
 
-
 bool processHoldLayer(uint8_t layer, uint8_t keymap, uint16_t timeout)
 {
     if(!s->holdActive) {
@@ -734,7 +759,7 @@ bool processHoldLayer(uint8_t layer, uint8_t keymap, uint16_t timeout)
         return true;
     }
     else {
-        if(ACTIVE(s->currentMacroKey) && (Timer_GetElapsedTime(&s->currentMacroStartTime) < timeout || s->macroInterrupted)) {
+        if(currentMacroKeyIsActive() && (Timer_GetElapsedTime(&s->currentMacroStartTime) < timeout || s->macroInterrupted)) {
             return true;
         }
         else {
@@ -778,7 +803,7 @@ bool processHoldKeymapLayerMaxCommand(const char* arg1, const char* cmdEnd)
 bool processDelayUntilReleaseMaxCommand(const char* arg1, const char* cmdEnd)
 {
     uint32_t timeout = parseInt32(arg1, cmdEnd);
-    if(ACTIVE(s->currentMacroKey) && Timer_GetElapsedTime(&s->currentMacroStartTime) < timeout) {
+    if(currentMacroKeyIsActive() && Timer_GetElapsedTime(&s->currentMacroStartTime) < timeout) {
         return true;
     }
     return false;
@@ -786,7 +811,7 @@ bool processDelayUntilReleaseMaxCommand(const char* arg1, const char* cmdEnd)
 
 bool processDelayUntilReleaseCommand()
 {
-    if(ACTIVE(s->currentMacroKey)) {
+    if(currentMacroKeyIsActive()) {
         return true;
     }
     return false;
@@ -800,7 +825,7 @@ bool processDelayUntilCommand(const char* arg1, const char* cmdEnd)
 
 bool processRecordMacroDelayCommand()
 {
-    if(ACTIVE(s->currentMacroKey)) {
+    if(currentMacroKeyIsActive()) {
         return true;
     }
     uint16_t delay = Timer_GetElapsedTime(&s->currentMacroStartTime);
@@ -996,7 +1021,7 @@ bool processSuppressKeysCommand()
 
 bool processPostponeKeysCommand()
 {
-    PostponeKeys = true;
+    postponeCurrent();
     return false;
 }
 
@@ -1051,17 +1076,12 @@ bool processNoOpCommand()
     return false;
 }
 
-
-void postponeNextN(uint8_t count) {
-    s->postponeNext = count + 1;
-}
-
 bool processResolveSecondary(uint16_t timeout1, uint16_t timeout2, uint8_t primaryAdr, uint8_t secondaryAdr) {
-    PostponeKeys = true;
+    postponeCurrent();
 
     //phase 1 - wait until some other key is released, then write down its release time
     bool timer1Exceeded = Timer_GetElapsedTime(&s->currentMacroStartTime) >= timeout1;
-    if(!timer1Exceeded && ACTIVE(s->currentMacroKey) && !Postponer_IsPendingReleased()) {
+    if(!timer1Exceeded && currentMacroKeyIsActive() && !Postponer_IsPendingReleased()) {
         s->resolveSecondaryPhase2StartTime = 0;
         return true;
     }
@@ -1070,7 +1090,7 @@ bool processResolveSecondary(uint16_t timeout1, uint16_t timeout2, uint8_t prima
     }
     //phase 2 - "safety margin" - wait another `timeout2` ms, and if the switcher is released during this time, still interpret it as a primary action
     bool timer2Exceeded = Timer_GetElapsedTime(&s->resolveSecondaryPhase2StartTime) >= timeout2;
-    if(!timer1Exceeded && !timer2Exceeded && ACTIVE(s->currentMacroKey) && Postponer_IsPendingReleased() && Postponer_PendingCount() < 3) {
+    if(!timer1Exceeded && !timer2Exceeded && currentMacroKeyIsActive() && Postponer_IsPendingReleased() && Postponer_PendingCount() < 3) {
         return true;
     }
     //phase 3 - resolve the situation - if the switcher is released first or within the "safety margin", interpret it as primary action, otherwise secondary
@@ -1125,7 +1145,7 @@ bool processKeyCommand(macro_sub_action_t type, const char* arg1, const char* ar
 
 bool processResolveNextKeyIdCommand() {
     char num[4];
-    PostponeKeys = true;
+    postponeCurrent();
     if(Postponer_PendingCount() == 0) {
         return true;
     }
@@ -1141,22 +1161,29 @@ bool processResolveNextKeyIdCommand() {
 }
 
 bool processResolveNextKeyEqCommand(const char* arg1, const char* argEnd) {
-    PostponeKeys = true;
+    postponeCurrent();
     const char* arg2 = nextTok(arg1, argEnd);
     const char* arg3 = nextTok(arg2, argEnd);
     const char* arg4 = nextTok(arg3, argEnd);
     const char* arg5 = nextTok(arg4, argEnd);
     uint16_t idx = parseInt32(arg1, argEnd);
     uint16_t key = parseInt32(arg2, argEnd);
-    uint16_t timeout = parseInt32(arg3, argEnd);
+    uint16_t timeout = 0;
+    bool untilRelease = false;
+    if(tokenMatches(arg3, argEnd, "untilRelease")) {
+       untilRelease = true;
+    } else {
+       timeout = parseInt32(arg3, argEnd);
+    }
     uint16_t adr1 = parseInt32(arg4, argEnd);
     uint16_t adr2 = parseInt32(arg5, argEnd);
+
 
     if(idx > POSTPONER_MAX_FILL) {
         Macros_ReportErrorNum("Invalid argument 1, allowed at most: ", idx);
     }
 
-    if(Timer_GetElapsedTime(&s->currentMacroStartTime) >= timeout) {
+    if(untilRelease ? !currentMacroKeyIsActive() : Timer_GetElapsedTime(&s->currentMacroStartTime) >= timeout) {
         return goTo(adr2);
     }
     if(Postponer_PendingCount() < idx + 1) {
