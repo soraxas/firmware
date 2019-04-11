@@ -438,7 +438,7 @@ static void preprocessKeyStates() {
             preprocessKeyState(keyState);
         }
     }
-    if(!PostponeKeys || Postponer_PendingCount() > POSTPONER_MAX_FILL) {
+    if(!PostponeKeys || Postponer_Overflowing()) {
         Postponer_RunPostponed();
     }
 }

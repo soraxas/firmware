@@ -7,8 +7,8 @@
 
 // Macros:
 
-    #define POSTPONER_BUFFER_SIZE 20
-    #define POSTPONER_MAX_FILL 15
+    #define POSTPONER_BUFFER_SIZE 30
+    #define POSTPONER_MAX_FILL 25
     #define CYCLES_PER_ACTIVATION 2
 
 // Typedefs:
@@ -22,6 +22,7 @@
     void Postponer_TrackKey(key_state_t *keyState, bool active);
     uint8_t Postponer_PendingCount();
     bool Postponer_IsActive(void);
+    bool Postponer_Overflowing(void);
     bool Postponer_IsPendingReleased();
     bool Postponer_IsKeyReleased(key_state_t* key);
     uint16_t Postponer_PendingId(int idx);
