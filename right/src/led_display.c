@@ -50,13 +50,67 @@ static const uint16_t digitToSegmentMap[] = {
     0b0000000011101111,
 };
 
+static const uint16_t whiteToNumsToSegmentMap[] = {
+    0b0000000000000110,
+    0b0000001000100000,
+    0b0001001011001110,
+    0b0001001011101101,
+    0b0000110000100100,
+    0b0010001101011101,
+    0b0000010000000000,
+    0b0010010000000000,
+    0b0000100100000000,
+    0b0011111111000000,
+    0b0001001011000000,
+    0b0000100000000000,
+    0b0000000011000000,
+    0b0000000000000000,
+    0b0000110000000000,
+};
+
+static const uint16_t numsToCharsToSegmentMap[] = {
+    0b0001001000000000,
+    0b0000101000000000,
+    0b0010010000000000,
+    0b0000000011001000,
+    0b0000100100000000,
+    0b0001000010000011,
+    0b0000001010111011,
+};
+
+static const uint16_t lowerToUpperToSegmentMap[] = {
+    0b0000000000111001,
+    0b0010000100000000,
+    0b0000000000001111,
+    0b0000110000000011,
+    0b0000000000001000,
+    0b0000000100000000,
+};
+
+static const uint16_t aboveUpperToSegmentMap[] = {
+    0b0000100101001001,
+    0b0001001000000000,
+    0b0010010010001001,
+    0b0000010100100000,
+};
+
 static uint16_t characterToSegmentMap(char character)
 {
     switch (character) {
-        case 'A' ... 'Z':
-            return capitalLetterToSegmentMap[character - 'A'];
+        case '!' ... '/':
+            return whiteToNumsToSegmentMap[character - '!'];
         case '0' ... '9':
             return digitToSegmentMap[character - '0'];
+        case ':' ... '@':
+            return numsToCharsToSegmentMap[character - ':'];
+        case 'a' ... 'z':
+            return capitalLetterToSegmentMap[character - 'a'];
+        case '[' ... '`':
+            return lowerToUpperToSegmentMap[character - '['];
+        case 'A' ... 'Z':
+            return capitalLetterToSegmentMap[character - 'A'];
+        case '{' ... '~':
+            return aboveUpperToSegmentMap[character - '{'];
     }
     return 0;
 }

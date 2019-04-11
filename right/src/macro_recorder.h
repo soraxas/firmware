@@ -14,7 +14,7 @@
 
     #define MAX_RUNTIME_MACROS 32
     #define REPORT_BUFFER_MAX_LENGTH 4096
-    #define REPORT_BUFFER_MIN_GAP 1024
+    #define REPORT_BUFFER_MIN_GAP (REPORT_BUFFER_MAX_LENGTH/4)
     #define REPORT_BUFFER_SAFETY_MARGIN 11
 
 // Typedefs:
@@ -27,7 +27,7 @@
     } macro_report_type_t;
 
     typedef struct {
-        uint8_t id;
+        uint16_t id;
         uint16_t offset;
         uint16_t length;
     } runtime_macro_header;
@@ -41,7 +41,10 @@
     void MacroRecorder_RecordBasicReport(usb_basic_keyboard_report_t *report);
     void MacroRecorder_RecordDelay(uint16_t delay);
 
-    bool MacroRecorder_PlayRuntimeMacroSmart(uint8_t id, usb_basic_keyboard_report_t *report);
-    void MacroRecorder_RecordRuntimeMacroSmart(uint8_t id);
+    bool MacroRecorder_PlayRuntimeMacroSmart(uint16_t id, usb_basic_keyboard_report_t *report);
+    void MacroRecorder_RecordRuntimeMacroSmart(uint16_t id);
+    void MacroRecorder_StopRecording();
+    bool MacroRecorder_IsRecording();
+    uint16_t MacroRecorder_RecordingId();
 
 #endif

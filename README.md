@@ -101,6 +101,14 @@ Postponed secondary role switch. This modification prevents secondary role hiccu
     <hit Ctrl + PgDown>
     $break
     $tapKey g
+
+You can simplify writing macros by using `#` and `@` characters. The first resolves a number as an index of a register. The second interprets the number as a relative action index. For instance the following macro will write out five "a"s with 50 ms delays
+    
+    $setReg 0 50
+    $setReg 1 5
+    $tapKey a
+    $delayUntil #0
+    $repeatFor 1 @-2
     
     
 ## Reference manual
@@ -130,10 +138,13 @@ The following grammar is supported:
     COMMAND = statsRuntime
     COMMAND = printStatus
     COMMAND = setStatus <custom text>
+    COMMAND = setLedTxt <timeout (NUMBER) <custom text>
     COMMAND = write <custom text>
     COMMAND = goTo <index (NUMBER)>
+    COMMAND = repeatFor <register index (NUMBER)> <action adr (NUMBER)>
     COMMAND = recordMacroDelay
-    COMMAND = {recordMacro|playMacro} <slot identifier (CHAR)>
+    COMMAND = stopRecording
+    COMMAND = {recordMacro|playMacro} [<slot identifier (MACROID)>]
     COMMAND = {startMouse|stopMouse} {move DIRECTION|scroll DIRECTION|accelerate|decelerate}
     COMMAND = setStickyModsEnabled {0|1}
     COMMAND = setActivateOnRelease {0|1}
@@ -141,32 +152,37 @@ The following grammar is supported:
     COMMAND = setKeystrokeDelay <time in ms, at most 250 (NUMBER)>
     COMMAND = setDebounceDelay <time in ms, at most 250 (NUMBER)>
     COMMAND = setReg <register index (NUMBER)> <value (NUMBER)> 
-    COMMAND = {addReg|subReg} <register index (NUMBER)> <value (NUMBER)>
+    COMMAND = {addReg|subReg|mulReg} <register index (NUMBER)> <value (NUMBER)>
     COMMAND = pressKey/holdKey/tapKey/releaseKey KEY
-    CONDITION = ifDoubletap | ifNotDoubletap
+    CONDITION = {ifDoubletap|ifNotDoubletap}
     CONDITION = {ifPending|ifNotPending} <n (NUMBER)>
-    CONDITION = ifInterrupted | ifNotInterrupted
-    CONDITION = {ifPlaytime | ifNotPlaytime} <timeout in ms (NUMBER)>
-    CONDITION = ifShift | ifAlt | ifCtrl | ifGui | ifAnyMod | ifNotShift | ifNotAlt | ifNotCtrl | ifNotGui | ifNotAnyMod
-    CONDITION = {ifRegEq | ifNotRegEq} <register index (NUMBER)> <value (NUMBER)>
+    CONDITION = {ifInterrupted|ifNotInterrupted}
+    CONDITION = {ifPlaytime|ifNotPlaytime} <timeout in ms (NUMBER)>
+    CONDITION = {ifShift | ifAlt | ifCtrl | ifGui | ifAnyMod | ifNotShift | ifNotAlt | ifNotCtrl | ifNotGui | ifNotAnyMod}
+    CONDITION = {ifRegEq|ifNotRegEq} <register index (NUMBER)> <value (NUMBER)>
+    CONDITION = {ifRecording|ifNotRecording}
+    CONDITION = {ifRecordingId|ifNotRecording} MACROID
     MODIFIER = suppressMods
     MODIFIER = suppressKeys
     MODIFIER = postponeKeys
     DIRECTION = {left|right|up|down}
     LAYERID = {fn|mouse|mod|base}|last
     KEYMAPID = <abbrev>|last
-    NUMBER = #NUMBER | [0-9]+
+    MACROID = last|CHAR|NUMBER
+    NUMBER = [0-9]+ | #<register idx (NUMBER)> | #key | @<relative macro action index(NUMBER)> 
     CHAR = <any ascii char>
     KEY = CHAR|KEYABBREV
     KEYABBREV = <to be implemented>
 
 - Uncategorized commands:
   - `goTo <int>` will go to action index int. Actions are indexed from zero.
+  - `repeatFor <register index> <adr>` - abbreviation to simplify cycles. Will decrement the supplemented register and perform `goTo` to `adr` if the value is still greater than zero. Intended usecase - place after command which is to be repeated with the register containing number of repeats.
   - `break` will end playback of the current macro
   - `write <custom text>` will type rest of the string. Same as the plain text command. This is just easier to use with conditionals...
   - `startMouse/stopMouse` start/stop corresponding mouse action. E.g., `startMouse move left`
   - `pressKey/holdKey/tapKey/releaseKey` ...
   - `noOp` does nothing - i.e., stops macro for exactly one update cycle and then continues.
+  - `setLedTxt <time> <custom text>` will set led display to supplemented text for the given time. (Blocks for the given time.)
 - Status buffer
   - `printStatus` will "type" content of error status buffer (256 or 1024 chars, depends on my mood) on the keyboard. Mainly for debug purposes.
   - `setStatus <custom text>` will append <custom text> to the error report buffer, if there is enough space for that
@@ -210,7 +226,8 @@ The following grammar is supported:
   - `ifPending/ifNotPending <n>` is true if there is at least `n` postponed keys in the postponing queue. In context of postponing mechanism, this condition acts similar in place of ifInterrupted. 
   - `ifPlaytime/ifNotPlaytime <timeout in ms>` is true if at least `timeout` milliseconds passed since macro was started.
   - `ifShift/ifAlt/ifCtrl/ifGui/ifAnyMod/ifNotShift/ifNotAlt/ifNotCtrl/ifNotGui/ifNotAnyMod` is true if either right or left modifier was held in the previous update cycle.
-  - `{ifRegEq|ifNotRegEq} <register inex> <value>` will test if the value in the register identified by first argument equals second argument.
+  - `{ifRegEq|ifNotRegEq} <register inex> <value>` pull test if the value in the register identified by first argument equals second argument.
+  - `ifRecording/ifNotRecording` and `ifRecordingId/ifNotRecordingId <macro id>` test if the runtime macro recorder is in recording state. 
 - `MODIFIER`s modify behaviour of the rest of the keyboard while the rest of the command is active (e.g., a delay) is active.
   - `suppressMods` will supress any modifiers except those applied via macro engine. Can be used to remap shift and nonShift characters independently.
   - `suppressKeys` will suppress all new key activations triggered while this modifier is active. 
@@ -218,10 +235,11 @@ The following grammar is supported:
 - Runtime macros:
   - `recordMacro|playMacro <slot identifier>` targets vim-like macro functionality. Slot identifier is a single character. Usage (e.g.): call `recordMacro a`, do some work, end recording by another `recordMacro a`. Now you can play the actions (i.e., sequence of keyboard reports) back by calling `playMacro a`. Only BasicKeyboard scancodes are available at the moment. These macros are recorded into RAM only. Number of macros is limited by memory (current limit is set to approximately 500 keystrokes (4kb) (maximum is ~1000 if we used all available memory)). If less than 1/4 of dedicated memory is free, oldest macro slot is freed.
   - `recordMacroDelay` will measure time until key release (i.e., works like `delayUntilRelease`) and insert delay of that length into the currently recorded macro. This can be used to wait for window manager's reaction etc. 
+  - `stopRecording` will stop recording the current macro
 - Registers - for the purpose of toggling functionality on and off, and for global constants management, we provide 32 numeric registers (namely of type int32_t). 
   - `setReg <register index> <value>` will set register identified by index to value.
   - `ifRegEq|ifNotRegEq` see CONDITION section
-  - `addReg|subReg <register index> <value>` adds value to the register 
+  - `{addReg|subReg|mulReg} <register index> <value>` adds value to the register 
   - Register values can also be used in place of all numeric arguments by prefixing register index by '#'. E.g., waiting until release or for amount of time defined by reg 1 can be achieved by `$delayUntilReleaseMax #1`
 - Global configuration options:
   - `setStickyModsEnabled` globally turns on or off sticky modifiers
@@ -230,7 +248,7 @@ The following grammar is supported:
   - `setDebounceDelay <time in ms, at most 250>` prevents key state from changing for some time after every state change. This is needed because contacts of mechanical switches can bounce after contact and therefore change state multiple times in span of a few milliseconds. Official firmware debounce time is 50 ms for both press and release. Recommended value is 10-50, default is 50.
   - `setActivateOnRelease {0|1}` **experimental** if turned on, key actions are activated just once upon key release. This is a highly experimental feature, not guaranteed to work properly with all features of the keyboard! Intended usecase - if you wish to see whether or not you release keys in proper order. 
 - Argument parsing rules:
-  - `NUMBER` is parsed as a 32 bit signed integer and then assigned into the target variable. However, the target variable is often only 8 or 16 bit unsigned. If a number is prefixed with '#', it is interpretted as a register address (index)
+  - `NUMBER` is parsed as a 32 bit signed integer and then assigned into the target variable. However, the target variable is often only 8 or 16 bit unsigned. If a number is prefixed with '#', it is interpretted as a register address (index). If a number is prefixed with '@', current macro index is added to the final value. `#key` returns activation key's hardware id.
   - `abbrev` is assumed to be 3 characters long abbreviation of the keymap
   - `macro slot identifier` is a single ascii character (interpretted as a one-byte value)
   - `register index` is an integer in the appropriate range, used as an index to the register array

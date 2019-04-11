@@ -26,6 +26,7 @@
     bool Postponer_IsPendingReleased();
     bool Postponer_IsKeyReleased(key_state_t* key);
     uint16_t Postponer_PendingId(int idx);
+    uint16_t Postponer_KeyId(key_state_t* key);
     void Postponer_ConsumePending(int count, bool suppress);
 
 #endif /* SRC_POSTPONER_H_ */

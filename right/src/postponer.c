@@ -128,8 +128,7 @@ bool Postponer_IsPendingReleased() {
     return Postponer_IsKeyReleased(getPending(0));
 }
 
-uint16_t Postponer_PendingId(int idx) {
-    key_state_t* key = getPending(idx);
+uint16_t Postponer_KeyId(key_state_t* key) {
     if(key == NULL) {
         return 0;
     }
@@ -137,4 +136,8 @@ uint16_t Postponer_PendingId(int idx) {
     uint32_t ptr2 = (uint32_t)(key_state_t*)&(KeyStates[0][0]);
     uint32_t res = (ptr1 - ptr2) / sizeof(key_state_t);
     return res;
+}
+
+uint16_t Postponer_PendingId(int idx) {
+    return Postponer_KeyId(getPending(idx));
 }
