@@ -4,7 +4,7 @@ This is a fork of [UHK firmware](https://github.com/UltimateHackingKeyboard/firm
 
 ## Compatibility
 
-This firmware is 100% compatible with the original unmodified agent. All you need is to flash the modified firmware to your UHK. Configurations won't get lost in case you decide to switch back to official firmware, or if you then again flash the modified version too, since config formats were not altered in any way. (Extended macros will not work when used within official firmware, obviously.)
+This firmware is 100% compatible with the original unmodified agent. All you need is to flash the modified firmware to your UHK. Configurations won't get lost in case you decide to switch back to official firmware, or if you then again flash the modified version too, since config formats were not altered in any way. (Extended macros will just not work when used within the official firmware, obviously.)
 
 ## Features
 
@@ -31,7 +31,7 @@ For instance, if the following text is pasted as a macro text action, playing th
     
     $switchLayer fn
     
-Runtime macro recorder example. In this setup, shift+key will start recording (indicated by the "adaptive mode" led), another shit+key will stop recording. Hiting sole key will then replay the macro (e.g., simple repetitive text edit).
+Runtime macro recorder example. In this setup, shift+key will start recording (indicated by the "adaptive mode" led), another shit+key will stop recording. Hiting the key alone will then replay the macro (e.g., a simple repetitive text edit).
 
     $ifShift recordMacro A
     $ifNotShift playMacro A
@@ -73,7 +73,7 @@ Mapping shift/nonshift scancodes independently:
     $ifShift suppressMods write 4
     $ifNotShift write %
     
-Applies the corresponding settings globaly. Namely turns off sticky modifiers (i.e., modifiers of composite keystrokes will apply but will no longer stick) so that composite actions don't affect external mouse. Furthermore, it enables separation of composite keystrokes, and increases update delay - this may be useful if macro playback needs to be slown down or if artificial delays need to be introduced for some reason. (Recommended values are 0,1,0.)
+The following applies global settings. Namely turns off sticky modifiers (i.e., modifiers of composite keystrokes will apply but will no longer stick) so that composite actions don't affect external mouse. Furthermore, it enables separation of composite keystrokes, and increases update delay - this may be useful if macro playback needs to be slown down (e.g., because some software does not register short taps) or if artificial delays need to be introduced for some reason. (Recommended values are 0,1,0.)
 
     $setStickyModsEnabled 0 
     $setSplitCompositeKeystroke 1
@@ -86,14 +86,22 @@ Postponed secondary role switch. This modification prevents secondary role hiccu
     $break
     $holdLayer mod
 
-"Rocker gesture". This construct allows mapping custom "chord" shortcuts, respecting key order. E.g., we want to map sequence cv to letter V. We will construct the following macro for key c. The key v does not need to be altered. The number 90 identifies the (hardware) v key. It can be obtained by running `resolveNextKeyId` and pressing the v key (while having focused text editor). Alternatively, `resolveSecondary` could be used to implement similar functionality. In that case, `resolveSecondary` will require prolonged press of c in order to activate the shortcut and won't interfere with writing. This version will eat all `cv`'s encountered while writing, but does not depend on proper release of the keys. Rocker guestures work fine for key combinations which are not encountered in normal text, i.e., for small number of instances. `ResolveSecondary` should be used for mapping key clusters.
+"Rocker gesture". This construct allows mapping custom "chord" shortcuts, respecting key order. E.g., we want to map sequence cv to letter V. We will construct the following macro for key c. The key v does not need to be altered. The `resolveNextKeyEq` will wait for next key press and then branch depending on the "other" key value. The number 90 identifies the (hardware) v key. It can be obtained by running `resolveNextKeyId` and pressing the v key (while having focused text editor). Alternatively, `resolveSecondary` could be used to implement similar functionality when combined with another layer. In that case, `resolveSecondary` will require prolonged press of c in order to activate the shortcut and won't interfere with writing. This version will eat all `cv`s encountered while writing, but does not depend on proper release of the keys. Rocker guestures work fine for key combinations which are not encountered in normal text, i.e., for small number of instances. `ResolveSecondary` should be used for mapping key clusters.
 
-    $resolveNextKeyEq 0 90 200 1 4
+    $resolveNextKeyEq 0 90 untilRelease 1 4
     $consumePending 1
     $tapKey V
     $break
     $tapKey c
 
+"Loose gesture". Same mechanics as for "Rocker Gesture", but implements vim's `gt` shortcut. Here the `t` can be pressed even after release of g. Timeouts after one second.
+
+    $resolveNextKeyEq 0 77 1000 1 4
+    $consumePending 1
+    <hit Ctrl + PgDown>
+    $break
+    $tapKey g
+    
     
 ## Reference manual
 
