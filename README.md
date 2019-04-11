@@ -88,15 +88,20 @@ Postponed secondary role switch. This modification prevents secondary role hiccu
 
 "Rocker gesture". This construct allows mapping custom "chord" shortcuts, respecting key order. E.g., we want to map sequence cv to letter V. We will construct the following macro for key c. The key v does not need to be altered. The `resolveNextKeyEq` will wait for next key press and then branch depending on the "other" key value. The number 90 identifies the (hardware) v key. It can be obtained by running `resolveNextKeyId` and pressing the v key (while having focused text editor). Alternatively, `resolveSecondary` could be used to implement similar functionality when combined with another layer. In that case, `resolveSecondary` will require prolonged press of c in order to activate the shortcut and won't interfere with writing. This version will eat all `cv`s encountered while writing, but does not depend on proper release of the keys. Rocker guestures work fine for key combinations which are not encountered in normal text, i.e., for small number of instances. `ResolveSecondary` should be used for mapping key clusters.
 
-    $resolveNextKeyEq 0 90 200 1 4
+    $resolveNextKeyEq 0 90 untilRelease 1 4
     $consumePending 1
     $tapKey V
     $break
     $tapKey c
 
-"Rocker gesture". This construct allows mapping custom "chord" shortcuts, respecting key order. E.g., we want to map sequence cv to letter V. We will construct the following macro for key c. The key v does not need to be altered. The `resolveNextKeyEq` will wait for next key press and then branch depending on the "other" key value. The number 90 identifies the (hardware) v key. It can be obtained by running `resolveNextKeyId` and pressing the v key (while having focused text editor). Alternatively, `resolveSecondary` could be used to implement similar functionality when combined with another layer. In that case, `resolveSecondary` will require prolonged press of c in order to activate the shortcut and won't interfere with writing. This version will eat all `cv`s encountered while writing, but does not depend on proper release of the keys. Rocker guestures work fine for key combinations which are not encountered in normal text, i.e., for small number of instances. `ResolveSecondary` should be used for mapping key clusters.
+"Loose gesture". Same mechanics as for "Rocker Gesture", but implements vim's `gt` shortcut. Here the `t` can be pressed even after release of g. Timeouts after one second.
 
-    $resolveNextKeyEq 0 90 200 1 4
+    $resolveNextKeyEq 0 77 1000 1 4
+    $consumePending 1
+    <hit Ctrl + PgDown>
+    $break
+    $tapKey g
+    
     
 ## Reference manual
 
