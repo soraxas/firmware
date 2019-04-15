@@ -928,6 +928,10 @@ bool processIfInterruptedCommand(bool negate)
    return s->macroInterrupted != negate;
 }
 
+bool processIfReleasedCommand(bool negate)
+{
+   return (!currentMacroKeyIsActive()) != negate;
+}
 
 bool processIfRegEqCommand(bool negate, const char* arg1, const char *argEnd)
 {
@@ -1288,6 +1292,14 @@ bool processResolveNextKeyEqCommand(const char* arg1, const char* argEnd) {
     }
 }
 
+bool processIfPendingIdCommand(bool negate, const char* arg1, const char* argEnd) {
+    const char* arg2 = nextTok(arg1, argEnd);
+    uint16_t idx = parseInt32(arg1, argEnd);
+    uint16_t key = parseInt32(arg2, argEnd);
+
+    return (Postponer_PendingId(idx) == key) != negate;
+}
+
 bool processConsumePendingCommand(const char* arg1, const char* argEnd) {
     uint16_t cnt = parseInt32(arg1, argEnd);
     Postponer_ConsumePending(cnt, true);
@@ -1410,6 +1422,16 @@ bool processCommandAction(void)
                     return false;
                 }
             }
+            else if(tokenMatches(cmd, cmdEnd, "ifReleased")) {
+                if(!processIfReleasedCommand(false) && !s->currentConditionPassed) {
+                    return false;
+                }
+            }
+            else if(tokenMatches(cmd, cmdEnd, "ifNotReleased")) {
+                if(!processIfReleasedCommand(true) && !s->currentConditionPassed) {
+                    return false;
+                }
+            }
             else if(tokenMatches(cmd, cmdEnd, "ifRegEq")) {
                 if(!processIfRegEqCommand(false, arg1, cmdEnd) && !s->currentConditionPassed) {
                     return false;
@@ -1524,6 +1546,22 @@ bool processCommandAction(void)
                     return false;
                 }
                 cmd = arg1;
+                arg1 = nextTok(cmd, cmdEnd);
+            }
+            else if(tokenMatches(cmd, cmdEnd, "ifPendingId")) {
+                if(!processIfPendingIdCommand(false, arg1, cmdEnd) && !s->currentConditionPassed) {
+                    return false;
+                }
+                //shift by two
+                cmd = nextTok(arg1, cmdEnd);
+                arg1 = nextTok(cmd, cmdEnd);
+            }
+            else if(tokenMatches(cmd, cmdEnd, "ifNotPendingId")) {
+                if(!processIfPendingIdCommand(true, arg1, cmdEnd) && !s->currentConditionPassed) {
+                    return false;
+                }
+                //shift by two
+                cmd = nextTok(arg1, cmdEnd);
                 arg1 = nextTok(cmd, cmdEnd);
             }
             else {

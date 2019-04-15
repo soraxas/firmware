@@ -130,7 +130,7 @@ The following grammar is supported:
     COMMAND = holdKeymapLayerMax KEYMAPID LAYERID <time in ms (NUMBER)>
     COMMAND = resolveSecondary <time in ms (NUMBER)> [<time in ms (NUMBER)>] <primary action macro action index (NUMBER)> <secondary action macro action index (NUMBER)>
     COMMAND = resolveNextKeyId 
-    COMMAND = resolveNextKeyEq <queue position (NUMBER)> <key id (NUMBER)> {<time in ms>|untilRelease} <action adr (NUMBER)> <action adr (NUMBER)>
+    COMMAND = resolveNextKeyEq <queue position (NUMBER)> <key id (KEYID)> {<time in ms>|untilRelease} <action adr (NUMBER)> <action adr (NUMBER)>
     COMMAND = consumePending
     COMMAND = postponeNext <number of commands (NUMER)>
     COMMAND = break
@@ -156,7 +156,9 @@ The following grammar is supported:
     COMMAND = pressKey/holdKey/tapKey/releaseKey KEY
     CONDITION = {ifDoubletap|ifNotDoubletap}
     CONDITION = {ifPending|ifNotPending} <n (NUMBER)>
+    CONDITION = {ifPendingId|ifNotPendingId} <idx in buffer (NUMBER)> KEYID
     CONDITION = {ifInterrupted|ifNotInterrupted}
+    CONDITION = {ifReleased|ifNotReleased}
     CONDITION = {ifPlaytime|ifNotPlaytime} <timeout in ms (NUMBER)>
     CONDITION = {ifShift | ifAlt | ifCtrl | ifGui | ifAnyMod | ifNotShift | ifNotAlt | ifNotCtrl | ifNotGui | ifNotAnyMod}
     CONDITION = {ifRegEq|ifNotRegEq} <register index (NUMBER)> <value (NUMBER)>
@@ -169,10 +171,11 @@ The following grammar is supported:
     LAYERID = {fn|mouse|mod|base}|last
     KEYMAPID = <abbrev>|last
     MACROID = last|CHAR|NUMBER
-    NUMBER = [0-9]+ | #<register idx (NUMBER)> | #key | @<relative macro action index(NUMBER)> 
+    NUMBER = [0-9]+ | -[0-9]+ | #<register idx (NUMBER)> | #key | @<relative macro action index(NUMBER)> 
     CHAR = <any ascii char>
     KEY = CHAR|KEYABBREV
     KEYABBREV = <to be implemented>
+    KEYID = <id of hardware key obtained by resolveNextKeyId (NUMBER)>
 
 - Uncategorized commands:
   - `goTo <int>` will go to action index int. Actions are indexed from zero.
@@ -223,7 +226,9 @@ The following grammar is supported:
 - Conditions are checked before processing the rest of the command. If the condition does not hold, the rest of the command is skipped entirelly. If the command is evaluated multiple times (i.e., if it internally consists of multiple steps, such as the delay, which is evaluated repeatedly until the desired time has passed), the condition is evaluated only in the first iteration.  
   - `ifDoubletap/ifNotDoubletap` is true if previous played macro had the same index and finished at most 250ms ago
   - `ifInterrupted/ifNotInterrupted` is true if a keystroke action or mouse action was triggered during macro runtime. Allows fake implementation of secondary roles. Also allows interruption of cycles.
+  - `ifReleased/ifNotReleased` is true if the key which activated current macro has been released. If the key has been physically released but the release has been postponed by another key, the macro returns false. If the key has been physically and postponing mode was initiated by this macro (e.g., `postponeKeys ifReleased goTo @2`), it returns non-postponed release state (i.e., if there's matching release event in the queue).
   - `ifPending/ifNotPending <n>` is true if there is at least `n` postponed keys in the postponing queue. In context of postponing mechanism, this condition acts similar in place of ifInterrupted. 
+  - `ifPendingId/ifNotPendingId <idx> <keyId>` looks into postponing queue at `idx`th waiting key nad compares it to the `keyId`. See `resolveNextKeyId`.
   - `ifPlaytime/ifNotPlaytime <timeout in ms>` is true if at least `timeout` milliseconds passed since macro was started.
   - `ifShift/ifAlt/ifCtrl/ifGui/ifAnyMod/ifNotShift/ifNotAlt/ifNotCtrl/ifNotGui/ifNotAnyMod` is true if either right or left modifier was held in the previous update cycle.
   - `{ifRegEq|ifNotRegEq} <register inex> <value>` pull test if the value in the register identified by first argument equals second argument.
