@@ -28,6 +28,7 @@ static layerStackRecord layerIdxStack[LAYER_STACK_SIZE];
 static uint8_t layerIdxStackTop;
 static uint8_t layerIdxStackSize;
 static uint8_t lastLayerIdx;
+static uint8_t lastLayerKeymapIdx;
 static uint8_t lastKeymapIdx;
 
 static int32_t regs[MAX_REG_COUNT];
@@ -690,6 +691,16 @@ void removeStackTop(void) {
     layerIdxStackSize--;
 }
 
+uint8_t findPreviousLayerRecordIdx() {
+    for(int i = 1; i < layerIdxStackSize; i++) {
+        uint8_t pos = (layerIdxStackTop + LAYER_STACK_SIZE - i) % LAYER_STACK_SIZE;
+        if(!layerIdxStack[pos].removed) {
+            return pos;
+        }
+    }
+    return layerIdxStackTop;
+}
+
 void popLayerStack(bool forceRemoveTop) {
     if(layerIdxStackSize > 0 && forceRemoveTop) {
         removeStackTop();
@@ -712,6 +723,13 @@ void Macros_UpdateLayerStack() {
     for(int i = 0; i < LAYER_STACK_SIZE; i++) {
         layerIdxStack[i].keymap = CurrentKeymapIndex;
     }
+}
+
+void Macros_ResetLayerStack() {
+    for(int i = 0; i < LAYER_STACK_SIZE; i++) {
+        layerIdxStack[i].keymap = CurrentKeymapIndex;
+    }
+    layerIdxStackSize = 0;
 }
 
 void pushStack(uint8_t layer, uint8_t keymap, bool hold) {
@@ -755,6 +773,33 @@ uint8_t parseLayerId(const char* arg1, const char* cmdEnd) {
     else if(tokenMatches(arg1, cmdEnd, "last")) {
         return lastLayerIdx;
     }
+    else if(tokenMatches(arg1, cmdEnd, "previous")) {
+        return layerIdxStack[findPreviousLayerRecordIdx()].layer;
+    }
+    else {
+        return false;
+    }
+}
+
+uint8_t parseLayerKeymapId(const char* arg1, const char* cmdEnd) {
+    if(tokenMatches(arg1, cmdEnd, "fn")) {
+        return CurrentKeymapIndex;
+    }
+    else if(tokenMatches(arg1, cmdEnd, "mouse")) {
+        return CurrentKeymapIndex;
+    }
+    else if(tokenMatches(arg1, cmdEnd, "mod")) {
+        return CurrentKeymapIndex;
+    }
+    else if(tokenMatches(arg1, cmdEnd, "base")) {
+        return CurrentKeymapIndex;
+    }
+    else if(tokenMatches(arg1, cmdEnd, "last")) {
+        return lastLayerKeymapIdx;
+    }
+    else if(tokenMatches(arg1, cmdEnd, "previous")) {
+        return layerIdxStack[findPreviousLayerRecordIdx()].keymap;
+    }
     else {
         return false;
     }
@@ -766,30 +811,67 @@ bool processSwitchKeymapCommand(const char* arg1, const char* cmdEnd)
     {
         uint8_t newKeymapIdx = parseKeymapId(arg1, cmdEnd);
         SwitchKeymapById(newKeymapIdx);
-        Macros_UpdateLayerStack();
+        Macros_ResetLayerStack();
     }
     lastKeymapIdx = tmpKeymapIdx;
     return false;
 }
 
+/**DEPRECATED**/
 bool processSwitchKeymapLayerCommand(const char* arg1, const char* cmdEnd)
 {
     uint8_t tmpLayerIdx = ToggledLayer;
+    uint8_t tmpLayerKeymapIdx = CurrentKeymapIndex;
     pushStack(parseLayerId(nextTok(arg1, cmdEnd), cmdEnd), parseKeymapId(arg1, cmdEnd), false);
     lastLayerIdx = tmpLayerIdx;
+    lastLayerKeymapIdx = tmpLayerKeymapIdx;
     return false;
 }
 
+/**DEPRECATED**/
 bool processSwitchLayerCommand(const char* arg1, const char* cmdEnd)
 {
     uint8_t tmpLayerIdx = ToggledLayer;
+    uint8_t tmpLayerKeymapIdx = CurrentKeymapIndex;
     if(tokenMatches(arg1, cmdEnd, "previous")) {
         popLayerStack(true);
     }
     else {
-        pushStack(parseLayerId(arg1, cmdEnd), CurrentKeymapIndex, false);
+        pushStack(parseLayerId(arg1, cmdEnd), parseLayerKeymapId(arg1, cmdEnd), false);
     }
     lastLayerIdx = tmpLayerIdx;
+    lastLayerKeymapIdx = tmpLayerKeymapIdx;
+    return false;
+}
+
+
+bool processToggleKeymapLayerCommand(const char* arg1, const char* cmdEnd)
+{
+    uint8_t tmpLayerIdx = ToggledLayer;
+    uint8_t tmpLayerKeymapIdx = CurrentKeymapIndex;
+    pushStack(parseLayerId(nextTok(arg1, cmdEnd), cmdEnd), parseKeymapId(arg1, cmdEnd), false);
+    lastLayerIdx = tmpLayerIdx;
+    lastLayerKeymapIdx = tmpLayerKeymapIdx;
+    return false;
+}
+
+bool processToggleLayerCommand(const char* arg1, const char* cmdEnd)
+{
+    uint8_t tmpLayerIdx = ToggledLayer;
+    uint8_t tmpLayerKeymapIdx = CurrentKeymapIndex;
+    pushStack(parseLayerId(nextTok(arg1, cmdEnd), cmdEnd), parseLayerKeymapId(arg1, cmdEnd), false);
+    lastLayerIdx = tmpLayerIdx;
+    lastLayerKeymapIdx = tmpLayerKeymapIdx;
+    return false;
+}
+
+bool processUnToggleLayerCommand()
+{
+    uint8_t tmpLayerIdx = ToggledLayer;
+    uint8_t tmpLayerKeymapIdx = CurrentKeymapIndex;
+    popLayerStack(true);
+    lastLayerIdx = tmpLayerIdx;
+    lastLayerKeymapIdx = tmpLayerKeymapIdx;
     return false;
 }
 
@@ -821,13 +903,13 @@ bool Macros_IsLayerHeld() {
 
 bool processHoldLayerCommand(const char* arg1, const char* cmdEnd)
 {
-    return processHoldLayer(parseLayerId(arg1, cmdEnd), CurrentKeymapIndex, 0xFFFF);
+    return processHoldLayer(parseLayerId(arg1, cmdEnd), parseLayerKeymapId(arg1, cmdEnd), 0xFFFF);
 }
 
 bool processHoldLayerMaxCommand(const char* arg1, const char* cmdEnd)
 {
     const char* arg2 = nextTok(arg1, cmdEnd);
-    return processHoldLayer(parseLayerId(arg1, cmdEnd), CurrentKeymapIndex, parseInt32(arg2, cmdEnd));
+    return processHoldLayer(parseLayerId(arg1, cmdEnd), parseLayerKeymapId(arg1, cmdEnd), parseInt32(arg2, cmdEnd));
 }
 
 bool processHoldKeymapLayerCommand(const char* arg1, const char* cmdEnd)
@@ -1328,10 +1410,8 @@ bool processRepeatForCommand(const char* arg1, const char* argEnd) {
     return false;
 }
 
-bool processCommandAction(void)
+bool processCommand(const char* cmd, const char* cmdEnd)
 {
-    const char* cmd = s->currentMacroAction.text.text+1;
-    const char* cmdEnd = s->currentMacroAction.text.text + s->currentMacroAction.text.textLen;
     while(*cmd) {
         const char* arg1 = nextTok(cmd, cmdEnd);
         switch(*cmd) {
@@ -1703,8 +1783,22 @@ bool processCommandAction(void)
             }
             break;
         case 't':
-            if(tokenMatches(cmd, cmdEnd, "tapKey")) {
+            if(tokenMatches(cmd, cmdEnd, "toggleKeymapLayer")) {
+                return processToggleKeymapLayerCommand(arg1, cmdEnd);
+            }
+            else if(tokenMatches(cmd, cmdEnd, "toggleLayer")) {
+                return processToggleLayerCommand(arg1, cmdEnd);
+            }
+            else if(tokenMatches(cmd, cmdEnd, "tapKey")) {
                 return processKeyCommand(MacroSubAction_Tap, arg1, cmdEnd);
+            }
+            else {
+                goto failed;
+            }
+            break;
+        case 'u':
+            if(tokenMatches(cmd, cmdEnd, "unToggleLayer")) {
+                return processUnToggleLayerCommand();
             }
             else {
                 goto failed;

@@ -27,9 +27,9 @@ Some of the usecases which can be achieved via these commands are:
 ## Examples
 **Note that every command (i.e., every line in the examples) has to be inputted as a separate action!** Also note that macros are being run "asynchronously" (i.e., interleaved with other event handling) at a pace of at most one action per update cycle. A macro action may take one or more update cycles to complete (esp. delay commands and all commands which interfere with usb reports).
 
-For instance, if the following text is pasted as a macro text action, playing the macro will result in toggling of fn layer.
+For instance, if the following text is pasted as a macro text action, playing the macro will result in switching to QWR keymap.
     
-    $switchLayer fn
+    $switchKeymap QWR
     
 Runtime macro recorder example. In this setup, shift+key will start recording (indicated by the "adaptive mode" led), another shit+key will stop recording. Hiting the key alone will then replay the macro (e.g., a simple repetitive text edit).
 
@@ -39,14 +39,19 @@ Runtime macro recorder example. In this setup, shift+key will start recording (i
 Implementation of standard double-tap-locking hold modifier in recursive version could look like:
 
     $holdLayer fn
-    $ifDoubletap switchLayer fn
+    $ifDoubletap toggleLayer fn
+
+Once the layer is toggled, the target layer needs to contain another macro to allow return to the base layer. For instance:
+
+    $holdLayer previous
+    $ifDoubletap unToggleLayer
     
 Alternative way to implement the above example would be the following. However, using `holdLayer` for "hold" mechanisms is strongly encouraged due to more elaborate release logic:
 
-    $switchLayer fn
+    $toggleLayer fn
     $delayUntilRelease
-    $switchLayer previous
-    $ifDoubletap switchLayer fn
+    $untoggleLayer 
+    $ifDoubletap toggleLayer fn
 
 Creating double-shift-to-caps may look like:
    
@@ -56,10 +61,10 @@ Creating double-shift-to-caps may look like:
     $ifNotDoubletap break
     <tap CapsLock>
 
-Smart switch (if tapped, locks layer; if used with a key, acts as a secondary role):
+Smart toggle (if tapped, locks layer; if used with a key, acts as a secondary role):
 
     $holdLayer mouse
-    $ifNotInterrupted switchLayer mouse
+    $ifNotInterrupted toggleLayer mouse
     
 
 Regular secondary role:
@@ -121,9 +126,10 @@ The following grammar is supported:
     COMMAND = delayUntilRelease
     COMMAND = delayUntil <timeout (NUMBER)>
     COMMAND = delayUntilReleaseMax <timeout (NUMBER)>
-    COMMAND = switchLayer {LAYERID|previous}
     COMMAND = switchKeymap KEYMAPID
-    COMMAND = switchKeymapLayer KEYMAPID LAYERID
+    COMMAND = toggleLayer LAYERID
+    COMMAND = toggleKeymapLayer KEYMAPID LAYERID
+    COMMAND = unToggleLayer
     COMMAND = holdLayer LAYERID
     COMMAND = holdLayerMax LAYERID <time in ms (NUMBER)>
     COMMAND = holdKeymapLayer KEYMAPID LAYERID
@@ -169,7 +175,7 @@ The following grammar is supported:
     MODIFIER = postponeKeys
     MODIFIER = final
     DIRECTION = {left|right|up|down}
-    LAYERID = {fn|mouse|mod|base}|last
+    LAYERID = {fn|mouse|mod|base}|last|previous
     KEYMAPID = <abbrev>|last
     MACROID = last|CHAR|NUMBER
     NUMBER = [0-9]+ | -[0-9]+ | #<register idx (NUMBER)> | #key | @<relative macro action index(NUMBER)> 
@@ -177,6 +183,11 @@ The following grammar is supported:
     KEY = CHAR|KEYABBREV
     KEYABBREV = <to be implemented>
     KEYID = <id of hardware key obtained by resolveNextKeyId (NUMBER)>
+    ############
+    #DEPRECATED#
+    ############
+    COMMAND = switchLayer LAYERID
+    COMMAND = switchKeymapLayer KEYMAPID LAYERID
 
 - Uncategorized commands:
   - `goTo <int>` will go to action index int. Actions are indexed from zero.
@@ -196,13 +207,20 @@ The following grammar is supported:
   - `delayUntilRelease` sleeps the macro until its activation key is released. Can be used to set action on key release. 
   - `delayUntilReleaseMax <timeout>` same as `delayUntilRelease`, but is also broken when timeout (in ms) is reached.
 - Layer/Keymap switching:
-  - `switchLayer` toggles layer. We keep a stack of limited size, which can be used for nested toggling and/or holds.
-    - `last` will toggle last layer/keymap toggled via switch commands and push it onto stack
-    - `previous` will pop the stack
-  - `switchKeymapLayer` toggles layer from different keymap. Unlike `switchKeymap`, still retains semantics of a layer switch.
-  - `switchKeymap` will toggle the keymap by its abbreviation and overwrite all keymap records stored in layer stack so that keymap switching works even from held keymaps.
-  - `holdLayer LAYERID` mostly corresponds to the sequence `switchLayer <layer>; delayUntilRelease; switchLayer previous`, except for more elaborate conflict resolution (releasing holds in incorrect order, correct releasing of holds in case layer is locked via `$switchLayer` command.
-  - `holdKeymapLayer KEYMAPID LAYERID` just as holdLayer (still retains semantics of a layer switch and not a keymap switch), but takes both keymap and layer as parameters. This reloads the entire keymap, so it may be very inefficient.
+  Layer/Keymap switching mechanism allows toggling/switching of keymaps of layers. We keep layer records in a stack of limited size, which can be used for nested toggling and/or holds.
+  - special ids:
+    - `previous` refers to the second stack record (i.e., `stackTop-1`)
+    - `last` always refers to the previously used layer/keymap (i.e., `stackTop-1` or `stackTop+1`)
+  - terminology:
+    - switch means loading the target keymap and reseting layer-switching context
+    - toggle refers to switching a layer and remaining there
+    - hold refers to switching to a layer when the command is activated and switching back when the activation key is released
+  - `switchKeymap` will load the keymap by its abbreviation and reset the stack.
+  - `toggleLayer` toggles the layer. 
+  - `unToggleLayer` pops layer from the stack. 
+  - `toggleKeymapLayer` toggles layer from different keymap. 
+  - `holdLayer LAYERID` mostly corresponds to the sequence `toggleLayer <layer>; delayUntilRelease; unToggleLayer`, except for more elaborate conflict resolution (releasing holds in incorrect order).
+  - `holdKeymapLayer KEYMAPID LAYERID` just as holdLayer, but allows referring to layer of different keymap. This reloads the entire keymap, so it may be very inefficient.
   - `holdLayerMax/holdKeymapLayerMax` will timeout after <timeout> ms if no action is performed in that time.
   - `resolveSecondary <timeout in ms> [<safety margin delay in ms>] <primary action macro action index> <secondary action macro action index>` is a special action used to resolve secondary roles on alphabetic keys. The following commands are supposed to determine behaviour of primary action and the secondary role. The command takes liberty to wait for the time specified by the first argument. If the key is held for more than the time, or if the algorithm decides that secondary role should be activated, goTo to secondary action is issued. Otherwise goTo to primary action is issued. Actions are indexed from 0. Any keys pressed during resolution are postponed until the first command after the jump is performed. See examples. 
     
@@ -215,6 +233,7 @@ The following grammar is supported:
   - `postponeKeys` modifier prefixed before another command keeps the firmware in postponing mode. Some commands apply this modifier implicitly. See MODIFIER section.
   - `postponeNext <n>` command will apply `postponeKeys` modifier on the current command and following next n commands (macro actions).
   - `ifPending/ifNotPending <n>` is true if there is at least `n` postponed keys in the queue.
+  - `ifPendingId/ifNotPendingId <idx> <keyId>` looks into postponing queue at `idx`th waiting key nad compares it to the `keyId`. 
   - `consumePending <n>` will remove n records from the queue.
   - `resolveSecondary` allows resolution of secondary roles depending on the next key - this allows us to accurately distinguish random press from intentional press of shortcut via secondary role. See `resolveSecondary` entry under Layer switching. Implicitly applies `postponeKeys` modifier.
   - `resolveNextKeyEq <queue idx> <key id> <timeout> <adr1> <adr2>` will wait for next (n) key press(es). When the key press happens, it will compare its id with the `<key id>` argument. If the id equals, it issues goto to adr1. Otherwise, to adr2. See examples. Implicitly applies `postponeKeys` modifier.
@@ -238,6 +257,7 @@ The following grammar is supported:
   - `suppressMods` will supress any modifiers except those applied via macro engine. Can be used to remap shift and nonShift characters independently.
   - `suppressKeys` will suppress all new key activations triggered while this modifier is active. 
   - `postponeKeys` will postpone all new key activations for as long as any instance of this modifier is active. Postponed keys are saved into the postponing queue. If the queue overflows, keys are activated despite the active modifier. Can be used to mess with timing of other keys, e.g., for resolution of secondary roles.
+  - `final` will end macro playback after the "modified" action is properly finished. Simplifies control flow. "Implicit break."
 - Runtime macros:
   - `recordMacro|playMacro <slot identifier>` targets vim-like macro functionality. Slot identifier is a single character. Usage (e.g.): call `recordMacro a`, do some work, end recording by another `recordMacro a`. Now you can play the actions (i.e., sequence of keyboard reports) back by calling `playMacro a`. Only BasicKeyboard scancodes are available at the moment. These macros are recorded into RAM only. Number of macros is limited by memory (current limit is set to approximately 500 keystrokes (4kb) (maximum is ~1000 if we used all available memory)). If less than 1/4 of dedicated memory is free, oldest macro slot is freed.
   - `recordMacroDelay` will measure time until key release (i.e., works like `delayUntilRelease`) and insert delay of that length into the currently recorded macro. This can be used to wait for window manager's reaction etc. 
