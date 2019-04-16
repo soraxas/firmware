@@ -167,6 +167,7 @@ The following grammar is supported:
     MODIFIER = suppressMods
     MODIFIER = suppressKeys
     MODIFIER = postponeKeys
+    MODIFIER = final
     DIRECTION = {left|right|up|down}
     LAYERID = {fn|mouse|mod|base}|last
     KEYMAPID = <abbrev>|last

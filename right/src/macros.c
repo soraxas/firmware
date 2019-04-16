@@ -1373,6 +1373,19 @@ bool processCommandAction(void)
                 goto failed;
             }
             break;
+        case 'f':
+            if(tokenMatches(cmd, cmdEnd, "final")) {
+                if(processCommand(nextTok(cmd, cmdEnd), cmdEnd)) {
+                    return true;
+                } else {
+                    s->macroBroken = true;
+                    return false;
+                }
+            }
+            else {
+                goto failed;
+            }
+            break;
         case 'g':
             if(tokenMatches(cmd, cmdEnd, "goTo")) {
                 return processGoToCommand(arg1, cmdEnd);
@@ -1714,6 +1727,13 @@ bool processCommandAction(void)
         cmd = arg1;
     }
     return false;
+}
+
+
+bool processCommandAction(void) {
+    const char* cmd = s->currentMacroAction.text.text+1;
+    const char* cmdEnd = s->currentMacroAction.text.text + s->currentMacroAction.text.textLen;
+    return processCommand(cmd, cmdEnd);
 }
 
 bool processTextOrCommandAction(void)
