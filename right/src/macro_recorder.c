@@ -179,10 +179,12 @@ void MacroRecorder_RecordBasicReport(usb_basic_keyboard_report_t *report) {
     if(!RuntimeMacroRecording) {
         return;
     }
-    if(RuntimeMacroRecording && reportBufferLength + REPORT_BUFFER_SAFETY_MARGIN >= REPORT_BUFFER_MAX_LENGTH) {
+    if(
+            (reportBufferLength + REPORT_BUFFER_SAFETY_MARGIN >= REPORT_BUFFER_MAX_LENGTH) ||
+            (recordingHeader->length >= REPORT_BUFFER_MAX_MACRO_LENGTH)
+    ) {
         recordRuntimeMacroEnd();
         discardLastHeaderSlot();
-        Macros_ReportError("Macro too long, discarded", NULL, NULL);
         return;
     }
     if(report->modifiers == 0 && report->scancodes[0] == 0) {
