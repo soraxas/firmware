@@ -688,11 +688,8 @@ int32_t parseMacroId(const char *a, const char *aEnd) {
 
 void removeStackTop(bool toggledInsteadOfTop) {
     if(toggledInsteadOfTop) {
-        Macros_ReportErrorNum("=== ", 0);
         for(int i = 0; i < layerIdxStackSize-1; i++) {
             uint8_t pos = (layerIdxStackTop + LAYER_STACK_SIZE - i) % LAYER_STACK_SIZE;
-            Macros_ReportErrorNum("held ", layerIdxStack[pos].held);
-            Macros_ReportErrorNum("removed ", layerIdxStack[pos].removed);
             if(!layerIdxStack[pos].held && !layerIdxStack[pos].removed) {
                 layerIdxStack[pos].removed = true;
                 return;
@@ -742,7 +739,7 @@ void Macros_ResetLayerStack() {
     for(int i = 0; i < LAYER_STACK_SIZE; i++) {
         layerIdxStack[i].keymap = CurrentKeymapIndex;
     }
-    layerIdxStackSize = 0;
+    layerIdxStackSize = 1;
 }
 
 void pushStack(uint8_t layer, uint8_t keymap, bool hold) {
@@ -872,7 +869,7 @@ bool processToggleLayerCommand(const char* arg1, const char* cmdEnd)
 {
     uint8_t tmpLayerIdx = ToggledLayer;
     uint8_t tmpLayerKeymapIdx = CurrentKeymapIndex;
-    pushStack(parseLayerId(nextTok(arg1, cmdEnd), cmdEnd), parseLayerKeymapId(arg1, cmdEnd), false);
+    pushStack(parseLayerId(arg1, cmdEnd), parseLayerKeymapId(arg1, cmdEnd), false);
     lastLayerIdx = tmpLayerIdx;
     lastLayerKeymapIdx = tmpLayerKeymapIdx;
     return false;
