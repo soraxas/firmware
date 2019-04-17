@@ -686,9 +686,22 @@ int32_t parseMacroId(const char *a, const char *aEnd) {
     return lastMacroId;
 }
 
-void removeStackTop(void) {
-    layerIdxStackTop = (layerIdxStackTop + LAYER_STACK_SIZE - 1) % LAYER_STACK_SIZE;
-    layerIdxStackSize--;
+void removeStackTop(bool toggledInsteadOfTop) {
+    if(toggledInsteadOfTop) {
+        Macros_ReportErrorNum("=== ", 0);
+        for(int i = 0; i < layerIdxStackSize-1; i++) {
+            uint8_t pos = (layerIdxStackTop + LAYER_STACK_SIZE - i) % LAYER_STACK_SIZE;
+            Macros_ReportErrorNum("held ", layerIdxStack[pos].held);
+            Macros_ReportErrorNum("removed ", layerIdxStack[pos].removed);
+            if(!layerIdxStack[pos].held && !layerIdxStack[pos].removed) {
+                layerIdxStack[pos].removed = true;
+                return;
+            }
+        }
+    } else {
+        layerIdxStackTop = (layerIdxStackTop + LAYER_STACK_SIZE - 1) % LAYER_STACK_SIZE;
+        layerIdxStackSize--;
+    }
 }
 
 uint8_t findPreviousLayerRecordIdx() {
@@ -701,12 +714,12 @@ uint8_t findPreviousLayerRecordIdx() {
     return layerIdxStackTop;
 }
 
-void popLayerStack(bool forceRemoveTop) {
+void popLayerStack(bool forceRemoveTop, bool toggledInsteadOfTop) {
     if(layerIdxStackSize > 0 && forceRemoveTop) {
-        removeStackTop();
+        removeStackTop(toggledInsteadOfTop);
     }
     while(layerIdxStackSize > 0 && layerIdxStack[layerIdxStackTop].removed) {
-        removeStackTop();
+        removeStackTop(false);
     }
     if(layerIdxStackSize == 0) {
         layerIdxStack[layerIdxStackTop].layer = LayerId_Base;
@@ -834,7 +847,7 @@ bool processSwitchLayerCommand(const char* arg1, const char* cmdEnd)
     uint8_t tmpLayerIdx = ToggledLayer;
     uint8_t tmpLayerKeymapIdx = CurrentKeymapIndex;
     if(tokenMatches(arg1, cmdEnd, "previous")) {
-        popLayerStack(true);
+        popLayerStack(true, false);
     }
     else {
         pushStack(parseLayerId(arg1, cmdEnd), parseLayerKeymapId(arg1, cmdEnd), false);
@@ -869,7 +882,7 @@ bool processUnToggleLayerCommand()
 {
     uint8_t tmpLayerIdx = ToggledLayer;
     uint8_t tmpLayerKeymapIdx = CurrentKeymapIndex;
-    popLayerStack(true);
+    popLayerStack(true, true);
     lastLayerIdx = tmpLayerIdx;
     lastLayerKeymapIdx = tmpLayerKeymapIdx;
     return false;
@@ -891,7 +904,7 @@ bool processHoldLayer(uint8_t layer, uint8_t keymap, uint16_t timeout)
             s->holdActive = false;
             layerIdxStack[s->holdLayerIdx].removed = true;
             layerIdxStack[s->holdLayerIdx].held = false;
-            popLayerStack(false);
+            popLayerStack(false, false);
             return false;
         }
     }

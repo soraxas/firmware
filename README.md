@@ -216,8 +216,9 @@ The following grammar is supported:
     - toggle refers to switching a layer and remaining there
     - hold refers to switching to a layer when the command is activated and switching back when the activation key is released
   - `switchKeymap` will load the keymap by its abbreviation and reset the stack.
+  - `switchLayer/switchKeymapLayer` are deprecated. They simply push the layer onto stack (or pop in case of `previous`) without any further handling. Should be replaced by toggle/untoggle/hold layer commands.
   - `toggleLayer` toggles the layer. 
-  - `unToggleLayer` pops layer from the stack. 
+  - `unToggleLayer` pops topmost non-held layer from the stack. (I.e., untoggles layer which was toggled via "toggle" or "switch" feature.)
   - `toggleKeymapLayer` toggles layer from different keymap. 
   - `holdLayer LAYERID` mostly corresponds to the sequence `toggleLayer <layer>; delayUntilRelease; unToggleLayer`, except for more elaborate conflict resolution (releasing holds in incorrect order).
   - `holdKeymapLayer KEYMAPID LAYERID` just as holdLayer, but allows referring to layer of different keymap. This reloads the entire keymap, so it may be very inefficient.
