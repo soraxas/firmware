@@ -136,7 +136,7 @@ The following grammar is supported:
     COMMAND = holdKeymapLayerMax KEYMAPID LAYERID <time in ms (NUMBER)>
     COMMAND = resolveSecondary <time in ms (NUMBER)> [<time in ms (NUMBER)>] <primary action macro action index (NUMBER)> <secondary action macro action index (NUMBER)>
     COMMAND = resolveNextKeyId 
-    COMMAND = resolveNextKeyEq <queue position (NUMBER)> <key id (KEYID)> {<time in ms>|untilRelease} <action adr (NUMBER)> <action adr (NUMBER)>
+    COMMAND = resolveNextKeyEq <queue position (NUMBER)> KEYID {<time in ms>|untilRelease} <action adr (NUMBER)> <action adr (NUMBER)>
     COMMAND = consumePending
     COMMAND = postponeNext <number of commands (NUMER)>
     COMMAND = break
@@ -159,7 +159,7 @@ The following grammar is supported:
     COMMAND = setDebounceDelay <time in ms, at most 250 (NUMBER)>
     COMMAND = setReg <register index (NUMBER)> <value (NUMBER)> 
     COMMAND = {addReg|subReg|mulReg} <register index (NUMBER)> <value (NUMBER)>
-    COMMAND = pressKey/holdKey/tapKey/releaseKey KEY
+    COMMAND = pressKey/holdKey/tapKey/releaseKey SHORTCUT
     CONDITION = {ifDoubletap|ifNotDoubletap}
     CONDITION = {ifPending|ifNotPending} <n (NUMBER)>
     CONDITION = {ifPendingId|ifNotPendingId} <idx in buffer (NUMBER)> KEYID
@@ -180,9 +180,14 @@ The following grammar is supported:
     MACROID = last|CHAR|NUMBER
     NUMBER = [0-9]+ | -[0-9]+ | #<register idx (NUMBER)> | #key | @<relative macro action index(NUMBER)> 
     CHAR = <any ascii char>
-    KEY = CHAR|KEYABBREV
-    KEYABBREV = <to be implemented>
     KEYID = <id of hardware key obtained by resolveNextKeyId (NUMBER)>
+    MODMASK = [MODMASK]+ | [L|R]{S|C|A|G}
+    KEY = CHAR|KEYABBREV
+    KEYABBREV = enter | escape | backspace | tab | space | minusAndUnderscore | equalAndPlus | openingBracketAndOpeningBrace | closingBracketAndClosingBrace | backslashAndPipe | nonUsHashmarkAndTilde | semicolonAndColon | apostropheAndQuote | graveAccentAndTilde | commaAndLessThanSign | dotAndGreaterThanSign | slashAndQuestionMark | capsLock | f1 | f2 | f3 | f4 | f5 | f6 | f7 | f8 | f9 | f10 | f11 | f12 | printScreen | scrollLock | pause | insert | home | pageUp | delete | end | pageDown | rightArrow | leftArrow | downArrow | upArrow | numLock | keypadSlash | keypadAsterisk | keypadMinus | keypadPlus | keypadEnter | keypad1AndEnd | keypad2AndDownArrow | keypad3AndPageDown | keypad4AndLeftArrow | keypad5 | keypad6AndRightArrow | keypad7AndHome | keypad8AndUpArrow | keypad9AndPageUp | keypad0AndInsert | keypadDotAndDelete | nonUsBackslashAndPipe | application | power | keypadEqualSign | f13 | f14 | f15 | f16 | f17 | f18 | f19 | f20 | f21 | f22 | f23 | f24 | execute | help | menu | select | stop | again | undo | cut | copy | paste | find | mute | volumeUp | volumeDown | lockingCapsLock | lockingNumLock | lockingScrollLock | keypadComma | keypadEqualSignAs400 | international1 | international2 | international3 | international4 | international5 | international6 | international7 | international8 | international9 | lang1 | lang2 | lang3 | lang4 | lang5 | lang6 | lang7 | lang8 | lang9 | alternateErase | sysreq | cancel | clear | prior | return | separator | out | oper | clearAndAgain | crselAndProps | exsel | keypad00 | keypad000 | thousandsSeparator | decimalSeparator | currencyUnit | currencySubUnit | keypadOpeningParenthesis | keypadClosingParenthesis | keypadOpeningBrace | keypadClosingBrace | keypadTab | keypadBackspace | keypadA | keypadB | keypadC | keypadD | keypadE | keypadF | keypadXor | keypadCaret | keypadPercentage | keypadLessThanSign | keypadGreaterThanSign | keypadAmp | keypadAmpAmp | keypadPipe | keypadPipePipe | keypadColon | keypadHashmark | keypadSpace | keypadAt | keypadExclamationSign | keypadMemoryStore | keypadMemoryRecall | keypadMemoryClear | keypadMemoryAdd | keypadMemorySubtract | keypadMemoryMultiply | keypadMemoryDivide | keypadPlusAndMinus | keypadClear | keypadClearEntry | keypadBinary | keypadOctal | keypadDecimal | keypadHexadecimal | leftControl | leftShift | leftAlt | leftGui | rightControl | rightShift | rightAlt | rightGui 
+    KEYABBREV = mediaVolumeMute | mediaVolumeUp | mediaVolumeDown | mediaRecord | mediaFastForward | mediaRewind | mediaNext | mediaPrevious | mediaStop | mediaPlayPause | mediaPause 
+    KEYABBREV = systemPowerDown | systemSleep | systemWakeUp 
+    KEYABBREV = mouseBtnLeft | mouseBtnRight | mouseBtnMiddle | mouseBtn4 | mouseBtn5 | mouseBtn6
+    SHORTCUT = MODMASK-KEY | KEY
     ############
     #DEPRECATED#
     ############
@@ -195,7 +200,7 @@ The following grammar is supported:
   - `break` will end playback of the current macro
   - `write <custom text>` will type rest of the string. Same as the plain text command. This is just easier to use with conditionals...
   - `startMouse/stopMouse` start/stop corresponding mouse action. E.g., `startMouse move left`
-  - `pressKey/holdKey/tapKey/releaseKey` ...
+  - `pressKey/holdKey/tapKey/releaseKey` Presses/holds/taps/releases the provided scancode. E.g., `pressKey mouseBtnLeft`, `tapKey LC-v` (Left Control + (lowercase) v), `tapKey CS-f5` (Ctrl + Shift + F5).
   - `noOp` does nothing - i.e., stops macro for exactly one update cycle and then continues.
   - `setLedTxt <time> <custom text>` will set led display to supplemented text for the given time. (Blocks for the given time.)
 - Status buffer
@@ -276,10 +281,12 @@ The following grammar is supported:
   - `setActivateOnRelease {0|1}` **experimental** if turned on, key actions are activated just once upon key release. This is a highly experimental feature, not guaranteed to work properly with all features of the keyboard! Intended usecase - if you wish to see whether or not you release keys in proper order. 
 - Argument parsing rules:
   - `NUMBER` is parsed as a 32 bit signed integer and then assigned into the target variable. However, the target variable is often only 8 or 16 bit unsigned. If a number is prefixed with '#', it is interpretted as a register address (index). If a number is prefixed with '@', current macro index is added to the final value. `#key` returns activation key's hardware id.
-  - `abbrev` is assumed to be 3 characters long abbreviation of the keymap
-  - `macro slot identifier` is a single ascii character (interpretted as a one-byte value)
-  - `register index` is an integer in the appropriate range, used as an index to the register array
-  - `custom text` is an arbitrary text starting on next non-space character and ending at the end of the text action
+  - `Keymap abbrev` is assumed to be 3 characters long abbreviation of the keymap.
+  - `macro slot identifier` is either a number or a single ascii character (interpretted as a one-byte value). `#key` can be used so that the same macro refers to different slots when assigned to different keys.
+  - `register index` is an integer in the appropriate range, used as an index to the register array.
+  - `custom text` is an arbitrary text starting on next non-space character and ending at the end of the text action.
+  - `KEYID` is a numeric id obtained by `resolveNextKeyId` macro.
+  - `SHORTCUT` is an abbreviation of a key possibly accompanied by modifiers. Describes at most one scancode action. Can be prefixed by `C/S/A/G` denoting `Control/Shift/Alt/Gui`. Mods can further be prefixed by `L/R`, denoting left or right modifier. If a single ascii character is entered, it is translated into corresponding key combination (shift mask + scancode) according to standard EN-US layout. E.g., `pressKey mouseBtnLeft`, `tapKey LC-v` (Left Control + (lowercase) V (scancode)), `tapKey CS-f5` (Ctrl + Shift + F5), `v` (V), `V` (Shift + V).
 
 ## Error handling
 
