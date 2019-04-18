@@ -288,7 +288,7 @@ The following grammar is supported:
   - `register index` is an integer in the appropriate range, used as an index to the register array.
   - `custom text` is an arbitrary text starting on next non-space character and ending at the end of the text action.
   - `KEYID` is a numeric id obtained by `resolveNextKeyId` macro.
-  - `SHORTCUT` is an abbreviation of a key possibly accompanied by modifiers. Describes at most one scancode action. Can be prefixed by `C/S/A/G` denoting `Control/Shift/Alt/Gui`. Mods can further be prefixed by `L/R`, denoting left or right modifier. If a single ascii character is entered, it is translated into corresponding key combination (shift mask + scancode) according to standard EN-US layout. E.g., `pressKey mouseBtnLeft`, `tapKey LC-v` (Left Control + (lowercase) V (scancode)), `tapKey CS-f5` (Ctrl + Shift + F5), `v` (V), `V` (Shift + V).
+  - `SHORTCUT` is an abbreviation of a key possibly accompanied by modifiers. Describes at most one scancode action. Can be prefixed by `C/S/A/G` denoting `Control/Shift/Alt/Gui`. Mods can further be prefixed by `L/R`, denoting left or right modifier. If a single ascii character is entered, it is translated into corresponding key combination (shift mask + scancode) according to standard EN-US layout. E.g., `pressKey mouseBtnLeft`, `tapKey LC-v` (Left Control + (lowercase) V (scancode)), `tapKey CS-f5` (Ctrl + Shift + F5), `tapKey v` (V), `tapKey V` (Shift + V).
 
 ## Error handling
 
@@ -326,6 +326,8 @@ Practically all high-level functionality of the firmware is implemented in the f
 We furthermore add the following:
 - `macro_recorder.c` - includes the actual recorder of runtime macros.
 - `postponer.c` - contains simple circular buffer which keeps track of postponed keys. This is vital for proper function of postponed secondary roles. 
+- `str_utils.c` - contains functions used for handling strings
+- `macro_shortcut_parser.c` - contains lookup tables and algorithms used to transform strings to scancodes.
 
 Our command actions are rooted in `processCommandAction(...)` in `macros.c`.
 
