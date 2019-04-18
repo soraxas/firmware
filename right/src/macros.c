@@ -41,6 +41,8 @@ static bool initialized = false;
 macro_state_t MacroState[MACRO_STATE_POOL_SIZE];
 static macro_state_t *s = MacroState;
 
+bool processCommand(const char* cmd, const char* cmdEnd);
+
 bool Macros_ClaimReports() {
     s->reportsUsed = true;
     return true;
@@ -484,6 +486,18 @@ bool validReg(uint8_t idx) {
         return false;
     }
     return true;
+}
+
+bool isNUM(const char *a, const char *aEnd) {
+    switch(*a) {
+    case '0'...'9':
+    case '#':
+    case '-':
+    case '@':
+        return true;
+    default:
+        return false;
+    }
 }
 
 int32_t parseNUM(const char *a, const char *aEnd)
@@ -1235,6 +1249,34 @@ bool processResolveNextKeyEqCommand(const char* arg1, const char* argEnd) {
     }
 }
 
+bool processIfShortcutCommand(const char* arg, const char* argEnd) {
+    if(s->currentIfShortcutConditionPassed) {
+        while(isNUM(arg, argEnd) && arg < argEnd) {
+            arg = NextTok(arg, argEnd);
+        }
+        return processCommand(arg, argEnd);
+    }
+
+    postponeCurrent();
+    uint8_t pendingCount = Postponer_PendingCount();
+    uint8_t numArgs = 0;
+    while(isNUM(arg, argEnd)) {
+        numArgs++;
+        uint8_t argKeyid = parseNUM(arg, argEnd);
+        arg = NextTok(arg, argEnd);
+        if(pendingCount < numArgs) {
+            return currentMacroKeyIsActive();
+        }
+        else if (Postponer_PendingId(numArgs - 1) != argKeyid) {
+            return false;
+        }
+    }
+    Postponer_ConsumePending(numArgs, true);
+    s->currentIfShortcutConditionPassed = true;
+    s->currentConditionPassed = false; //otherwise following conditions would be skipped
+    return processCommand(arg, argEnd);
+}
+
 bool processIfPendingIdCommand(bool negate, const char* arg1, const char* argEnd) {
     const char* arg2 = NextTok(arg1, argEnd);
     uint16_t idx = parseNUM(arg1, argEnd);
@@ -1518,6 +1560,9 @@ bool processCommand(const char* cmd, const char* cmdEnd)
                 cmd = NextTok(arg1, cmdEnd);
                 arg1 = NextTok(cmd, cmdEnd);
             }
+            else if(TokenMatches(cmd, cmdEnd, "ifShortcut")) {
+                return processIfShortcutCommand(arg1, cmdEnd);
+            }
             else {
                 goto failed;
             }
@@ -1755,6 +1800,7 @@ void Macros_StartMacro(uint8_t index, key_state_t *keyState)
     s->currentMacroKey = keyState;
     s->currentMacroStartTime = CurrentTime;
     s->currentConditionPassed = false;
+    s->currentIfShortcutConditionPassed = false;
     s->reportsUsed = false;
     s->postponeNext = 0;
     ValidatedUserConfigBuffer.offset = AllMacros[index].firstMacroActionOffset;
@@ -1784,6 +1830,7 @@ void continueMacro(void)
     ParseMacroAction(&ValidatedUserConfigBuffer, &s->currentMacroAction);
     s->bufferOffset = ValidatedUserConfigBuffer.offset;
     s->currentConditionPassed = false;
+    s->currentIfShortcutConditionPassed = false;
 }
 
 

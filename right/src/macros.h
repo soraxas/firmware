@@ -103,6 +103,7 @@
         uint8_t dispatchReportIndex;
 
         bool currentConditionPassed;
+        bool currentIfShortcutConditionPassed;
         uint8_t postponeNext;
 
         bool delayActive;

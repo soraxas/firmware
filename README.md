@@ -91,21 +91,20 @@ Postponed secondary role switch. This modification prevents secondary role hiccu
     $break
     $holdLayer mod
 
-"Rocker gesture". This construct allows mapping custom "chord" shortcuts, respecting key order. E.g., we want to map sequence cv to letter V. We will construct the following macro for key c. The key v does not need to be altered. The `resolveNextKeyEq` will wait for next key press and then branch depending on the "other" key value. The number 90 identifies the (hardware) v key. It can be obtained by running `resolveNextKeyId` and pressing the v key (while having focused text editor). Alternatively, `resolveSecondary` could be used to implement similar functionality when combined with another layer. In that case, `resolveSecondary` will require prolonged press of c in order to activate the shortcut and won't interfere with writing. This version will eat all `cv`s encountered while writing, but does not depend on proper release of the keys. Rocker guestures work fine for key combinations which are not encountered in normal text, i.e., for small number of instances. `ResolveSecondary` should be used for mapping key clusters.
+Mapping custom shortcuts may be done using `ifShortcut` command. The macro needs to be placed on the first key of the shortcut, and refers to other keys by their hardware ids obtained by `resolveNextKeyId` command and pressing the key (while having focused text editor). The command will postpone other actions until sufficient number of keys is pressed. If the pressed keys correspond to the arguments, the keys are consumed and the rest of the command performed. Otherwise, postponed keypresses are either used up by the rest of the macro or replayed back. The `final` modifier breaks the command after the "modified" `tapKey` command finishes. 
+
+    $ifShortcut 90 final tapKey v
+    $ifShortcut 88 final tapKey x
+    $ifShortcut 70 71 final tapKey CG-a
+    $tapKey c
+
+`resolveNextKeyEq` is a bit more flexible and less-user friendly version of the `ifShortcut` command. It does not consume keys, allows querying for keys which are further in the queue and timeout is not limited to release of the key. The example shows a "rocker guesture" where sequence c->v is mapped to V. This is macro for the c key.  Alternatively, `resolveSecondary` could be used to implement similar functionality when combined with another layer. In that case, `resolveSecondary` will require prolonged press of c in order to activate the shortcut and won't interfere with writing. This version will eat all `cv`s encountered while writing, but does not depend on proper release of the keys. Rocker guestures work fine for key combinations which are not encountered in normal text, i.e., for small number of special cases. `ResolveSecondary` should be used for mapping key clusters.
 
     $resolveNextKeyEq 0 90 untilRelease 1 4
     $consumePending 1
     $tapKey V
     $break
     $tapKey c
-
-"Loose gesture". Same mechanics as for "Rocker Gesture", but implements vim's `gt` shortcut. Here the `t` can be pressed even after release of g. Timeouts after one second.
-
-    $resolveNextKeyEq 0 77 1000 1 4
-    $consumePending 1
-    <hit Ctrl + PgDown>
-    $break
-    $tapKey g
 
 You can simplify writing macros by using `#` and `@` characters. The first resolves a number as an index of a register. The second interprets the number as a relative action index. For instance the following macro will write out five "a"s with 50 ms delays
     
@@ -144,7 +143,7 @@ The following grammar is supported:
     COMMAND = statsRuntime
     COMMAND = printStatus
     COMMAND = setStatus <custom text>
-    COMMAND = setLedTxt <timeout (NUMBER) <custom text>
+    COMMAND = setLedTxt <timeout (NUMBER)> <custom text>
     COMMAND = write <custom text>
     COMMAND = goTo <index (NUMBER)>
     COMMAND = repeatFor <register index (NUMBER)> <action adr (NUMBER)>
@@ -170,6 +169,7 @@ The following grammar is supported:
     CONDITION = {ifRegEq|ifNotRegEq} <register index (NUMBER)> <value (NUMBER)>
     CONDITION = {ifRecording|ifNotRecording}
     CONDITION = {ifRecordingId|ifNotRecording} MACROID
+    CONDITION = ifShortcut [KEYID]*
     MODIFIER = suppressMods
     MODIFIER = suppressKeys
     MODIFIER = postponeKeys
@@ -242,6 +242,7 @@ The following grammar is supported:
   - `ifPendingId/ifNotPendingId <idx> <keyId>` looks into postponing queue at `idx`th waiting key nad compares it to the `keyId`. 
   - `consumePending <n>` will remove n records from the queue.
   - `resolveSecondary` allows resolution of secondary roles depending on the next key - this allows us to accurately distinguish random press from intentional press of shortcut via secondary role. See `resolveSecondary` entry under Layer switching. Implicitly applies `postponeKeys` modifier.
+  - `ifShortcut [KEYID]*` will wait for next keypresses until the key is released. If the next keypresses correspond to the provided arguments (hardware ids), the keypresses are consumed and the condition is performed. This is shorter and simpler version of `resolveNextKeyEq`. E.g., `ifShortcut 090 089 final tapKey C-V; holdKey v`.
   - `resolveNextKeyEq <queue idx> <key id> <timeout> <adr1> <adr2>` will wait for next (n) key press(es). When the key press happens, it will compare its id with the `<key id>` argument. If the id equals, it issues goto to adr1. Otherwise, to adr2. See examples. Implicitly applies `postponeKeys` modifier.
     - `arg1 - queue idx` idx of key to compare, indexed from 0. Typically 0, if we want to resolve the key after next key then 1, etc.
     - `arg2 - key id` key id obtained by `resolveNextKeyId`. This is static identifier of the hardware key.
@@ -259,6 +260,7 @@ The following grammar is supported:
   - `ifShift/ifAlt/ifCtrl/ifGui/ifAnyMod/ifNotShift/ifNotAlt/ifNotCtrl/ifNotGui/ifNotAnyMod` is true if either right or left modifier was held in the previous update cycle.
   - `{ifRegEq|ifNotRegEq} <register inex> <value>` pull test if the value in the register identified by first argument equals second argument.
   - `ifRecording/ifNotRecording` and `ifRecordingId/ifNotRecordingId <macro id>` test if the runtime macro recorder is in recording state. 
+  - `ifShortcut [KEYID]*` will wait for next keypresses and compare them to the argument. See postponer mechanism section.
 - `MODIFIER`s modify behaviour of the rest of the keyboard while the rest of the command is active (e.g., a delay) is active.
   - `suppressMods` will supress any modifiers except those applied via macro engine. Can be used to remap shift and nonShift characters independently.
   - `suppressKeys` will suppress all new key activations triggered while this modifier is active. 
