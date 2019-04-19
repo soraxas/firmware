@@ -350,7 +350,7 @@ static void applyKeyAction(key_state_t *keyState, key_action_t *action, uint8_t 
     }
 }
 
-void mergeReports(void)
+void clearActiveReports(void)
 {
     memset(ActiveUsbMouseReport, 0, sizeof *ActiveUsbMouseReport);
     memset(ActiveUsbBasicKeyboardReport, 0, sizeof *ActiveUsbBasicKeyboardReport);
@@ -359,6 +359,10 @@ void mergeReports(void)
     basicScancodeIndex = 0;
     mediaScancodeIndex = 0;
     systemScancodeIndex = 0;
+}
+
+void mergeReports(void)
+{
     for(uint8_t j = 0; j < MACRO_STATE_POOL_SIZE; j++) {
         if(MacroState[j].reportsUsed) {
             //if the macro ended right now, we still want to flush the last report
@@ -399,6 +403,10 @@ void ActivateKey(key_state_t *keyState, bool debounce) {
 }
 
 static inline void preprocessKeyState(key_state_t *keyState) {
+    if(keyState->previous == 0 && keyState->current == 0) {
+        return;
+    }
+
     bool prevDB = keyState->previous & KeyState_HwDebounced;
     bool prevSW = keyState->previous & KeyState_Sw;
     bool currHW = keyState->current & KeyState_Hw;
@@ -431,34 +439,22 @@ static inline void preprocessKeyState(key_state_t *keyState) {
     keyState->current = KEYSTATE(currHW, currDB, currSW);
 }
 
-static void preprocessKeyStates() {
-    for (uint8_t slotId=0; slotId<SLOT_COUNT; slotId++) {
-        for (uint8_t keyId=0; keyId<MAX_KEY_COUNT_PER_MODULE; keyId++) {
-            key_state_t *keyState = &KeyStates[slotId][keyId];
-            preprocessKeyState(keyState);
-        }
-    }
-    if(!PostponeKeys || Postponer_Overflowing()) {
-        Postponer_RunPostponed();
-    }
-}
-
 static void updateActiveUsbReports(void)
 {
-    basicScancodeIndex = 0;
-    mediaScancodeIndex = 0;
-    systemScancodeIndex = 0;
+    clearActiveReports();
     SuppressedModifierState = 0;
     SuppressMods = false;
     SuppressKeys = false;
     PostponeKeys = false;
 
+
     if (MacroPlaying) {
         Macros_ContinueMacro();
-        mergeReports();
     }
 
-    preprocessKeyStates();
+    if(!PostponeKeys || Postponer_Overflowing()) {
+        Postponer_RunPostponed();
+    }
 
     memcpy(activeMouseStates, toggledMouseStates, ACTIVE_MOUSE_STATES_COUNT);
 
@@ -498,6 +494,8 @@ static void updateActiveUsbReports(void)
         for (uint8_t keyId=0; keyId<MAX_KEY_COUNT_PER_MODULE; keyId++) {
             key_state_t *keyState = &KeyStates[slotId][keyId];
             key_action_t *action;
+
+            preprocessKeyState(keyState);
 
             if (ACTIVATED_NOW(keyState)) {
                 if (SleepModeActive) {
@@ -549,6 +547,8 @@ static void updateActiveUsbReports(void)
             keyState->previous = keyState->current;
         }
     }
+
+    mergeReports();
 
     processMouseActions();
 

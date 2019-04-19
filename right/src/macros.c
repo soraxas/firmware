@@ -42,6 +42,7 @@ macro_state_t MacroState[MACRO_STATE_POOL_SIZE];
 static macro_state_t *s = MacroState;
 
 bool processCommand(const char* cmd, const char* cmdEnd);
+void continueMacro(void);
 
 bool Macros_ClaimReports() {
     s->reportsUsed = true;
@@ -1855,6 +1856,7 @@ void Macros_StartMacro(uint8_t index, key_state_t *keyState)
     memset(&s->macroBasicKeyboardReport, 0, sizeof s->macroBasicKeyboardReport);
     memset(&s->macroMediaKeyboardReport, 0, sizeof s->macroMediaKeyboardReport);
     memset(&s->macroSystemKeyboardReport, 0, sizeof s->macroSystemKeyboardReport);
+    continueMacro();
 }
 
 void continueMacro(void)

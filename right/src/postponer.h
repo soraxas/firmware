@@ -8,7 +8,13 @@
 // Macros:
 
     #define POSTPONER_BUFFER_SIZE 30
-    #define POSTPONER_MAX_FILL 25
+    #define POSTPONER_MAX_FILL (POSTPONER_BUFFER_SIZE-5)
+
+/**
+ * CYCLES_PER_ACTIVATION ensures that:
+ * - key is not activated earlier than the number of cycles after last postponeKeyes modifier is active
+ * - that key remains active for at least that number of cycles (split composite keystrokes take 2 cycles to complete)
+ */
     #define CYCLES_PER_ACTIVATION 2
 
 // Typedefs:
