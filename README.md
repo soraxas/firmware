@@ -119,7 +119,9 @@ You can simplify writing macros by using `#` and `@` characters. The first resol
 
 The following grammar is supported:
 
-    BODY = $COMMAND
+    BODY = $COMMAND 
+    BODY = $COMMAND [//<comment, excluding commands taking custom text arguments>]
+    BODY = //<comment>
     BODY = #<comment>
     COMMAND = [CONDITION|MODIFIER]* COMMAND
     COMMAND = delayUntilRelease
@@ -141,6 +143,7 @@ The following grammar is supported:
     COMMAND = break
     COMMAND = noOp
     COMMAND = statsRuntime
+    COMMAND = statsLayerStack
     COMMAND = printStatus
     COMMAND = setStatus <custom text>
     COMMAND = setLedTxt <timeout (NUMBER)> <custom text>
@@ -169,7 +172,8 @@ The following grammar is supported:
     CONDITION = {ifRegEq|ifNotRegEq} <register index (NUMBER)> <value (NUMBER)>
     CONDITION = {ifRecording|ifNotRecording}
     CONDITION = {ifRecordingId|ifNotRecording} MACROID
-    CONDITION = ifShortcut [KEYID]*
+    CONDITION = {ifShortcut|ifNotShortcut} [KEYID]*
+    CONDITION = {ifGesture|ifNotGesture} [KEYID]*
     MODIFIER = suppressMods
     MODIFIER = suppressKeys
     MODIFIER = postponeKeys
@@ -181,13 +185,13 @@ The following grammar is supported:
     NUMBER = [0-9]+ | -[0-9]+ | #<register idx (NUMBER)> | #key | @<relative macro action index(NUMBER)> 
     CHAR = <any ascii char>
     KEYID = <id of hardware key obtained by resolveNextKeyId (NUMBER)>
+    SHORTCUT = MODMASK-KEY | KEY
     MODMASK = [MODMASK]+ | [L|R]{S|C|A|G}
     KEY = CHAR|KEYABBREV
     KEYABBREV = enter | escape | backspace | tab | space | minusAndUnderscore | equalAndPlus | openingBracketAndOpeningBrace | closingBracketAndClosingBrace | backslashAndPipe | nonUsHashmarkAndTilde | semicolonAndColon | apostropheAndQuote | graveAccentAndTilde | commaAndLessThanSign | dotAndGreaterThanSign | slashAndQuestionMark | capsLock | f1 | f2 | f3 | f4 | f5 | f6 | f7 | f8 | f9 | f10 | f11 | f12 | printScreen | scrollLock | pause | insert | home | pageUp | delete | end | pageDown | rightArrow | leftArrow | downArrow | upArrow | numLock | keypadSlash | keypadAsterisk | keypadMinus | keypadPlus | keypadEnter | keypad1AndEnd | keypad2AndDownArrow | keypad3AndPageDown | keypad4AndLeftArrow | keypad5 | keypad6AndRightArrow | keypad7AndHome | keypad8AndUpArrow | keypad9AndPageUp | keypad0AndInsert | keypadDotAndDelete | nonUsBackslashAndPipe | application | power | keypadEqualSign | f13 | f14 | f15 | f16 | f17 | f18 | f19 | f20 | f21 | f22 | f23 | f24 | execute | help | menu | select | stop | again | undo | cut | copy | paste | find | mute | volumeUp | volumeDown | lockingCapsLock | lockingNumLock | lockingScrollLock | keypadComma | keypadEqualSignAs400 | international1 | international2 | international3 | international4 | international5 | international6 | international7 | international8 | international9 | lang1 | lang2 | lang3 | lang4 | lang5 | lang6 | lang7 | lang8 | lang9 | alternateErase | sysreq | cancel | clear | prior | return | separator | out | oper | clearAndAgain | crselAndProps | exsel | keypad00 | keypad000 | thousandsSeparator | decimalSeparator | currencyUnit | currencySubUnit | keypadOpeningParenthesis | keypadClosingParenthesis | keypadOpeningBrace | keypadClosingBrace | keypadTab | keypadBackspace | keypadA | keypadB | keypadC | keypadD | keypadE | keypadF | keypadXor | keypadCaret | keypadPercentage | keypadLessThanSign | keypadGreaterThanSign | keypadAmp | keypadAmpAmp | keypadPipe | keypadPipePipe | keypadColon | keypadHashmark | keypadSpace | keypadAt | keypadExclamationSign | keypadMemoryStore | keypadMemoryRecall | keypadMemoryClear | keypadMemoryAdd | keypadMemorySubtract | keypadMemoryMultiply | keypadMemoryDivide | keypadPlusAndMinus | keypadClear | keypadClearEntry | keypadBinary | keypadOctal | keypadDecimal | keypadHexadecimal | leftControl | leftShift | leftAlt | leftGui | rightControl | rightShift | rightAlt | rightGui 
     KEYABBREV = mediaVolumeMute | mediaVolumeUp | mediaVolumeDown | mediaRecord | mediaFastForward | mediaRewind | mediaNext | mediaPrevious | mediaStop | mediaPlayPause | mediaPause 
     KEYABBREV = systemPowerDown | systemSleep | systemWakeUp 
     KEYABBREV = mouseBtnLeft | mouseBtnRight | mouseBtnMiddle | mouseBtn4 | mouseBtn5 | mouseBtn6
-    SHORTCUT = MODMASK-KEY | KEY
     ############
     #DEPRECATED#
     ############
@@ -207,6 +211,7 @@ The following grammar is supported:
   - `printStatus` will "type" content of error status buffer (256 or 1024 chars, depends on my mood) on the keyboard. Mainly for debug purposes.
   - `setStatus <custom text>` will append <custom text> to the error report buffer, if there is enough space for that
   - `statsRuntime` will append information about runtime of current macro at the end of status buffer. The time is measured before the printing mechanism is initiated.
+  - `statsLayerStack` will append information about layer stack at the end of status buffer. 
 - Delays:
   - `delayUntil <timeout>` sleeps the macro until timeout (in ms) is reached.
   - `delayUntilRelease` sleeps the macro until its activation key is released. Can be used to set action on key release. 
@@ -242,7 +247,8 @@ The following grammar is supported:
   - `ifPendingId/ifNotPendingId <idx> <keyId>` looks into postponing queue at `idx`th waiting key nad compares it to the `keyId`. 
   - `consumePending <n>` will remove n records from the queue.
   - `resolveSecondary` allows resolution of secondary roles depending on the next key - this allows us to accurately distinguish random press from intentional press of shortcut via secondary role. See `resolveSecondary` entry under Layer switching. Implicitly applies `postponeKeys` modifier.
-  - `ifShortcut [KEYID]*` will wait for next keypresses until the key is released. If the next keypresses correspond to the provided arguments (hardware ids), the keypresses are consumed and the condition is performed. This is shorter and simpler version of `resolveNextKeyEq`. E.g., `ifShortcut 090 089 final tapKey C-V; holdKey v`.
+  - `ifShortcut/ifNotShortcut [KEYID]*` will wait for next keypresses until the key is released. If the next keypresses correspond to the provided arguments (hardware ids), the keypresses are consumed and the condition is performed. This is shorter and simpler version of `resolveNextKeyEq`. E.g., `ifShortcut 090 089 final tapKey C-V; holdKey v`.
+  - `ifGesture/ifNotGesture` just as `ifShortcut`, but breaks after 500ms instead of when the key is released.
   - `resolveNextKeyEq <queue idx> <key id> <timeout> <adr1> <adr2>` will wait for next (n) key press(es). When the key press happens, it will compare its id with the `<key id>` argument. If the id equals, it issues goto to adr1. Otherwise, to adr2. See examples. Implicitly applies `postponeKeys` modifier.
     - `arg1 - queue idx` idx of key to compare, indexed from 0. Typically 0, if we want to resolve the key after next key then 1, etc.
     - `arg2 - key id` key id obtained by `resolveNextKeyId`. This is static identifier of the hardware key.
@@ -261,6 +267,7 @@ The following grammar is supported:
   - `{ifRegEq|ifNotRegEq} <register inex> <value>` pull test if the value in the register identified by first argument equals second argument.
   - `ifRecording/ifNotRecording` and `ifRecordingId/ifNotRecordingId <macro id>` test if the runtime macro recorder is in recording state. 
   - `ifShortcut [KEYID]*` will wait for next keypresses and compare them to the argument. See postponer mechanism section.
+  - `ifGesture/ifNotGesture` just as `ifShortcut`, but breaks after 500ms instead of when the key is released.
 - `MODIFIER`s modify behaviour of the rest of the keyboard while the rest of the command is active (e.g., a delay) is active.
   - `suppressMods` will supress any modifiers except those applied via macro engine. Can be used to remap shift and nonShift characters independently.
   - `suppressKeys` will suppress all new key activations triggered while this modifier is active. 

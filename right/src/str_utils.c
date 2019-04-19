@@ -103,5 +103,8 @@ const char* NextTok(const char* cmd, const char *cmdEnd)
     while(*cmd <= 32 && cmd < cmdEnd) {
         cmd++;
     }
+    if(cmd < cmdEnd - 1 && cmd[0] == '/' && cmd[1] == '/') {
+        return cmdEnd;
+    }
     return cmd;
 }

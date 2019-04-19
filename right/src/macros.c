@@ -566,6 +566,25 @@ uint8_t findPreviousLayerRecordIdx() {
     return layerIdxStackTop;
 }
 
+bool processStatsLayerStackCommand()
+{
+    setStatusString("kmp/layer/held/removed; size is ", NULL);
+    setStatusNum(layerIdxStackSize);
+    setStatusString("\n", NULL);
+    for(int i = 0; i < layerIdxStackSize; i++) {
+        uint8_t pos = (layerIdxStackTop + LAYER_STACK_SIZE - i) % LAYER_STACK_SIZE;
+        setStatusNum(layerIdxStack[pos].keymap);
+        setStatusString("/", NULL);
+        setStatusNum(layerIdxStack[pos].layer);
+        setStatusString("/", NULL);
+        setStatusNum(layerIdxStack[pos].held);
+        setStatusString("/", NULL);
+        setStatusNum(layerIdxStack[pos].removed);
+        setStatusString("\n", NULL);
+    }
+    return false;
+}
+
 void popLayerStack(bool forceRemoveTop, bool toggledInsteadOfTop) {
     if(layerIdxStackSize > 0 && forceRemoveTop) {
         removeStackTop(toggledInsteadOfTop);
@@ -1167,17 +1186,6 @@ bool processResolveSecondaryCommand(const char* arg1, const char* argEnd)
 
 macro_action_t decodeKey(const char* arg1, const char* argEnd) {
     macro_action_t action = MacroShortcutParser_Parse(arg1, TokEnd(arg1, argEnd));
-    /*
-    macro_action_t action;
-    uint8_t len = tokLen(arg1, argEnd);
-    if(len == 1) {
-        action.key.type = KeystrokeType_Basic;
-        action.key.scancode = characterToScancode(*arg1);
-        action.key.modifierMask = characterToShift(*arg1) ? HID_KEYBOARD_MODIFIER_LEFTSHIFT : 0;
-    } else {
-        reportError("Failed to decode key ", arg1, argEnd);
-        //TODO: implement decoding of all keys
-    }*/
     return action;
 }
 
@@ -1249,29 +1257,52 @@ bool processResolveNextKeyEqCommand(const char* arg1, const char* argEnd) {
     }
 }
 
-bool processIfShortcutCommand(const char* arg, const char* argEnd) {
+bool processIfShortcutCommand(bool negate, const char* arg, const char* argEnd, bool untilRelease) {
     if(s->currentIfShortcutConditionPassed) {
-        while(isNUM(arg, argEnd) && arg < argEnd) {
-            arg = NextTok(arg, argEnd);
+        if(s->currentConditionPassed) {
+            goto conditionPassed;
+        } else {
+            s->currentIfShortcutConditionPassed = false;
         }
-        return processCommand(arg, argEnd);
     }
 
     postponeCurrent();
     uint8_t pendingCount = Postponer_PendingCount();
     uint8_t numArgs = 0;
-    while(isNUM(arg, argEnd)) {
+    while(isNUM(arg, argEnd) && arg < argEnd) {
         numArgs++;
         uint8_t argKeyid = parseNUM(arg, argEnd);
         arg = NextTok(arg, argEnd);
         if(pendingCount < numArgs) {
-            return currentMacroKeyIsActive();
+            if((untilRelease && currentMacroKeyIsActive()) || (!untilRelease && Timer_GetElapsedTime(&s->currentMacroStartTime) < 500)) {
+                return true;
+            } else {
+                if(negate) {
+                    goto conditionPassed;
+                } else {
+                    return false;
+                }
+            }
         }
         else if (Postponer_PendingId(numArgs - 1) != argKeyid) {
-            return false;
+            if(negate) {
+                goto conditionPassed;
+            } else {
+                return false;
+            }
         }
     }
-    Postponer_ConsumePending(numArgs, true);
+    if(negate) {
+        Postponer_ConsumePending(numArgs, true);
+        return false;
+    } else {
+        Postponer_ConsumePending(numArgs, true);
+        goto conditionPassed;
+    }
+conditionPassed:
+    while(isNUM(arg, argEnd) && arg < argEnd) {
+        arg = NextTok(arg, argEnd);
+    }
     s->currentIfShortcutConditionPassed = true;
     s->currentConditionPassed = false; //otherwise following conditions would be skipped
     return processCommand(arg, argEnd);
@@ -1561,7 +1592,16 @@ bool processCommand(const char* cmd, const char* cmdEnd)
                 arg1 = NextTok(cmd, cmdEnd);
             }
             else if(TokenMatches(cmd, cmdEnd, "ifShortcut")) {
-                return processIfShortcutCommand(arg1, cmdEnd);
+                return processIfShortcutCommand(false, arg1, cmdEnd, true);
+            }
+            else if(TokenMatches(cmd, cmdEnd, "ifNotShortcut")) {
+                return processIfShortcutCommand(true, arg1, cmdEnd, true);
+            }
+            else if(TokenMatches(cmd, cmdEnd, "ifGesture")) {
+                return processIfShortcutCommand(false, arg1, cmdEnd, false);
+            }
+            else if(TokenMatches(cmd, cmdEnd, "ifNotGesture")) {
+                return processIfShortcutCommand(true, arg1, cmdEnd, false);
             }
             else {
                 goto failed;
@@ -1641,6 +1681,9 @@ bool processCommand(const char* cmd, const char* cmdEnd)
             }
             else if(TokenMatches(cmd, cmdEnd, "statsRuntime")) {
                 return processStatsRuntimeCommand();
+            }
+            else if(TokenMatches(cmd, cmdEnd, "statsLayerStack")) {
+                return processStatsLayerStackCommand();
             }
             else if(TokenMatches(cmd, cmdEnd, "subReg")) {
                 return processRegAddCommand(arg1, cmdEnd, true);
@@ -1743,6 +1786,8 @@ bool processTextOrCommandAction(void)
         s->currentConditionPassed = actionInProgress;
         return actionInProgress;
     } else if (s->currentMacroAction.text.text[0] == '#') {
+        return false;
+    } else if (s->currentMacroAction.text.text[0] == '/' && s->currentMacroAction.text.text[1] == '/') {
         return false;
     } else {
         return processTextAction();
