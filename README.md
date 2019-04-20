@@ -144,6 +144,9 @@ The following grammar is supported:
     COMMAND = noOp
     COMMAND = statsRuntime
     COMMAND = statsLayerStack
+    COMMAND = statsPostponerStack
+    COMMAND = statsActiveKeys
+    COMMAND = Diagnose
     COMMAND = printStatus
     COMMAND = setStatus <custom text>
     COMMAND = setLedTxt <timeout (NUMBER)> <custom text>
@@ -171,7 +174,7 @@ The following grammar is supported:
     CONDITION = {ifShift | ifAlt | ifCtrl | ifGui | ifAnyMod | ifNotShift | ifNotAlt | ifNotCtrl | ifNotGui | ifNotAnyMod}
     CONDITION = {ifRegEq|ifNotRegEq} <register index (NUMBER)> <value (NUMBER)>
     CONDITION = {ifRecording|ifNotRecording}
-    CONDITION = {ifRecordingId|ifNotRecording} MACROID
+    CONDITION = {ifRecordingId|ifNotRecordingId} MACROID
     CONDITION = {ifShortcut|ifNotShortcut} [KEYID]*
     CONDITION = {ifGesture|ifNotGesture} [KEYID]*
     MODIFIER = suppressMods
@@ -212,6 +215,9 @@ The following grammar is supported:
   - `setStatus <custom text>` will append <custom text> to the error report buffer, if there is enough space for that
   - `statsRuntime` will append information about runtime of current macro at the end of status buffer. The time is measured before the printing mechanism is initiated.
   - `statsLayerStack` will append information about layer stack at the end of status buffer. 
+  - `statsPostponerStack` will print out information about postponer queue.
+  - `statsActiveKeys` will print all active keys and their states.
+  - `Diagnose` will deactivate all keys and macros and print diagnostic information into the status buffer.
 - Delays:
   - `delayUntil <timeout>` sleeps the macro until timeout (in ms) is reached.
   - `delayUntilRelease` sleeps the macro until its activation key is released. Can be used to set action on key release. 
@@ -248,7 +254,7 @@ The following grammar is supported:
   - `consumePending <n>` will remove n records from the queue.
   - `resolveSecondary` allows resolution of secondary roles depending on the next key - this allows us to accurately distinguish random press from intentional press of shortcut via secondary role. See `resolveSecondary` entry under Layer switching. Implicitly applies `postponeKeys` modifier.
   - `ifShortcut/ifNotShortcut [KEYID]*` will wait for next keypresses until the key is released. If the next keypresses correspond to the provided arguments (hardware ids), the keypresses are consumed and the condition is performed. This is shorter and simpler version of `resolveNextKeyEq`. E.g., `ifShortcut 090 089 final tapKey C-V; holdKey v`.
-  - `ifGesture/ifNotGesture` just as `ifShortcut`, but breaks after 500ms instead of when the key is released.
+  - `ifGesture/ifNotGesture [KEYID]*` just as `ifShortcut`, but breaks after 500ms instead of when the key is released.
   - `resolveNextKeyEq <queue idx> <key id> <timeout> <adr1> <adr2>` will wait for next (n) key press(es). When the key press happens, it will compare its id with the `<key id>` argument. If the id equals, it issues goto to adr1. Otherwise, to adr2. See examples. Implicitly applies `postponeKeys` modifier.
     - `arg1 - queue idx` idx of key to compare, indexed from 0. Typically 0, if we want to resolve the key after next key then 1, etc.
     - `arg2 - key id` key id obtained by `resolveNextKeyId`. This is static identifier of the hardware key.
@@ -266,8 +272,8 @@ The following grammar is supported:
   - `ifShift/ifAlt/ifCtrl/ifGui/ifAnyMod/ifNotShift/ifNotAlt/ifNotCtrl/ifNotGui/ifNotAnyMod` is true if either right or left modifier was held in the previous update cycle.
   - `{ifRegEq|ifNotRegEq} <register inex> <value>` pull test if the value in the register identified by first argument equals second argument.
   - `ifRecording/ifNotRecording` and `ifRecordingId/ifNotRecordingId <macro id>` test if the runtime macro recorder is in recording state. 
-  - `ifShortcut [KEYID]*` will wait for next keypresses and compare them to the argument. See postponer mechanism section.
-  - `ifGesture/ifNotGesture` just as `ifShortcut`, but breaks after 500ms instead of when the key is released.
+  - `ifShortcut/ifNotShortcut [KEYID]*` will wait for next keypresses and compare them to the argument. See postponer mechanism section.
+  - `ifGesture/ifNotGesture [KEYID]*` just as `ifShortcut`, but breaks after 500ms instead of when the key is released.
 - `MODIFIER`s modify behaviour of the rest of the keyboard while the rest of the command is active (e.g., a delay) is active.
   - `suppressMods` will supress any modifiers except those applied via macro engine. Can be used to remap shift and nonShift characters independently.
   - `suppressKeys` will suppress all new key activations triggered while this modifier is active. 

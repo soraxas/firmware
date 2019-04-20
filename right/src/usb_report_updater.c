@@ -43,6 +43,8 @@ uint16_t KeystrokeDelay = 0;
 uint32_t KeystrokeDelayStarted = 0;
 bool ActivateOnRelease = false;
 
+key_state_t* EmergencyKey = NULL;
+
 mouse_kinetic_state_t MouseMoveState = {
     .isScroll = false,
     .upState = SerializedMouseAction_MoveUp,
@@ -403,7 +405,7 @@ void ActivateKey(key_state_t *keyState, bool debounce) {
 }
 
 static inline void preprocessKeyState(key_state_t *keyState) {
-    if(keyState->previous == 0 && keyState->current == 0) {
+    if(keyState->current == 0 && keyState != Postponer_NextEventKey) {
         return;
     }
 
@@ -425,10 +427,13 @@ static inline void preprocessKeyState(key_state_t *keyState) {
 
     bool currSW = currDB && !keyState->suppressed;
 
-     if (Postponer_IsActive()) {
+     if (Postponer_IsActive() && keyState != EmergencyKey) {
         currSW = prevSW;
         if(currDB != prevDB) {
             Postponer_TrackKey(keyState, currDB);
+        }
+        if(Postponer_NextEventKey == keyState && !PostponeKeys) {
+            currSW = Postponer_RunKey(keyState, currSW);
         }
     } else if (SuppressKeys) {
         currSW = currDB && prevSW && !keyState->suppressed;
@@ -452,9 +457,10 @@ static void updateActiveUsbReports(void)
         Macros_ContinueMacro();
     }
 
+    /*
     if(!PostponeKeys || Postponer_Overflowing()) {
         Postponer_RunPostponed();
-    }
+    }*/
 
     memcpy(activeMouseStates, toggledMouseStates, ACTIVE_MOUSE_STATES_COUNT);
 
@@ -547,6 +553,8 @@ static void updateActiveUsbReports(void)
             keyState->previous = keyState->current;
         }
     }
+
+    Postponer_FinishCycle();
 
     mergeReports();
 

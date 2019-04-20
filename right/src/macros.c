@@ -364,7 +364,7 @@ bool processScrollMouseAction(void)
 }
 
 //textEnd is allowed to be null if text is null-terminated
-void setStatusString(const char* text, const char *textEnd)
+void Macros_SetStatusString(const char* text, const char *textEnd)
 {
     while(*text && statusBufferLen < STATUS_BUFFER_MAX_LENGTH && (text < textEnd || textEnd == NULL)) {
         statusBuffer[statusBufferLen] = *text;
@@ -373,23 +373,23 @@ void setStatusString(const char* text, const char *textEnd)
     }
 }
 
-void setStatusBool(bool b)
+void Macros_SetStatusBool(bool b)
 {
-    setStatusString(b ? "1" : "0", NULL);
+    Macros_SetStatusString(b ? "1" : "0", NULL);
 }
 
-void setStatusNum(uint32_t n)
+void Macros_SetStatusNum(uint32_t n)
 {
     uint32_t orig = n;
     char buff[2];
     buff[0] = ' ';
     buff[1] = '\0';
-    setStatusString(buff, NULL);
+    Macros_SetStatusString(buff, NULL);
     for(uint32_t div = 1000000000; div > 0; div /= 10) {
         buff[0] = (char)(((uint8_t)(n/div)) + '0');
         n = n%div;
         if(n!=orig || div == 1) {
-          setStatusString(buff, NULL);
+          Macros_SetStatusString(buff, NULL);
         }
     }
 }
@@ -397,42 +397,42 @@ void setStatusNum(uint32_t n)
 void reportError(const char* err, const char* arg, const char *argEnd)
 {
     LedDisplay_SetText(3, "ERR");
-    setStatusString("line ", NULL);
-    setStatusNum(s->currentMacroActionIndex);
-    setStatusString(": ", NULL);
-    setStatusString(err, NULL);
+    Macros_SetStatusString("line ", NULL);
+    Macros_SetStatusNum(s->currentMacroActionIndex);
+    Macros_SetStatusString(": ", NULL);
+    Macros_SetStatusString(err, NULL);
     if(arg != NULL) {
-        setStatusString(": ", NULL);
-        setStatusString(arg, argEnd);
+        Macros_SetStatusString(": ", NULL);
+        Macros_SetStatusString(arg, argEnd);
     }
-    setStatusString("\n", NULL);
+    Macros_SetStatusString("\n", NULL);
 }
 
 void Macros_ReportError(const char* err, const char* arg, const char *argEnd)
 {
     LedDisplay_SetText(3, "ERR");
-    setStatusString(err, NULL);
+    Macros_SetStatusString(err, NULL);
     if(arg != NULL) {
-        setStatusString(": ", NULL);
-        setStatusString(arg, argEnd);
+        Macros_SetStatusString(": ", NULL);
+        Macros_SetStatusString(arg, argEnd);
     }
-    setStatusString("\n", NULL);
+    Macros_SetStatusString("\n", NULL);
 }
 
 void Macros_ReportErrorNum(const char* err, uint32_t num)
 {
     LedDisplay_SetText(3, "ERR");
-    setStatusString(err, NULL);
-    setStatusNum(num);
-    setStatusString("\n", NULL);
+    Macros_SetStatusString(err, NULL);
+    Macros_SetStatusNum(num);
+    Macros_SetStatusString("\n", NULL);
 }
 
 void printReport(usb_basic_keyboard_report_t *report) {
-    setStatusNum(report->modifiers);
+    Macros_SetStatusNum(report->modifiers);
     for(int i = 0; i < 6; i++) {
-        setStatusNum(report->scancodes[i]);
+        Macros_SetStatusNum(report->scancodes[i]);
     }
-    setStatusString("\n", NULL);
+    Macros_SetStatusString("\n", NULL);
 }
 
 bool dispatchText(const char* text, uint16_t textLen)
@@ -569,20 +569,69 @@ uint8_t findPreviousLayerRecordIdx() {
 
 bool processStatsLayerStackCommand()
 {
-    setStatusString("kmp/layer/held/removed; size is ", NULL);
-    setStatusNum(layerIdxStackSize);
-    setStatusString("\n", NULL);
+    Macros_SetStatusString("kmp/layer/held/removed; size is ", NULL);
+    Macros_SetStatusNum(layerIdxStackSize);
+    Macros_SetStatusString("\n", NULL);
     for(int i = 0; i < layerIdxStackSize; i++) {
         uint8_t pos = (layerIdxStackTop + LAYER_STACK_SIZE - i) % LAYER_STACK_SIZE;
-        setStatusNum(layerIdxStack[pos].keymap);
-        setStatusString("/", NULL);
-        setStatusNum(layerIdxStack[pos].layer);
-        setStatusString("/", NULL);
-        setStatusNum(layerIdxStack[pos].held);
-        setStatusString("/", NULL);
-        setStatusNum(layerIdxStack[pos].removed);
-        setStatusString("\n", NULL);
+        Macros_SetStatusNum(layerIdxStack[pos].keymap);
+        Macros_SetStatusString("/", NULL);
+        Macros_SetStatusNum(layerIdxStack[pos].layer);
+        Macros_SetStatusString("/", NULL);
+        Macros_SetStatusNum(layerIdxStack[pos].held);
+        Macros_SetStatusString("/", NULL);
+        Macros_SetStatusNum(layerIdxStack[pos].removed);
+        Macros_SetStatusString("\n", NULL);
     }
+    return false;
+}
+
+bool processStatsActiveKeysCommand() {
+    Macros_SetStatusString("keyid/previous/current/debouncing/supressed\n", NULL);
+    for (uint8_t slotId=0; slotId<SLOT_COUNT; slotId++) {
+        for (uint8_t keyId=0; keyId<MAX_KEY_COUNT_PER_MODULE; keyId++) {
+            key_state_t *keyState = &KeyStates[slotId][keyId];
+            if(keyState->current || keyState->previous) {
+                Macros_SetStatusNum(Postponer_KeyId(keyState));
+                Macros_SetStatusString("/", NULL);
+                Macros_SetStatusNum(keyState->previous);
+                Macros_SetStatusString("/", NULL);
+                Macros_SetStatusNum(keyState->current);
+                Macros_SetStatusString("/", NULL);
+                Macros_SetStatusNum(keyState->debouncing);
+                Macros_SetStatusString("/", NULL);
+                Macros_SetStatusNum(keyState->suppressed);
+                Macros_SetStatusString("\n", NULL);
+            }
+        }
+    }
+    return false;
+}
+
+bool processStatsPostponerStackCommand() {
+    Postponer_PrintContent();
+    return false;
+}
+
+bool processDiagnoseCommand() {
+    processStatsLayerStackCommand();
+    processStatsActiveKeysCommand();
+    processStatsPostponerStackCommand();
+    for (uint8_t slotId=0; slotId<SLOT_COUNT; slotId++) {
+        for (uint8_t keyId=0; keyId<MAX_KEY_COUNT_PER_MODULE; keyId++) {
+            key_state_t *keyState = &KeyStates[slotId][keyId];
+            if(keyState != s->currentMacroKey) {
+                keyState->current = 0;
+                keyState->previous = 0;
+            }
+        }
+    }
+    for(uint8_t i = 0; i < MACRO_STATE_POOL_SIZE; i++) {
+        if(&MacroState[i] != s) {
+            MacroState[i].macroBroken = true;
+        }
+    }
+    Postponer_Reset();
     return false;
 }
 
@@ -930,7 +979,7 @@ bool processPrintStatusCommand()
 
 bool processSetStatusCommand(const char* arg, const char *argEnd)
 {
-    setStatusString(arg, argEnd);
+    Macros_SetStatusString(arg, argEnd);
     return false;
 }
 
@@ -1126,9 +1175,9 @@ bool processSetDebounceDelayCommand(const char* arg, const char *argEnd)
 bool processStatsRuntimeCommand()
 {
     int ms = Timer_GetElapsedTime(&s->currentMacroStartTime);
-    setStatusString("macro runtime is: ", NULL);
-    setStatusNum(ms);
-    setStatusString(" ms\n", NULL);
+    Macros_SetStatusString("macro runtime is: ", NULL);
+    Macros_SetStatusNum(ms);
+    Macros_SetStatusString(" ms\n", NULL);
     return false;
 }
 
@@ -1345,6 +1394,12 @@ bool processRepeatForCommand(const char* arg1, const char* argEnd) {
     return false;
 }
 
+bool processSetEmergencyKeyCommand(const char* arg1, const char* argEnd) {
+    uint8_t key = parseNUM(arg1, argEnd);
+    EmergencyKey = &(((key_state_t*)KeyStates)[key]);
+    return false;
+}
+
 bool processCommand(const char* cmd, const char* cmdEnd)
 {
     while(*cmd) {
@@ -1383,6 +1438,9 @@ bool processCommand(const char* cmd, const char* cmdEnd)
             }
             else if(TokenMatches(cmd, cmdEnd, "delayUntil")) {
                 return processDelayUntilCommand(arg1, cmdEnd);
+            }
+            else if(TokenMatches(cmd, cmdEnd, "diagnose")) {
+                return processDiagnoseCommand();
             }
             else {
                 goto failed;
@@ -1686,6 +1744,12 @@ bool processCommand(const char* cmd, const char* cmdEnd)
             else if(TokenMatches(cmd, cmdEnd, "statsLayerStack")) {
                 return processStatsLayerStackCommand();
             }
+            else if(TokenMatches(cmd, cmdEnd, "statsActiveKeys")) {
+                return processStatsActiveKeysCommand();
+            }
+            else if(TokenMatches(cmd, cmdEnd, "statsPostponerStack")) {
+                return processStatsPostponerStackCommand();
+            }
             else if(TokenMatches(cmd, cmdEnd, "subReg")) {
                 return processRegAddCommand(arg1, cmdEnd, true);
             }
@@ -1727,6 +1791,9 @@ bool processCommand(const char* cmd, const char* cmdEnd)
             }
             else if(TokenMatches(cmd, cmdEnd, "setDebounceDelay")) {
                 return processSetDebounceDelayCommand(arg1, cmdEnd);
+            }
+            else if(TokenMatches(cmd, cmdEnd, "setEmergencyKey")) {
+                return processSetEmergencyKeyCommand(arg1, cmdEnd);
             }
             else {
                 goto failed;

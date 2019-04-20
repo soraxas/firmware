@@ -23,7 +23,12 @@
         bool active;
     } postponer_buffer_record_type_t;
 
+// Variables:
+
+    extern key_state_t* Postponer_NextEventKey;
+
 // Functions:
+
     void Postponer_RunPostponed(void);
     void Postponer_TrackKey(key_state_t *keyState, bool active);
     uint8_t Postponer_PendingCount();
@@ -34,5 +39,9 @@
     uint16_t Postponer_PendingId(int idx);
     uint16_t Postponer_KeyId(key_state_t* key);
     void Postponer_ConsumePending(int count, bool suppress);
+    void Postponer_PrintContent();
+    bool Postponer_RunKey(key_state_t* key, bool active);
+    void Postponer_FinishCycle(void);
+    void Postponer_Reset(void);
 
 #endif /* SRC_POSTPONER_H_ */

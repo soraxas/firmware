@@ -137,6 +137,9 @@
     bool Macros_ClaimReports(void);
     void Macros_ReportError(const char* err, const char* arg, const char *argEnd);
     void Macros_ReportErrorNum(const char* err, uint32_t num);
+    void Macros_SetStatusString(const char* text, const char *textEnd);
+    void Macros_SetStatusBool(bool b);
+    void Macros_SetStatusNum(uint32_t n);
     void Macros_UpdateLayerStack();
     bool Macros_IsLayerHeld();
 

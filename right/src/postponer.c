@@ -6,12 +6,14 @@ postponer_buffer_record_type_t buffer[POSTPONER_BUFFER_SIZE];
 uint8_t buffer_size = 0;
 uint8_t buffer_position = 0;
 uint8_t cycles_until_activation = 0;
+key_state_t* Postponer_NextEventKey;
 
 #define POS(idx) ((buffer_position + (idx)) % POSTPONER_BUFFER_SIZE)
 
 void consume_event(uint8_t count) {
     buffer_position = POS(count);
     buffer_size = count > buffer_size ? 0 : buffer_size - count;
+    Postponer_NextEventKey = buffer_size == 0 ? NULL : buffer[buffer_position].key;
 }
 
 void consume_one_keypress(bool suppress) {
@@ -35,6 +37,7 @@ void consume_one_keypress(bool suppress) {
         key->suppressed = true;
     }
     buffer_size -= shifting_by;
+    Postponer_NextEventKey = buffer_size == 0 ? NULL : buffer[buffer_position].key;
 }
 
 void Postponer_ConsumePending(int count, bool suppress) {
@@ -44,7 +47,7 @@ void Postponer_ConsumePending(int count, bool suppress) {
 }
 
 bool Postponer_IsActive(void) {
-    return PostponeKeys || Postponer_PendingCount() > 0 || cycles_until_activation > 0;
+    return PostponeKeys || buffer_size > 0 || cycles_until_activation > 0;
 }
 
 bool Postponer_Overflowing(void) {
@@ -53,6 +56,28 @@ bool Postponer_Overflowing(void) {
         return true;
     }
     return false;
+}
+
+void Postponer_FinishCycle(void) {
+    cycles_until_activation -= cycles_until_activation > 0 ? 1 : 0;
+}
+
+void Postponer_Reset(void) {
+    PostponeKeys = false;
+    cycles_until_activation = 0;
+    buffer_size = 0;
+}
+
+bool Postponer_RunKey(key_state_t* key, bool active) {
+    if(key == buffer[buffer_position].key) {
+        if(cycles_until_activation == 0 || buffer_size > POSTPONER_MAX_FILL) {
+            bool res = buffer[buffer_position].active;
+            consume_event(1);
+            cycles_until_activation = CYCLES_PER_ACTIVATION;
+            return res;
+        }
+    }
+    return active;
 }
 
 void Postponer_RunPostponed(void) {
@@ -78,6 +103,7 @@ void Postponer_TrackKey(key_state_t *keyState, bool active) {
     buffer[pos].active = active;
     buffer_size = buffer_size < POSTPONER_BUFFER_SIZE ? buffer_size + 1 : buffer_size;
     cycles_until_activation = CYCLES_PER_ACTIVATION;
+    Postponer_NextEventKey = buffer_size == 1 ? buffer[buffer_position].key : Postponer_NextEventKey;
 }
 
 uint8_t Postponer_PendingCount() {
@@ -140,4 +166,24 @@ uint16_t Postponer_KeyId(key_state_t* key) {
 
 uint16_t Postponer_PendingId(int idx) {
     return Postponer_KeyId(getPending(idx));
+}
+
+void Postponer_PrintContent() {
+    postponer_buffer_record_type_t* first = &buffer[POS(0)];
+    postponer_buffer_record_type_t* last = &buffer[POS(buffer_size-1)];
+    Macros_SetStatusString("keyid/active", NULL);
+    Macros_SetStatusString("\n", NULL);
+    for(int i = 0; i < POSTPONER_BUFFER_SIZE; i++) {
+        postponer_buffer_record_type_t* ptr = &buffer[i];
+        Macros_SetStatusNum(Postponer_KeyId(ptr->key));
+        Macros_SetStatusString("/", NULL);
+        Macros_SetStatusNum(ptr->active);
+        if(ptr == first) {
+            Macros_SetStatusString(" <first", NULL);
+        }
+        if(ptr == last) {
+            Macros_SetStatusString(" <last", NULL);
+        }
+        Macros_SetStatusString("\n", NULL);
+    }
 }
