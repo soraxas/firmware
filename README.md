@@ -164,6 +164,7 @@ The following grammar is supported:
     COMMAND = setKeystrokeDelay <time in ms, at most 250 (NUMBER)>
     COMMAND = setDebounceDelay <time in ms, at most 250 (NUMBER)>
     COMMAND = setReg <register index (NUMBER)> <value (NUMBER)> 
+    COMMAND = setEmergencyKey KEYID
     COMMAND = {addReg|subReg|mulReg} <register index (NUMBER)> <value (NUMBER)>
     COMMAND = pressKey/holdKey/tapKey/releaseKey SHORTCUT
     CONDITION = {ifDoubletap|ifNotDoubletap}
@@ -211,7 +212,7 @@ The following grammar is supported:
   - `pressKey/holdKey/tapKey/releaseKey` Presses/holds/taps/releases the provided scancode. E.g., `pressKey mouseBtnLeft`, `tapKey LC-v` (Left Control + (lowercase) v), `tapKey CS-f5` (Ctrl + Shift + F5).
   - `noOp` does nothing - i.e., stops macro for exactly one update cycle and then continues.
   - `setLedTxt <time> <custom text>` will set led display to supplemented text for the given time. (Blocks for the given time.)
-- Status buffer
+- Status buffer/Debugging tools
   - `printStatus` will "type" content of error status buffer (256 or 1024 chars, depends on my mood) on the keyboard. Mainly for debug purposes.
   - `setStatus <custom text>` will append <custom text> to the error report buffer, if there is enough space for that.
   - `clearStatus` will clear the buffer.
@@ -219,7 +220,8 @@ The following grammar is supported:
   - `statsLayerStack` will append information about layer stack at the end of status buffer. 
   - `statsPostponerStack` will print out information about postponer queue.
   - `statsActiveKeys` will print all active keys and their states.
-  - `Diagnose` will deactivate all keys and macros and print diagnostic information into the status buffer.
+  - `diagnose` will deactivate all keys and macros and print diagnostic information into the status buffer.
+  - `setEmergencyKey KEYID` will make the one key be ignored by postponing mechanisms. `diagnose` command on such key can be used to recover keyboard from conditions like infinite postponing loop...
 - Delays:
   - `delayUntil <timeout>` sleeps the macro until timeout (in ms) is reached.
   - `delayUntilRelease` sleeps the macro until its activation key is released. Can be used to set action on key release. 
@@ -246,7 +248,7 @@ The following grammar is supported:
     In more detail, the resolution waits for the first key release - if the switch key is released first or within the safety margin delay after release of the postponed key, it is taken for a primary action and goes to the section of the "primary action", then the postponed key is activated; if the postponed key is released first, then the switcher branches the secondary role (e.g., activates layer hold) and then the postponed key is activated; if the time given by first argument passes, the "secondary" branch is activated as in the previous case.
 
     - `arg1` - total timeout of the resolution. If the timeout is exceeded and the switcher key (the key which activated the macro) is still being held, goto to secondary action is issued. Recommended value is 350ms.
-    - `arg2` - safety margin delay. If the postponed key is released first, we still wait for this delay (or for timeout of the arg1 delay - whichever happens first). If the switcher key is released within this delay (starting counting at release of the key), the switcher key is still taken to have been released first. Recommended value is between 0 and `arg1`. If only three arguments are passed, this argument defaults to `arg1`.   
+    - `arg2` - safety margin delay. If the postponed key is released first, we still wait for this delay (or for timeout of the arg1 delay - whichever happens first). If the switcher key is released within this delay (starting counting at release of the key), the switcher key is still taken to have been released first. Valid value is between 0 and `arg1`, meaningful values are approximately between 0 and `arg1/2`. If only three arguments are passed, this argument defaults to `arg1`.   
     - `arg3`/`arg4` - primary/secondary action macro action index. When the resolution is finished, the macro jumps to one of the two indices (I.e., this command is a conditional goTo.).
 - Postponing mechanisms. We allow postponing key activations in order to allow deciding between some scenarios depending on the next pressed key and then activating the keys pressed in "past" in the newly determined context. The postponing mechanism happens in key state preprocessing phase - i.e., works prior to activation of the key's action, including all macros. Postponing mechanism registers and postpones both key presses and releases, but does not preserve delays between them. Postponing affects even macro keystate queries, unless the macro in question is the one which initiates the postponing state (otherwise `$postponeKeys delayUntilRelease` would indefinitely postpone its own release). Replay of postponed keys happens every `CYCLES_PER_ACTIVATION` update cycles, currently 2.The following commands either use this feature or allow control of the queue.
   - `postponeKeys` modifier prefixed before another command keeps the firmware in postponing mode. Once no instance of postponeKeys modifer is active, the postponer will start replaying the keys. Replaying happens with normal event loop, which means that postponed keys will be replayed even during macro execution (most likely after next macro action). Some commands (thos from this section) apply this modifier implicitly. See MODIFIER section. 
