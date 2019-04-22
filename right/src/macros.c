@@ -464,6 +464,12 @@ bool dispatchText(const char* text, uint16_t textLen)
     if(!Macros_ClaimReports()) {
         return true;
     }
+    static macro_state_t* dispatchMutex = NULL;
+    if(dispatchMutex != s && dispatchMutex != NULL) {
+        return true;
+    } else {
+        dispatchMutex = s;
+    }
     char character;
     uint8_t scancode;
     uint8_t mods;
@@ -474,6 +480,7 @@ bool dispatchText(const char* text, uint16_t textLen)
         s->dispatchTextIndex = 0;
         s->dispatchReportIndex = max_keys;
         memset(&s->macroBasicKeyboardReport, 0, sizeof s->macroBasicKeyboardReport);
+        dispatchMutex = NULL;
         return false;
     }
     if (s->dispatchReportIndex == max_keys) {
