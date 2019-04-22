@@ -1357,7 +1357,7 @@ bool processIfShortcutCommand(bool negate, const char* arg, const char* argEnd, 
         uint8_t argKeyid = parseNUM(arg, argEnd);
         arg = NextTok(arg, argEnd);
         if(pendingCount < numArgs) {
-            if((untilRelease && currentMacroKeyIsActive()) || (!untilRelease && Timer_GetElapsedTime(&s->currentMacroStartTime) < 500)) {
+            if((untilRelease && currentMacroKeyIsActive()) || (!untilRelease && Timer_GetElapsedTime(&s->currentMacroStartTime) < 1000)) {
                 return true;
             } else {
                 if(negate) {
