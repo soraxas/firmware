@@ -26,6 +26,7 @@ uint8_t MacroSystemScancodeIndex = 0;
 
 static char statusBuffer[STATUS_BUFFER_MAX_LENGTH];
 static uint16_t statusBufferLen;
+static bool statusBufferPrinting;
 
 static layerStackRecord layerIdxStack[LAYER_STACK_SIZE];
 static uint8_t layerIdxStackTop;
@@ -244,6 +245,12 @@ bool processKey(macro_action_t macro_action)
     uint8_t modifierMask = macro_action.key.modifierMask;
     uint16_t scancode = macro_action.key.scancode;
 
+#ifdef DEBUG_POSTPONER
+    char str[1];
+    str[0] = MacroShortcutParser_ScancodeToCharacter(scancode);
+    Macros_ReportError("m> ", &str[0], &str[1]);
+#endif
+
     switch (action) {
         case MacroSubAction_Hold:
         case MacroSubAction_Tap:
@@ -363,9 +370,18 @@ bool processScrollMouseAction(void)
     return s->mouseScrollInMotion;
 }
 
+bool processClearStatusCommand()
+{
+    statusBufferLen = 0;
+    return false;
+}
+
 //textEnd is allowed to be null if text is null-terminated
 void Macros_SetStatusString(const char* text, const char *textEnd)
 {
+    if(statusBufferPrinting) {
+        return;
+    }
     while(*text && statusBufferLen < STATUS_BUFFER_MAX_LENGTH && (text < textEnd || textEnd == NULL)) {
         statusBuffer[statusBufferLen] = *text;
         text++;
@@ -392,6 +408,11 @@ void Macros_SetStatusNum(uint32_t n)
           Macros_SetStatusString(buff, NULL);
         }
     }
+}
+
+void Macros_SetStatusChar(char n)
+{
+    Macros_SetStatusString(&n, &n+1);
 }
 
 void reportError(const char* err, const char* arg, const char *argEnd)
@@ -969,9 +990,11 @@ bool processBreakCommand()
 
 bool processPrintStatusCommand()
 {
+    statusBufferPrinting = true;
     bool res = dispatchText(statusBuffer, statusBufferLen);
     if(!res) {
         statusBufferLen = 0;
+        statusBufferPrinting = false;
     }
     LedDisplay_UpdateText();
     return res;
@@ -1424,6 +1447,8 @@ bool processCommand(const char* cmd, const char* cmdEnd)
         case 'c':
             if(TokenMatches(cmd, cmdEnd, "consumePending")) {
                 return processConsumePendingCommand(arg1, cmdEnd);
+            } else if(TokenMatches(cmd, cmdEnd, "clearStatus")) {
+                return processClearStatusCommand();
             }
             else {
                 goto failed;

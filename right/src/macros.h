@@ -10,6 +10,7 @@
     #include "key_states.h"
 
 // Macros:
+//#define DEBUG_POSTPONER
 
     #define MAX_MACRO_NUM 255
     #define STATUS_BUFFER_MAX_LENGTH 1024
@@ -140,6 +141,7 @@
     void Macros_SetStatusString(const char* text, const char *textEnd);
     void Macros_SetStatusBool(bool b);
     void Macros_SetStatusNum(uint32_t n);
+    void Macros_SetStatusChar(char n);
     void Macros_UpdateLayerStack();
     bool Macros_IsLayerHeld();
 

@@ -7,6 +7,15 @@
 #include "str_utils.h"
 
 
+char MacroShortcutParser_ScancodeToCharacter(uint16_t scancode)
+{
+    switch (scancode) {
+        case HID_KEYBOARD_SC_A ... HID_KEYBOARD_SC_Z:
+            return scancode - HID_KEYBOARD_SC_A + 'a';
+        default:
+            return ' ';
+    }
+}
 
 uint8_t MacroShortcutParser_CharacterToScancode(char character)
 {

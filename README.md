@@ -146,9 +146,10 @@ The following grammar is supported:
     COMMAND = statsLayerStack
     COMMAND = statsPostponerStack
     COMMAND = statsActiveKeys
-    COMMAND = Diagnose
+    COMMAND = diagnose
     COMMAND = printStatus
     COMMAND = setStatus <custom text>
+    COMMAND = clearStatus 
     COMMAND = setLedTxt <timeout (NUMBER)> <custom text>
     COMMAND = write <custom text>
     COMMAND = goTo <index (NUMBER)>
@@ -212,7 +213,8 @@ The following grammar is supported:
   - `setLedTxt <time> <custom text>` will set led display to supplemented text for the given time. (Blocks for the given time.)
 - Status buffer
   - `printStatus` will "type" content of error status buffer (256 or 1024 chars, depends on my mood) on the keyboard. Mainly for debug purposes.
-  - `setStatus <custom text>` will append <custom text> to the error report buffer, if there is enough space for that
+  - `setStatus <custom text>` will append <custom text> to the error report buffer, if there is enough space for that.
+  - `clearStatus` will clear the buffer.
   - `statsRuntime` will append information about runtime of current macro at the end of status buffer. The time is measured before the printing mechanism is initiated.
   - `statsLayerStack` will append information about layer stack at the end of status buffer. 
   - `statsPostponerStack` will print out information about postponer queue.

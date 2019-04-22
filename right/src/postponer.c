@@ -72,6 +72,13 @@ bool Postponer_RunKey(key_state_t* key, bool active) {
     if(key == buffer[buffer_position].key) {
         if(cycles_until_activation == 0 || buffer_size > POSTPONER_MAX_FILL) {
             bool res = buffer[buffer_position].active;
+#ifdef DEBUG_POSTPONER
+            if(res) {
+                Macros_ReportErrorNum("Playing 1 ", Postponer_KeyId(buffer[buffer_position].key));
+            } else {
+                Macros_ReportErrorNum("Playing 0 ", Postponer_KeyId(buffer[buffer_position].key));
+            }
+#endif
             consume_event(1);
             cycles_until_activation = CYCLES_PER_ACTIVATION;
             return res;
@@ -98,6 +105,13 @@ void Postponer_RunPostponed(void) {
 }
 
 void Postponer_TrackKey(key_state_t *keyState, bool active) {
+#ifdef DEBUG_POSTPONER
+    if(active) {
+        Macros_ReportErrorNum("Tracking 1 ", Postponer_KeyId(keyState));
+    } else {
+        Macros_ReportErrorNum("Tracking 0 ", Postponer_KeyId(keyState));
+    }
+#endif
     uint8_t pos = POS(buffer_size);
     buffer[pos].key = keyState;
     buffer[pos].active = active;

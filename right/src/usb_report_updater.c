@@ -16,6 +16,7 @@
 #include "usb_commands/usb_command_get_debug_buffer.h"
 #include "arduino_hid/ConsumerAPI.h"
 #include "macro_recorder.h"
+#include "macro_shortcut_parser.h"
 #include "postponer.h"
 
 static uint32_t mouseUsbReportUpdateTime = 0;
@@ -282,6 +283,11 @@ static void applyKeyAction(key_state_t *keyState, key_action_t *action, uint8_t 
                     stickyModifiers = action->keystroke.modifiers;
                     stickySlotId = slotId;
                     stickyKeyId = keyId;
+#ifdef DEBUG_POSTPONER
+                    char str[1];
+                    str[0] = MacroShortcutParser_ScancodeToCharacter(action->keystroke.scancode);
+                    Macros_ReportError("> ", &str[0], &str[1]);
+#endif
                 }
             }
             if(!SuppressMods) {
@@ -423,6 +429,13 @@ static inline void preprocessKeyState(key_state_t *keyState) {
     } else if (prevDB != currHW) {
         keyState->timestamp = CurrentTime;
         keyState->debouncing = true;
+#ifdef DEBUG_POSTPONER
+            if(currDB) {
+                Macros_ReportErrorNum("Keydown ", Postponer_KeyId(keyState));
+            } else {
+                //Macros_ReportErrorNum("Keyup   ", Postponer_KeyId(buffer[buffer_position].key));
+            }
+#endif
     }
 
     bool currSW = currDB && !keyState->suppressed;
@@ -576,6 +589,16 @@ static void updateActiveUsbReports(void)
 
 uint32_t UsbReportUpdateCounter;
 
+void ReportReport() {
+    Macros_SetStatusString("Reporting ", NULL);
+    for ( int i = 0; i < USB_BASIC_KEYBOARD_MAX_KEYS; i++) {
+        if(ActiveUsbBasicKeyboardReport->scancodes[i] != 0){
+            Macros_SetStatusChar(MacroShortcutParser_ScancodeToCharacter(ActiveUsbBasicKeyboardReport->scancodes[i]));
+        }
+    }
+    Macros_SetStatusString("\n", NULL);
+}
+
 void UpdateUsbReports(void)
 {
     static uint32_t lastUpdateTime;
@@ -618,6 +641,9 @@ void UpdateUsbReports(void)
     if (HasUsbBasicKeyboardReportChanged) {
         OldModifierState = ActiveUsbBasicKeyboardReport->modifiers | SuppressedModifierState;
         MacroRecorder_RecordBasicReport(ActiveUsbBasicKeyboardReport);
+#ifdef DEBUG_POSTPONER
+        ReportReport();
+#endif
         usb_status_t status = UsbBasicKeyboardAction();
         if (status == kStatus_USB_Success) {
             UsbReportUpdateSemaphore |= 1 << USB_BASIC_KEYBOARD_INTERFACE_INDEX;

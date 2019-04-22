@@ -27,5 +27,7 @@
     macro_action_t MacroShortcutParser_Parse(const char* str, const char* strEnd);
     uint8_t MacroShortcutParser_CharacterToScancode(char character);
     bool MacroShortcutParser_CharacterToShift(char character);
+    char MacroShortcutParser_ScancodeToCharacter(uint16_t scancode);
+
 
 #endif /* SRC_MACRO_SHORTCUT_PARSER_H_ */
