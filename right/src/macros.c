@@ -246,9 +246,9 @@ bool processKey(macro_action_t macro_action)
     uint16_t scancode = macro_action.key.scancode;
 
 #ifdef DEBUG_POSTPONER
-    char str[1];
-    str[0] = MacroShortcutParser_ScancodeToCharacter(scancode);
-    Macros_ReportError("m> ", &str[0], &str[1]);
+    Macros_SetStatusString("m> ", NULL);
+    Macros_SetStatusChar(MacroShortcutParser_ScancodeToCharacter(scancode));
+    Macros_SetStatusString("\n", NULL);
 #endif
 
     switch (action) {
@@ -432,6 +432,9 @@ void reportError(const char* err, const char* arg, const char *argEnd)
 void Macros_ReportError(const char* err, const char* arg, const char *argEnd)
 {
     LedDisplay_SetText(3, "ERR");
+    Macros_SetStatusString("idx ", NULL);
+    Macros_SetStatusNum(s->currentMacroActionIndex);
+    Macros_SetStatusString(":", NULL);
     Macros_SetStatusString(err, NULL);
     if(arg != NULL) {
         Macros_SetStatusString(": ", NULL);

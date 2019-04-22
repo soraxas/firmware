@@ -74,9 +74,13 @@ bool Postponer_RunKey(key_state_t* key, bool active) {
             bool res = buffer[buffer_position].active;
 #ifdef DEBUG_POSTPONER
             if(res) {
-                Macros_ReportErrorNum("Playing 1 ", Postponer_KeyId(buffer[buffer_position].key));
+                Macros_SetStatusString("Playing 1 ", NULL);
+                Macros_SetStatusNum(Postponer_KeyId(buffer[buffer_position].key));
+                Macros_SetStatusString("\n", NULL);
             } else {
-                Macros_ReportErrorNum("Playing 0 ", Postponer_KeyId(buffer[buffer_position].key));
+                Macros_SetStatusString("Playing 0 ", NULL);
+                Macros_SetStatusNum(Postponer_KeyId(buffer[buffer_position].key));
+                Macros_SetStatusString("\n", NULL);
             }
 #endif
             consume_event(1);
@@ -107,9 +111,13 @@ void Postponer_RunPostponed(void) {
 void Postponer_TrackKey(key_state_t *keyState, bool active) {
 #ifdef DEBUG_POSTPONER
     if(active) {
-        Macros_ReportErrorNum("Tracking 1 ", Postponer_KeyId(keyState));
+        Macros_SetStatusString("Tracking 1 ", NULL);
+        Macros_SetStatusNum(Postponer_KeyId(buffer[buffer_position].key));
+        Macros_SetStatusString("\n", NULL);
     } else {
-        Macros_ReportErrorNum("Tracking 0 ", Postponer_KeyId(keyState));
+        Macros_SetStatusString("Tracking 0 ", NULL);
+        Macros_SetStatusNum(Postponer_KeyId(buffer[buffer_position].key));
+        Macros_SetStatusString("\n", NULL);
     }
 #endif
     uint8_t pos = POS(buffer_size);

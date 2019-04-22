@@ -286,7 +286,9 @@ static void applyKeyAction(key_state_t *keyState, key_action_t *action, uint8_t 
 #ifdef DEBUG_POSTPONER
                     char str[1];
                     str[0] = MacroShortcutParser_ScancodeToCharacter(action->keystroke.scancode);
-                    Macros_ReportError("> ", &str[0], &str[1]);
+                    Macros_SetStatusString("> ", NULL);
+                    Macros_SetStatusChar(MacroShortcutParser_ScancodeToCharacter(action->keystroke.scancode));
+                    Macros_SetStatusString("\n", NULL);
 #endif
                 }
             }
@@ -431,9 +433,9 @@ static inline void preprocessKeyState(key_state_t *keyState) {
         keyState->debouncing = true;
 #ifdef DEBUG_POSTPONER
             if(currDB) {
-                Macros_ReportErrorNum("Keydown ", Postponer_KeyId(keyState));
-            } else {
-                //Macros_ReportErrorNum("Keyup   ", Postponer_KeyId(buffer[buffer_position].key));
+                Macros_SetStatusString("Keydown ", NULL);
+                Macros_SetStatusNum(Postponer_KeyId(keyState));
+                Macros_SetStatusString("\n", NULL);
             }
 #endif
     }
@@ -589,7 +591,7 @@ static void updateActiveUsbReports(void)
 
 uint32_t UsbReportUpdateCounter;
 
-void ReportReport() {
+void reportReport() {
     Macros_SetStatusString("Reporting ", NULL);
     for ( int i = 0; i < USB_BASIC_KEYBOARD_MAX_KEYS; i++) {
         if(ActiveUsbBasicKeyboardReport->scancodes[i] != 0){
@@ -642,7 +644,7 @@ void UpdateUsbReports(void)
         OldModifierState = ActiveUsbBasicKeyboardReport->modifiers | SuppressedModifierState;
         MacroRecorder_RecordBasicReport(ActiveUsbBasicKeyboardReport);
 #ifdef DEBUG_POSTPONER
-        ReportReport();
+        reportReport();
 #endif
         usb_status_t status = UsbBasicKeyboardAction();
         if (status == kStatus_USB_Success) {

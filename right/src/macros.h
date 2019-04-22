@@ -10,7 +10,7 @@
     #include "key_states.h"
 
 // Macros:
-//#define DEBUG_POSTPONER
+#define DEBUG_POSTPONER
 
     #define MAX_MACRO_NUM 255
     #define STATUS_BUFFER_MAX_LENGTH 1024
