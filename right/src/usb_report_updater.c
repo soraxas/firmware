@@ -425,9 +425,8 @@ static inline void preprocessKeyState(key_state_t *keyState) {
     if (keyState->debouncing) {
         if ((uint8_t)(CurrentTime - keyState->timestamp) > (prevDB ? DebounceTimePress : DebounceTimeRelease)) {
             keyState->debouncing = false;
-        } else {
-            currDB = prevDB;
         }
+        currDB = prevDB;
     } else if (prevDB != currHW) {
         keyState->timestamp = CurrentTime;
         keyState->debouncing = true;
