@@ -413,7 +413,7 @@ void ActivateKey(key_state_t *keyState, bool debounce) {
 }
 
 static inline void preprocessKeyState(key_state_t *keyState) {
-    if(keyState->current == 0 && keyState != Postponer_NextEventKey) {
+    if(keyState->current == 0 && !keyState->debouncing && keyState != Postponer_NextEventKey) {
         return;
     }
 
