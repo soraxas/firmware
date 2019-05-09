@@ -3,6 +3,22 @@
 #include "macros.h"
 #include "timer.h"
 
+/**
+ * Coding should be refactored as follows:
+ * - first byte header
+ *   - 3 bits -> report type/coding style:
+ *     delay
+ *     basic
+ *     basicFollowedByEmpty
+ *   - 2 bits:
+ *     - no mods
+ *     - 1 bit = left shift
+ *     - 1 bit = right shift
+ *     - both = full mod mask follow
+ *   - 3 bits= number of scancodes
+ * - further bytes mod mask and scancodes as specified by header
+ */
+
 bool RuntimeMacroPlaying = false;
 bool RuntimeMacroRecording = false;
 
