@@ -32,7 +32,7 @@ Some of the usecases which can be achieved via these commands are:
 2) Create some macro. Enter each command as a single text action. All action types
 can be combined. E.g.:
 
-![example macro](https://raw.githubusercontent.com/kareltucek/firmware/master/exampleMacro.png)
+![Example macro showing double-shift-to-caps lock.](https://github.com/kareltucek/firmware/raw/master/macroExample.png)
 
 3) Understanding this readme:
 
