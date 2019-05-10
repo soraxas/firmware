@@ -27,7 +27,7 @@ Some of the usecases which can be achieved via these commands are:
     
 ## Getting started
 
-1) Flash the firmware. You will find the newest firmware release under "code/releases" tab of github. I.e., at https://github.com/kareltucek/firmware .
+1) Flash the firmware. You will find the newest firmware release under "code/releases" tab of github. I.e., at https://github.com/kareltucek/firmware/releases/ .
 
 2) Create some macro. Enter each command as a single text action. All action types
 can be combined. E.g.:
