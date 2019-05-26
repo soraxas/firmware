@@ -18,10 +18,12 @@ The firmware implements:
 Some of the usecases which can be achieved via these commands are: 
 - ability to mimic secondary roles 
 - ability to bind actions to doubletaps 
-- ability to bind modifier-chorded actions (i.e., shortucts which consists of arbitrary number of modifiers and at most one other key)
+- ability to bind arbitrary shortcuts or gestures 
 - ability to bind shift and non-shift scancodes independently
 - ability to configure custom layer switching logic, including nested layer toggling 
+- unlimited number of layers via referencing layers of different keymaps 
 - flow control via goto command
+- 32 numeric registers
 - runtime macros
 
     
@@ -36,11 +38,11 @@ can be combined. E.g.:
 
 3) Understanding this readme:
 
-    - Go through each section of commands - just reading the introduction line will give you some idea about available  types of commands.
+    - Go through the sections of the reference manual - just reading the introduction line will give you some idea about available  types of commands.
     - Read through examples in order to understand how the constructs can be combined.
-    - Understand how to read the stated ebnf grammar. Using the grammar will give you precise instructions about how your command should be written. In case you don't know anything about grammars:
+    - Understand how to read the stated ebnf grammar. Using the grammar will give you precise instructions about how your commands should be constructed. In case you don't know anything about grammars:
           - The grammar describes a valid expression via a set of rules. At the beginning, the expression equals "BODY". Every capital word of the expression to be "rewritten" by a corresponding rule - i.e., the identifier is to be replaced by an expression which matches right side of the rule. 
-          - Notation: `<>` mark user-understandable explanation of what is to be entered. `|` operator indicates choice between left and right operand. It is typically enclosed in `{}`, in order to separate the group from the rest of the rule. `[]` denote optional arguments. Especially `[]+` marks "one or more" and `[]*` arbitrary number.
+          - Notation: `<>` mark informal (human-understandable) explanation of what is to be entered. `|` operator indicates choice between left and right operand. It is typically enclosed in `{}`, in order to separate the group from the rest of the rule. `[]` denote optional arguments. Especially `[]+` marks "one or more" and `[]*` arbitrary number.
     
 ## Examples
 **Note that every command (i.e., every line in the examples) has to be inputted as a separate action!** Also note that macros are being run "asynchronously" (i.e., interleaved with other event handling) at a pace of at most one action per update cycle. A macro action may take one or more update cycles to complete (esp. delay commands and all commands which interfere with usb reports).
@@ -49,12 +51,12 @@ For instance, if the following text is pasted as a macro text action, playing th
     
     $switchKeymap QWR
     
-Runtime macro recorder example. In this setup, shift+key will start recording (indicated by the "adaptive mode" led), another shit+key will stop recording. Hiting the key alone will then replay the macro (e.g., a simple repetitive text edit).
+Runtime macro recorder example. In this setup, shift+key will start recording (indicated by the "adaptive mode" led), another shift+key will stop recording. Hiting the key alone will then replay the macro (e.g., a simple repetitive text edit). Alternatively, virtual register `#key` can be used as an argument in order to assign every key to different slot.
 
     $ifShift recordMacro A
     $ifNotShift playMacro A
 
-Implementation of standard double-tap-locking hold modifier in recursive version could look like:
+Implementation of standard double-tap-locking hold modifier in recursive version could look like: ("Recursivity" refers to ability to toggle another layer on top of the toggled layer.)
 
     $holdLayer fn
     $ifDoubletap toggleLayer fn
@@ -79,24 +81,32 @@ Creating double-shift-to-caps may look like:
     $ifNotDoubletap break
     <tap CapsLock>
 
+Or (with newer releases):
+
+    $holdKey leftShift
+    $ifDoubletap tapKey capsLock
+
 Smart toggle (if tapped, locks layer; if used with a key, acts as a secondary role):
 
     $holdLayer mouse
     $ifNotInterrupted toggleLayer mouse
-    
 
-Regular secondary role:
+Regular secondary role: (Activates the secondary role immediately and if no other key is pressed prior to its release, activates the primary role on release.)
 
     $holdLayer mouse
     $ifInterrupted break
     <regular action>
+
+You can refer to layers of different keymaps via a set of `keymapLayer` commands. E.g.:
+
+    $holdKeymapLayer QWR base
 
 Mapping shift/nonshift scancodes independently:
 
     $ifShift suppressMods write 4
     $ifNotShift write %
     
-The following applies global settings. Namely turns off sticky modifiers (i.e., modifiers of composite keystrokes will apply but will no longer stick) so that composite actions don't affect external mouse. Furthermore, it enables separation of composite keystrokes, and increases update delay - this may be useful if macro playback needs to be slown down (e.g., because some software does not register short taps) or if artificial delays need to be introduced for some reason. (Recommended values are 0,1,0.)
+The following applies some global settings. Namely turns off sticky modifiers (i.e., modifiers of composite keystrokes will apply but will no longer stick) so that composite actions don't affect external mouse. Furthermore, it enables separation of composite keystrokes, and increases update delay - this may be useful if macro playback needs to be slown down or if artificial delays need to be introduced for reason (e.g., because some software does not register short taps). (Recommended values are 0,1,0.)
 
     $setStickyModsEnabled 0 
     $setSplitCompositeKeystroke 1
@@ -109,14 +119,20 @@ Postponed secondary role switch. This modification prevents secondary role hiccu
     $break
     $holdLayer mod
 
-Mapping custom shortcuts may be done using `ifShortcut` command. The macro needs to be placed on the first key of the shortcut, and refers to other keys by their hardware ids obtained by `resolveNextKeyId` command and pressing the key (while having focused text editor). The command will postpone other actions until sufficient number of keys is pressed. If the pressed keys correspond to the arguments, the keys are consumed and the rest of the command performed. Otherwise, postponed keypresses are either used up by the rest of the macro or replayed back. The `final` modifier breaks the command after the "modified" `tapKey` command finishes. 
+Mapping custom shortcuts may be done using `ifShortcut` command. The macro needs to be placed on the first key of the shortcut, and refers to other keys by their hardware ids obtained by `resolveNextKeyId` command (i.e., activating the command and pressing the key while having a text editor focused). The (`ifShortcut`) command will postpone other actions until sufficient number of keys is pressed. If the pressed keys correspond to the arguments, the keys are consumed and the rest of the command performed. Otherwise, postponed keypresses are either used up by the rest of the macro or replayed back. The `final` modifier breaks the command after the "modified" `tapKey` command finishes. 
 
     $ifShortcut 90 final tapKey v
     $ifShortcut 88 final tapKey x
     $ifShortcut 70 71 final tapKey CG-a
     $tapKey c
 
-`resolveNextKeyEq` is a bit more flexible and less-user friendly version of the `ifShortcut` command. It does not consume keys, allows querying for keys which are further in the queue and timeout is not limited to release of the key. The example shows a "rocker guesture" where sequence c->v is mapped to V. This is macro for the c key.  Alternatively, `resolveSecondary` could be used to implement similar functionality when combined with another layer. In that case, `resolveSecondary` will require prolonged press of c in order to activate the shortcut and won't interfere with writing. This version will eat all `cv`s encountered while writing, but does not depend on proper release of the keys. Rocker guestures work fine for key combinations which are not encountered in normal text, i.e., for small number of special cases. `ResolveSecondary` should be used for mapping key clusters.
+Similar command can be used to implement "loose gestures" - i.g., gestures where the second keypress can follow without continuity of press of the first key. It suffices to replace the `ifShortcut` by `ifGesture`. Vim-like gt and gT (g+shift+t) tab switching:
+
+    $ifGesture 077 final tapKey C-pageUp 
+    $ifGesture 085 077 final tapKey C-pageDown
+    $tapKey g
+
+`resolveNextKeyEq` is a bit more flexible and less-user friendly version of the `ifShortcut` command. It does not consume keys, allows querying for keys which are further in the queue and timeout is not limited to release of the key. The example shows a "rocker guesture" where sequence c->v is mapped to V. This is macro for the c key. Alternatively, `resolveSecondary` could be used to implement similar functionality when combined with another layer. In that case, `resolveSecondary` will require prolonged press of c in order to activate the shortcut and won't interfere with writing. This version will eat all `cv`s encountered while writing, but does not depend on proper release of the keys. Rocker guestures (implemented via `ifGesture`, `ifShortcut` or `resolveNextKeyEq`) work fine for key combinations which are not encountered in normal text, i.e., for small number of special cases. `ResolveSecondary` should be used for mapping key clusters.
 
     $resolveNextKeyEq 0 90 untilRelease 1 4
     $consumePending 1
@@ -124,13 +140,16 @@ Mapping custom shortcuts may be done using `ifShortcut` command. The macro needs
     $break
     $tapKey c
 
+In the above examples, `tapKey` can be (and probably should be) replaced by `holdKey`. "Hold" activates the scancode for as long as the key is pressed while "tap" activates it just for a fraction of a second. This distinction may seem unimportant, but just as long as you don't try to play some games with it.
+
 You can simplify writing macros by using `#` and `@` characters. The first resolves a number as an index of a register. The second interprets the number as a relative action index. For instance the following macro will write out five "a"s with 50 ms delays
     
-    $setReg 0 50
+    //you can comment your code via two slashes. 
+    $setReg 0 50      //store number 50 into register 0
     $setReg 1 5
     $tapKey a
-    $delayUntil #0
-    $repeatFor 1 @-2
+    $delayUntil #0    //the #0 is replaced by content of register 0
+    $repeatFor 1 @-2  //decrement register 1; if it is non-zero, return by two commands to the tapKey command
     
     
 ## Reference manual
@@ -156,7 +175,7 @@ The following grammar is supported:
     COMMAND = resolveSecondary <time in ms (NUMBER)> [<time in ms (NUMBER)>] <primary action macro action index (NUMBER)> <secondary action macro action index (NUMBER)>
     COMMAND = resolveNextKeyId 
     COMMAND = resolveNextKeyEq <queue position (NUMBER)> KEYID {<time in ms>|untilRelease} <action adr (NUMBER)> <action adr (NUMBER)>
-    COMMAND = consumePending
+    COMMAND = consumePending <number of commands (NUMBER)>
     COMMAND = postponeNext <number of commands (NUMER)>
     COMMAND = break
     COMMAND = noOp
@@ -184,7 +203,7 @@ The following grammar is supported:
     COMMAND = setReg <register index (NUMBER)> <value (NUMBER)> 
     COMMAND = setEmergencyKey KEYID
     COMMAND = {addReg|subReg|mulReg} <register index (NUMBER)> <value (NUMBER)>
-    COMMAND = pressKey/holdKey/tapKey/releaseKey SHORTCUT
+    COMMAND = {pressKey|holdKey|tapKey|releaseKey} SHORTCUT
     CONDITION = {ifDoubletap|ifNotDoubletap}
     CONDITION = {ifPending|ifNotPending} <n (NUMBER)>
     CONDITION = {ifPendingId|ifNotPendingId} <idx in buffer (NUMBER)> KEYID
@@ -227,17 +246,21 @@ The following grammar is supported:
   - `break` will end playback of the current macro
   - `write <custom text>` will type rest of the string. Same as the plain text command. This is just easier to use with conditionals...
   - `startMouse/stopMouse` start/stop corresponding mouse action. E.g., `startMouse move left`
-  - `pressKey/holdKey/tapKey/releaseKey` Presses/holds/taps/releases the provided scancode. E.g., `pressKey mouseBtnLeft`, `tapKey LC-v` (Left Control + (lowercase) v), `tapKey CS-f5` (Ctrl + Shift + F5).
+  - `pressKey|holdKey|tapKey|releaseKey` Presses/holds/taps/releases the provided scancode. E.g., `pressKey mouseBtnLeft`, `tapKey LC-v` (Left Control + (lowercase) v), `tapKey CS-f5` (Ctrl + Shift + F5).
+    - press means adding the scancode into a list of "active keys" and continuing the macro. The key is released once the macro ends. I.e., if the command is not followed by any sort of delay, the key will be released again almost immediately.
+    - release means removing the scancode from the list of "active keys". I.e., it negates effect of `pressKey` within the same macro. This does not affect scancodes emited by different keyboard actions.
+    - tap means pressing a key (more precisely, activating the scancode) and immediately releasing it again
+    - hold means pressing the key, waiting until key which activated the macro is released and then releasing the key again. I.e., `$holdKey <x>` is equivalent to `$pressKey <x>; $delayUntilRelease; $releaseKey <x>`, while `$tapKey <x>` is equivalent to `$pressKey <x>; $releaseKey <x>`.
   - `noOp` does nothing - i.e., stops macro for exactly one update cycle and then continues.
   - `setLedTxt <time> <custom text>` will set led display to supplemented text for the given time. (Blocks for the given time.)
 - Status buffer/Debugging tools
-  - `printStatus` will "type" content of error status buffer (256 or 1024 chars, depends on my mood) on the keyboard. Mainly for debug purposes.
-  - `setStatus <custom text>` will append <custom text> to the error report buffer, if there is enough space for that.
+  - `printStatus` will "type" content of status buffer (256 or 1024 chars, depends on my mood) on the keyboard. Mainly for debug purposes.
+  - `setStatus <custom text>` will append <custom text> to the status buffer, if there is enough space for that.
   - `clearStatus` will clear the buffer.
-  - `statsRuntime` will append information about runtime of current macro at the end of status buffer. The time is measured before the printing mechanism is initiated.
-  - `statsLayerStack` will append information about layer stack at the end of status buffer. 
-  - `statsPostponerStack` will print out information about postponer queue.
-  - `statsActiveKeys` will print all active keys and their states.
+  - `statsRuntime` will output information about runtime of current macro into the status buffer. The time is measured before the printing mechanism is initiated.
+  - `statsLayerStack` will output information about layer stack (into the buffer). 
+  - `statsPostponerStack` will output information about postponer queue (into the buffer).
+  - `statsActiveKeys` will output all active keys and their states (into the buffer).
   - `diagnose` will deactivate all keys and macros and print diagnostic information into the status buffer.
   - `setEmergencyKey KEYID` will make the one key be ignored by postponing mechanisms. `diagnose` command on such key can be used to recover keyboard from conditions like infinite postponing loop...
 - Delays:
@@ -302,7 +325,7 @@ The following grammar is supported:
   - `postponeKeys` will postpone all new key activations for as long as any instance of this modifier is active. See postponing mechanisms section.
   - `final` will end macro playback after the "modified" action is properly finished. Simplifies control flow. "Implicit break."
 - Runtime macros:
-  - `recordMacro|playMacro <slot identifier>` targets vim-like macro functionality. Slot identifier is a single character. Usage (e.g.): call `recordMacro a`, do some work, end recording by another `recordMacro a`. Now you can play the actions (i.e., sequence of keyboard reports) back by calling `playMacro a`. Only BasicKeyboard scancodes are available at the moment. These macros are recorded into RAM only. Number of macros is limited by memory (current limit is set to approximately 500 keystrokes (4kb) (maximum is ~1000 if we used all available memory)). If less than 1/4 of dedicated memory is free, oldest macro slot is freed. If currently recorded macro is longer than 1/4 of dedicated memory, recording is stopped and the macro is freed (prevents unwanted deletion of macros).
+  - `recordMacro|playMacro <slot identifier>` targets vim-like macro functionality. Slot identifier is a single character or a number or `#key`. Usage (e.g.): call `recordMacro a`, do some work, end recording by another `recordMacro a`. Now you can play the actions (i.e., sequence of keyboard reports) back by calling `playMacro a`. Only BasicKeyboard scancodes are available at the moment. These macros are recorded into RAM only. Number of macros is limited by memory (current limit is set to approximately 500 keystrokes (4kb) (maximum is ~1000 if we used all available memory)). If less than 1/4 of dedicated memory is free, oldest macro slot is freed. If currently recorded macro is longer than 1/4 of dedicated memory, recording is stopped and the macro is freed (prevents unwanted deletion of macros).
   - `recordMacroDelay` will measure time until key release (i.e., works like `delayUntilRelease`) and insert delay of that length into the currently recorded macro. This can be used to wait for window manager's reaction etc. 
   - `stopRecording` will stop recording the current macro
 - Registers - for the purpose of toggling functionality on and off, and for global constants management, we provide 32 numeric registers (namely of type int32_t). 
@@ -386,5 +409,6 @@ If you wish to make changes into the source code, please follow the official rep
   - Or via running scripts/make-release.js (run by `node make-release.js`) and flashing the resulting tar.bz2 through agent.
   
 If you have any problems with the build procedure, please create issue in the official agent repository. I made no changes into the proccedure and I will most likely not be able to help.
+
 
 
