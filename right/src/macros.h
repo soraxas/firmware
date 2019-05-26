@@ -95,6 +95,7 @@
         key_state_t *currentMacroKey;
         uint8_t previousMacroIndex;
         uint32_t previousMacroEndTime;
+        uint32_t previousMacroStartTime;
         uint32_t currentMacroStartTime;
 
         uint8_t pressPhase;

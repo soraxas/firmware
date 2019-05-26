@@ -42,6 +42,10 @@ static bool initialized = false;
 macro_state_t MacroState[MACRO_STATE_POOL_SIZE];
 static macro_state_t *s = MacroState;
 
+
+static uint16_t doubletapConditionTimeout = 300;
+
+
 bool processCommand(const char* cmd, const char* cmdEnd);
 void continueMacro(void);
 
@@ -928,10 +932,16 @@ bool processIfDoubletapCommand(bool negate)
     bool doubletapFound = false;
 
     for(uint8_t i = 0; i < MACRO_STATE_POOL_SIZE; i++) {
-        if (MacroState[i].macroPlaying && Timer_GetElapsedTime(&MacroState[i].previousMacroEndTime) <= 250 && s->currentMacroIndex == MacroState[i].previousMacroIndex) {
+        if (s->currentMacroStartTime - MacroState[i].previousMacroStartTime <= doubletapConditionTimeout && s->currentMacroIndex == MacroState[i].previousMacroIndex) {
             doubletapFound = true;
         }
-        if (!MacroState[i].macroPlaying && Timer_GetElapsedTime(&MacroState[i].previousMacroEndTime) <= 250 && s->currentMacroIndex == MacroState[i].currentMacroIndex) {
+        if (
+            MacroState[i].macroPlaying &&
+            MacroState[i].currentMacroStartTime < s->currentMacroStartTime &&
+            s->currentMacroStartTime - MacroState[i].currentMacroStartTime <= doubletapConditionTimeout &&
+            s->currentMacroIndex == MacroState[i].currentMacroIndex &&
+            &MacroState[i] != s
+        ) {
             doubletapFound = true;
         }
     }
@@ -1973,6 +1983,7 @@ void continueMacro(void)
         s->macroBroken = false;
         s->previousMacroIndex = s->currentMacroIndex;
         s->previousMacroEndTime = CurrentTime;
+        s->previousMacroStartTime = s->currentMacroStartTime;
         return;
     }
     ValidatedUserConfigBuffer.offset = s->bufferOffset;
