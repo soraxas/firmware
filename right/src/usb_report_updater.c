@@ -417,6 +417,7 @@ static inline void preprocessKeyState(key_state_t *keyState) {
         return;
     }
 
+    keyState->previous = keyState->current;
     bool prevDB = keyState->previous & KeyState_HwDebounced;
     bool prevSW = keyState->previous & KeyState_Sw;
     bool currHW = keyState->current & KeyState_Hw;
@@ -563,8 +564,6 @@ static void updateActiveUsbReports(void)
                     applyKeyAction(keyState, action, slotId, keyId);
                 }
             }
-
-            keyState->previous = keyState->current;
         }
     }
 
