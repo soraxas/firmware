@@ -274,8 +274,11 @@ The following grammar is supported:
     - `last` always refers to the previously used layer/keymap (i.e., `stackTop-1` or `stackTop+1`)
   - terminology:
     - switch means loading the target keymap and reseting layer-switching context
-    - toggle refers to switching a layer and remaining there
-    - hold refers to switching to a layer when the command is activated and switching back when the activation key is released
+    - toggle refers to activating a layer and remaining there (plus the activated layer is pushed onto layer stack)
+    - hold refers to activating to a layer when the command is activated and switching back when the activation key is released (plus the activated layer is pushed onto layer stack and then removed again)
+  - implementation details:
+    - layer stack contains information about switch type (held  or toggle) and a boolean which indicates whether the record is active. Once hold ends or untoggle is issued, the corresponding record (not necessarily the top record) is marked as "inactive". Whenever some record is marked inactive, all inactive records are poped from top of the stack.
+    - the stack contains both layer id and keymap id. If keymap ids of previous/current records do not match, full keymap is reloaded.
   - `switchKeymap` will load the keymap by its abbreviation and reset the stack.
   - `switchLayer/switchKeymapLayer` are deprecated. They simply push the layer onto stack (or pop in case of `previous`) without any further handling. Should be replaced by toggle/untoggle/hold layer commands.
   - `toggleLayer` toggles the layer. 
