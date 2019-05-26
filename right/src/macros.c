@@ -287,8 +287,17 @@ bool processKey(macro_action_t macro_action)
             deleteScancode(scancode, type);
             break;
         case MacroSubAction_Press:
-            addModifiers(modifierMask);
-            addScancode(scancode, type);
+            if (s->pressPhase == 0) {
+                s->pressPhase = 1;
+                addModifiers(modifierMask);
+                if (modifierMask != 0 && SplitCompositeKeystroke != 0) {
+                    return true;
+                }
+            }
+            if (s->pressPhase == 1) {
+                s->pressPhase = 0;
+                addScancode(scancode, type);
+            }
             break;
     }
     return false;
