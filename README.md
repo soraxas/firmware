@@ -192,8 +192,10 @@ The following grammar is supported:
     COMMAND = goTo <index (NUMBER)>
     COMMAND = repeatFor <register index (NUMBER)> <action adr (NUMBER)>
     COMMAND = recordMacroDelay
-    COMMAND = stopRecording
-    COMMAND = {recordMacro|playMacro} [<slot identifier (MACROID)>]
+    COMMAND = {startRecording | startRecordingBlind} [<slot identifier (MACROID)>]
+    COMMAND = {recordMacro | recordMacroBlind} [<slot identifier (MACROID)>]
+    COMMAND = {stopRecording | stopRecordingBlind}
+    COMMAND = playMacro [<slot identifier (MACROID)>]
     COMMAND = {startMouse|stopMouse} {move DIRECTION|scroll DIRECTION|accelerate|decelerate}
     COMMAND = setStickyModsEnabled {0|1}
     COMMAND = setActivateOnRelease {0|1}
@@ -328,9 +330,13 @@ The following grammar is supported:
   - `postponeKeys` will postpone all new key activations for as long as any instance of this modifier is active. See postponing mechanisms section.
   - `final` will end macro playback after the "modified" action is properly finished. Simplifies control flow. "Implicit break."
 - Runtime macros:
-  - `recordMacro|playMacro <slot identifier>` targets vim-like macro functionality. Slot identifier is a single character or a number or `#key`. Usage (e.g.): call `recordMacro a`, do some work, end recording by another `recordMacro a`. Now you can play the actions (i.e., sequence of keyboard reports) back by calling `playMacro a`. Only BasicKeyboard scancodes are available at the moment. These macros are recorded into RAM only. Number of macros is limited by memory (current limit is set to approximately 500 keystrokes (4kb) (maximum is ~1000 if we used all available memory)). If less than 1/4 of dedicated memory is free, oldest macro slot is freed. If currently recorded macro is longer than 1/4 of dedicated memory, recording is stopped and the macro is freed (prevents unwanted deletion of macros).
+  - Macro recorder targets vim-like macro functionality. Slot identifier is a single character or a number or `#key`. Usage (e.g.): call `recordMacro a`, do some work, end recording by another `recordMacro a`. Now you can play the actions (i.e., sequence of keyboard reports) back by calling `playMacro a`. Only BasicKeyboard scancodes are available at the moment. These macros are recorded into RAM only. Number of macros is limited by memory (current limit is set to approximately 500 keystrokes (4kb) (maximum is ~1000 if we used all available memory)). If less than 1/4 of dedicated memory is free, oldest macro slot is freed. If currently recorded macro is longer than 1/4 of dedicated memory, recording is stopped and the macro is freed (prevents unwanted deletion of macros).
   - `recordMacroDelay` will measure time until key release (i.e., works like `delayUntilRelease`) and insert delay of that length into the currently recorded macro. This can be used to wait for window manager's reaction etc. 
+  - `recordMacro [<macro slot id(MACROID)>]` will toggle recording (i.e., either start or stop)
+  - `startRecording [<macro slot id(MACROID)>]` will stop current recording (if any) and start new 
   - `stopRecording` will stop recording the current macro
+  - If the `MACROID` argument is ommited, last id is used.
+  - `{startRecordingBlind | stopRecordingBlind | recordMacroBlind} ...` work similarly, except that basic scancode output of keyboard is suppressed.
 - Registers - for the purpose of toggling functionality on and off, and for global constants management, we provide 32 numeric registers (namely of type int32_t). 
   - `setReg <register index> <value>` will set register identified by index to value.
   - `ifRegEq|ifNotRegEq` see CONDITION section

@@ -1152,10 +1152,17 @@ bool processMouseCommand(bool enable, const char* arg1, const char *argEnd)
     return false;
 }
 
-bool processRecordMacroCommand(const char* arg, const char *argEnd)
+bool processRecordMacroCommand(const char* arg, const char *argEnd, bool blind)
 {
     uint16_t id = parseMacroId(arg, argEnd);
-    MacroRecorder_RecordRuntimeMacroSmart(id);
+    MacroRecorder_RecordRuntimeMacroSmart(id, blind);
+    return false;
+}
+
+bool processStartRecordingCommand(const char* arg, const char *argEnd, bool blind)
+{
+    uint16_t id = parseMacroId(arg, argEnd);
+    MacroRecorder_StartRecording(id, blind);
     return false;
 }
 
@@ -1758,7 +1765,10 @@ bool processCommand(const char* cmd, const char* cmdEnd)
             break;
         case 'r':
             if(TokenMatches(cmd, cmdEnd, "recordMacro")) {
-                return processRecordMacroCommand(arg1, cmdEnd);
+                return processRecordMacroCommand(arg1, cmdEnd, false);
+            }
+            else if(TokenMatches(cmd, cmdEnd, "recordMacroBlind")) {
+                return processRecordMacroCommand(arg1, cmdEnd, true);
             }
             else if(TokenMatches(cmd, cmdEnd, "recordMacroDelay")) {
                 return processRecordMacroDelayCommand();
@@ -1785,6 +1795,12 @@ bool processCommand(const char* cmd, const char* cmdEnd)
         case 's':
             if(TokenMatches(cmd, cmdEnd, "setStatus")) {
                 return processSetStatusCommand(arg1, cmdEnd);
+            }
+            if(TokenMatches(cmd, cmdEnd, "startRecording")) {
+                return processStartRecordingCommand(arg1, cmdEnd, false);
+            }
+            if(TokenMatches(cmd, cmdEnd, "startRecordingBlind")) {
+                return processStartRecordingCommand(arg1, cmdEnd, true);
             }
             else if(TokenMatches(cmd, cmdEnd, "setLedTxt")) {
                 return processSetLedTxtCommand(arg1, cmdEnd);
@@ -1823,6 +1839,9 @@ bool processCommand(const char* cmd, const char* cmdEnd)
                 return processMouseCommand(false, arg1, cmdEnd);
             }
             else if(TokenMatches(cmd, cmdEnd, "stopRecording")) {
+                return processStopRecordingCommand();
+            }
+            else if(TokenMatches(cmd, cmdEnd, "stopRecordingBlind")) {
                 return processStopRecordingCommand();
             }
             else if(TokenMatches(cmd, cmdEnd, "suppressMods")) {

@@ -644,9 +644,14 @@ void UpdateUsbReports(void)
 #ifdef DEBUG_POSTPONER
         reportReport();
 #endif
-        usb_status_t status = UsbBasicKeyboardAction();
-        if (status == kStatus_USB_Success) {
-            UsbReportUpdateSemaphore |= 1 << USB_BASIC_KEYBOARD_INTERFACE_INDEX;
+        if(RuntimeMacroRecordingBlind) {
+            //just switch reports without sending the report
+            ActiveUsbBasicKeyboardReport = GetInactiveUsbBasicKeyboardReport();
+        } else {
+            usb_status_t status = UsbBasicKeyboardAction();
+            if (status == kStatus_USB_Success) {
+                UsbReportUpdateSemaphore |= 1 << USB_BASIC_KEYBOARD_INTERFACE_INDEX;
+            }
         }
     }
 

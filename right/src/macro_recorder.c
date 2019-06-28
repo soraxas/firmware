@@ -21,6 +21,7 @@
 
 bool RuntimeMacroPlaying = false;
 bool RuntimeMacroRecording = false;
+bool RuntimeMacroRecordingBlind = false;
 
 static uint8_t reportBuffer[REPORT_BUFFER_MAX_LENGTH];
 static uint16_t reportBufferLength = 0;
@@ -97,9 +98,10 @@ bool resolvePlaybackHeader(uint16_t id) {
 }
 
 //id is an arbitrary slot identifier
-void recordRuntimeMacroStart(uint16_t id) {
+void recordRuntimeMacroStart(uint16_t id, bool blind) {
     resolveRecordingHeader(id);
     RuntimeMacroRecording = true;
+    RuntimeMacroRecordingBlind = blind;
     LedDisplay_SetIcon(LedDisplayIcon_Adaptive, true);
 }
 
@@ -117,6 +119,7 @@ void writeUInt16(uint16_t b) {
 
 void recordRuntimeMacroEnd() {
     RuntimeMacroRecording = false;
+    RuntimeMacroRecordingBlind = false;
     LedDisplay_SetIcon(LedDisplayIcon_Adaptive, false);
 }
 
@@ -244,16 +247,24 @@ bool MacroRecorder_PlayRuntimeMacroSmart(uint16_t id, usb_basic_keyboard_report_
     return playRuntimeMacroContinue(report);
 }
 
-void MacroRecorder_RecordRuntimeMacroSmart(uint16_t id) {
+void MacroRecorder_RecordRuntimeMacroSmart(uint16_t id, bool blind) {
     if(RuntimeMacroPlaying) {
         return;
     }
     if(!RuntimeMacroRecording) {
-        recordRuntimeMacroStart(id);
+        recordRuntimeMacroStart(id, blind);
     }
     else {
         recordRuntimeMacroEnd();
     }
+}
+
+void MacroRecorder_StartRecording(uint16_t id, bool blind) {
+    if(RuntimeMacroPlaying) {
+        return;
+    }
+    recordRuntimeMacroEnd();
+    recordRuntimeMacroStart(id, blind);
 }
 
 void MacroRecorder_StopRecording() {
