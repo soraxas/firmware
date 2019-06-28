@@ -348,7 +348,7 @@ static void applyKeyAction(key_state_t *keyState, key_action_t *action, uint8_t 
     } else {
         switch (action->type) {
             case KeyActionType_Keystroke:
-                if (ACTIVATED_EARLIER(keyState)) {
+                if (DEACTIVATED_EARLIER(keyState)) {
                     if (slotId == stickySlotId && keyId == stickyKeyId) {
                         if (!IsLayerHeld() && !(secondaryRoleState == SecondaryRoleState_Triggered && IS_SECONDARY_ROLE_LAYER_SWITCHER(secondaryRole))) {
                             stickyModifiers = 0;
