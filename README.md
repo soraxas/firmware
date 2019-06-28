@@ -38,7 +38,7 @@ can be combined. E.g.:
 
 3) Understanding this readme:
 
-    - Go through the sections of the reference manual - just reading the introduction line will give you some idea about available  types of commands.
+    - Go through the sections of the reference manual - just reading the top section lines will give you some idea about available  types of commands.
     - Read through examples in order to understand how the constructs can be combined.
     - Understand how to read the stated ebnf grammar. Using the grammar will give you precise instructions about how your commands should be constructed. In case you don't know anything about grammars:
           - The grammar describes a valid expression via a set of rules. At the beginning, the expression equals "BODY". Every capital word of the expression to be "rewritten" by a corresponding rule - i.e., the identifier is to be replaced by an expression which matches right side of the rule. 
