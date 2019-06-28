@@ -197,6 +197,16 @@ static void processMouseActions()
     MouseScrollState.xOut = 0;
     MouseScrollState.yOut = 0;
 
+    for (uint8_t moduleId=0; moduleId<UHK_MODULE_MAX_COUNT; moduleId++) {
+        uhk_module_state_t *moduleState = UhkModuleStates + moduleId;
+        if (moduleState->pointerCount) {
+            ActiveUsbMouseReport->wheelX += moduleState->pointerDelta.x;
+            ActiveUsbMouseReport->wheelY -= moduleState->pointerDelta.y;
+            moduleState->pointerDelta.x = 0;
+            moduleState->pointerDelta.y = 0;
+        }
+    }
+
 //  The following line makes the firmware crash for some reason:
 //  SetDebugBufferFloat(60, mouseScrollState.currentSpeed);
 //  TODO: Figure out why.

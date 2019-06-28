@@ -10,6 +10,17 @@
 #include "usb_report_updater.h"
 
 uhk_module_state_t UhkModuleStates[UHK_MODULE_MAX_COUNT];
+
+uint8_t UhkModuleSlaveDriver_SlotIdToDriverId(uint8_t slotId)
+{
+    return slotId-1;
+}
+
+uint8_t UhkModuleSlaveDriver_DriverIdToSlotId(uint8_t uhkModuleDriverId)
+{
+    return uhkModuleDriverId+1;
+}
+
 static uint8_t keyStatesBuffer[MAX_KEY_COUNT_PER_MODULE];
 static i2c_message_t txMessage;
 
@@ -18,11 +29,11 @@ static uhk_module_i2c_addresses_t moduleIdsToI2cAddresses[] = {
         .firmwareI2cAddress   = I2C_ADDRESS_LEFT_KEYBOARD_HALF_FIRMWARE,
         .bootloaderI2cAddress = I2C_ADDRESS_LEFT_KEYBOARD_HALF_BOOTLOADER
     },
-    { // UhkModuleDriverId_LeftAddon
+    { // UhkModuleDriverId_LeftModule
         .firmwareI2cAddress   = I2C_ADDRESS_LEFT_MODULE_FIRMWARE,
         .bootloaderI2cAddress = I2C_ADDRESS_LEFT_MODULE_BOOTLOADER
     },
-    { // UhkModuleDriverId_RightAddon
+    { // UhkModuleDriverId_RightModule
         .firmwareI2cAddress   = I2C_ADDRESS_RIGHT_MODULE_FIRMWARE,
         .bootloaderI2cAddress = I2C_ADDRESS_RIGHT_MODULE_BOOTLOADER
     },
@@ -56,6 +67,9 @@ void UhkModuleSlaveDriver_Init(uint8_t uhkModuleDriverId)
     uhk_module_i2c_addresses_t *uhkModuleI2cAddresses = moduleIdsToI2cAddresses + uhkModuleDriverId;
     uhkModuleState->firmwareI2cAddress = uhkModuleI2cAddresses->firmwareI2cAddress;
     uhkModuleState->bootloaderI2cAddress = uhkModuleI2cAddresses->bootloaderI2cAddress;
+
+    uhkModuleState->pointerDelta.x = 0;
+    uhkModuleState->pointerDelta.y = 0;
 }
 
 status_t UhkModuleSlaveDriver_Update(uint8_t uhkModuleDriverId)
@@ -222,10 +236,16 @@ status_t UhkModuleSlaveDriver_Update(uint8_t uhkModuleDriverId)
             break;
         case UhkModulePhase_ProcessKeystates:
             if (CRC16_IsMessageValid(rxMessage)) {
-                uint8_t slotId = uhkModuleDriverId + 1;
+                uint8_t slotId = UhkModuleSlaveDriver_DriverIdToSlotId(uhkModuleDriverId);
                 BoolBitsToBytes(rxMessage->data, keyStatesBuffer, uhkModuleState->keyCount);
                 for (uint8_t keyId=0; keyId<uhkModuleState->keyCount; keyId++) {
                     KeyStates[slotId][keyId].current = (KeyStates[slotId][keyId].current & ~KeyState_Hw) | (keyStatesBuffer[keyId] ? KeyState_Hw : 0);
+                }
+                if (uhkModuleState->pointerCount) {
+                    uint8_t keyStatesLength = BOOL_BYTES_TO_BITS_COUNT(uhkModuleState->keyCount);
+                    pointer_delta_t *pointerDelta = (pointer_delta_t*)(rxMessage->data + keyStatesLength);
+                    uhkModuleState->pointerDelta.x += pointerDelta->x;
+                    uhkModuleState->pointerDelta.y += pointerDelta->y;
                 }
             }
             status = kStatus_Uhk_IdleCycle;

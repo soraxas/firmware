@@ -6,20 +6,19 @@
     #include "fsl_common.h"
     #include "crc16.h"
     #include "versions.h"
+    #include "usb_interfaces/usb_interface_mouse.h"
 
 // Macros:
 
     #define UHK_MODULE_MAX_COUNT 3
     #define MAX_PWM_BRIGHTNESS 0x64
-    #define SLOT_ID_TO_UHK_MODULE_DRIVER_ID(slotId) ((slotId)-1)
-    #define UHK_MODULE_DRIVER_ID_TO_SLOT_ID(uhkModuleDriverId) ((uhkModuleDriverId)+1)
 
 // Typedefs:
 
     typedef enum {
         UhkModuleDriverId_LeftKeyboardHalf,
-        UhkModuleDriverId_LeftAddon,
-        UhkModuleDriverId_RightAddon,
+        UhkModuleDriverId_LeftModule,
+        UhkModuleDriverId_RightModule,
     } uhk_module_id_t;
 
     typedef enum {
@@ -83,6 +82,7 @@
         uint8_t bootloaderI2cAddress;
         uint8_t keyCount;
         uint8_t pointerCount;
+        pointer_delta_t pointerDelta;
     } uhk_module_state_t;
 
     typedef struct {
@@ -95,6 +95,9 @@
     extern uhk_module_state_t UhkModuleStates[UHK_MODULE_MAX_COUNT];
 
 // Functions:
+
+    uint8_t UhkModuleSlaveDriver_SlotIdToDriverId(uint8_t slotId);
+    uint8_t UhkModuleSlaveDriver_DriverIdToSlotId(uint8_t uhkModuleDriverId);
 
     void UhkModuleSlaveDriver_Init(uint8_t uhkModuleDriverId);
     status_t UhkModuleSlaveDriver_Update(uint8_t uhkModuleDriverId);
