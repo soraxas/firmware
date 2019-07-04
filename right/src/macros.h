@@ -28,6 +28,8 @@
     typedef struct {
         uint16_t firstMacroActionOffset;
         uint16_t macroActionsCount;
+        const char* macroName;
+        uint8_t macroNameLength;
     } macro_reference_t;
 
     typedef struct {
@@ -84,10 +86,12 @@
         macro_action_type_t type;
     } ATTR_PACKED macro_action_t;
 
+    //TODO: break this down to a union once memory starts to be a problem
     typedef struct {
         bool macroInterrupted;
         bool macroBroken;
         bool macroPlaying;
+        bool macroSleeping;
 
         uint8_t currentMacroIndex;
         uint16_t currentMacroActionIndex;
@@ -117,6 +121,9 @@
 
         uint16_t bufferOffset;
 
+        uint8_t parentMacroSlot;
+
+
         bool reportsUsed;
         usb_mouse_report_t macroMouseReport;
         usb_basic_keyboard_report_t macroBasicKeyboardReport;
@@ -133,7 +140,7 @@
 
 // Functions:
 
-    void Macros_StartMacro(uint8_t index, key_state_t *keyState);
+    void Macros_StartMacro(uint8_t index, key_state_t *keyState, uint8_t parentMacroSlot);
     void Macros_ContinueMacro(void);
     void Macros_SignalInterrupt(void);
     bool Macros_ClaimReports(void);

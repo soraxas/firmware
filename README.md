@@ -179,6 +179,7 @@ The following grammar is supported:
     COMMAND = postponeNext <number of commands (NUMER)>
     COMMAND = break
     COMMAND = noOp
+    COMMAND = {exec|call} MACRONAME
     COMMAND = statsRuntime
     COMMAND = statsLayerStack
     COMMAND = statsPostponerStack
@@ -236,6 +237,7 @@ The following grammar is supported:
     KEYABBREV = mediaVolumeMute | mediaVolumeUp | mediaVolumeDown | mediaRecord | mediaFastForward | mediaRewind | mediaNext | mediaPrevious | mediaStop | mediaPlayPause | mediaPause 
     KEYABBREV = systemPowerDown | systemSleep | systemWakeUp 
     KEYABBREV = mouseBtnLeft | mouseBtnRight | mouseBtnMiddle | mouseBtn4 | mouseBtn5 | mouseBtn6
+    MACRONAME = <Case sensitive macro identifier as named in Agent. Identifier shall not contain spaces.>
     ############
     #DEPRECATED#
     ############
@@ -243,9 +245,8 @@ The following grammar is supported:
     COMMAND = switchKeymapLayer KEYMAPID LAYERID
 
 - Uncategorized commands:
-  - `goTo <int>` will go to action index int. Actions are indexed from zero.
-  - `repeatFor <register index> <adr>` - abbreviation to simplify cycles. Will decrement the supplemented register and perform `goTo` to `adr` if the value is still greater than zero. Intended usecase - place after command which is to be repeated with the register containing number of repeats.
-  - `break` will end playback of the current macro
+  - `setLedTxt <time> <custom text>` will set led display to supplemented text for the given time. (Blocks for the given time.)
+- Triggering keyboard actions (pressing keys, clicking, etc.):
   - `write <custom text>` will type rest of the string. Same as the plain text command. This is just easier to use with conditionals...
   - `startMouse/stopMouse` start/stop corresponding mouse action. E.g., `startMouse move left`
   - `pressKey|holdKey|tapKey|releaseKey` Presses/holds/taps/releases the provided scancode. E.g., `pressKey mouseBtnLeft`, `tapKey LC-v` (Left Control + (lowercase) v), `tapKey CS-f5` (Ctrl + Shift + F5).
@@ -253,8 +254,13 @@ The following grammar is supported:
     - release means removing the scancode from the list of "active keys". I.e., it negates effect of `pressKey` within the same macro. This does not affect scancodes emited by different keyboard actions.
     - tap means pressing a key (more precisely, activating the scancode) and immediately releasing it again
     - hold means pressing the key, waiting until key which activated the macro is released and then releasing the key again. I.e., `$holdKey <x>` is equivalent to `$pressKey <x>; $delayUntilRelease; $releaseKey <x>`, while `$tapKey <x>` is equivalent to `$pressKey <x>; $releaseKey <x>`.
+- Control flow, macro execution (aka "functions"):
+  - `goTo <int>` will go to action index int. Actions are indexed from zero.
+  - `repeatFor <register index> <adr>` - abbreviation to simplify cycles. Will decrement the supplemented register and perform `goTo` to `adr` if the value is still greater than zero. Intended usecase - place after command which is to be repeated with the register containing number of repeats and adr `@-1` (or similar).
+  - `break` will end playback of the current macro
   - `noOp` does nothing - i.e., stops macro for exactly one update cycle and then continues.
-  - `setLedTxt <time> <custom text>` will set led display to supplemented text for the given time. (Blocks for the given time.)
+  - `exec MACRONAME` will execute different macro in current state slot. I.e., the macro will be executed in current context and will *not* return. First action of the called macro is executed within the same eventloop cycle.
+  - `call MACRONAME` will execute another macro in a new state slot. After the called macro finishes, the control returns to the caller macro. First action of the called macro is executed within the same eventloop cycle. The called macro has its own context (e.g., its own ifInterrupted flag, its own postponing counter and flags etc.)
 - Status buffer/Debugging tools
   - `printStatus` will "type" content of status buffer (256 or 1024 chars, depends on my mood) on the keyboard. Mainly for debug purposes.
   - `setStatus <custom text>` will append <custom text> to the status buffer, if there is enough space for that.

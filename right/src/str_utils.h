@@ -10,6 +10,7 @@
 
     int32_t ParseInt32(const char *a, const char *aEnd);
     bool StrLessOrEqual(const char* a, const char* aEnd, const char* b, const char* bEnd);
+    bool StrEqual(const char* a, const char* aEnd, const char* b, const char* bEnd);
     const char* FindChar(char c, const char* str, const char* strEnd);
     bool TokenMatches(const char *a, const char *aEnd, const char *b);
     uint8_t TokLen(const char *a, const char *aEnd);

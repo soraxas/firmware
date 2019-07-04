@@ -1,5 +1,6 @@
 #include "parse_macro.h"
 #include "config_globals.h"
+#include "str_utils.h"
 #include "macros.h"
 
 parser_error_t parseKeyMacroAction(config_buffer_t *buffer, macro_action_t *macroAction, serialized_macro_action_type_t macroActionType)
@@ -99,6 +100,16 @@ parser_error_t ParseMacroAction(config_buffer_t *buffer, macro_action_t *macroAc
     return ParserError_InvalidSerializedMacroActionType;
 }
 
+uint8_t FindMacroIndexByName(const char* name, const char* nameEnd) {
+    for(int i = 0; i < AllMacrosCount; i++) {
+        if(StrEqual(name, nameEnd, AllMacros[i].macroName, AllMacros[i].macroName + AllMacros[i].macroNameLength)) {
+            return i;
+        }
+    }
+    Macros_ReportError("Macro name not found", name, nameEnd);
+    return 255;
+}
+
 parser_error_t ParseMacro(config_buffer_t *buffer, uint8_t macroIdx)
 {
     parser_error_t errorCode;
@@ -116,6 +127,8 @@ parser_error_t ParseMacro(config_buffer_t *buffer, uint8_t macroIdx)
     if (!ParserRunDry) {
         AllMacros[macroIdx].firstMacroActionOffset = firstMacroActionOffset;
         AllMacros[macroIdx].macroActionsCount = macroActionsCount;
+        AllMacros[macroIdx].macroName = name;
+        AllMacros[macroIdx].macroNameLength = nameLen;
     }
     for (uint16_t i = 0; i < macroActionsCount; i++) {
         errorCode = ParseMacroAction(buffer, &dummyMacroAction);

@@ -52,6 +52,29 @@ bool StrLessOrEqual(const char* a, const char* aEnd, const char* b, const char* 
     }
 }
 
+
+bool StrEqual(const char* a, const char* aEnd, const char* b, const char* bEnd)
+{
+    while(true) {
+        if((*a == '\0' || a==aEnd) && (*b == '\0' || b==bEnd)) {
+            return true;
+        }
+        else if(*a == '\0' || a==aEnd) {
+            return false;
+        }
+        else if(*b == '\0' || b==bEnd) {
+            return false;
+        }
+        else if (*a != *b) {
+            return false;
+        }
+        else {
+            a++;
+            b++;
+        }
+    }
+}
+
 const char* FindChar(char c, const char* str, const char* strEnd)
 {
     while(str < strEnd) {

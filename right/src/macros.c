@@ -48,6 +48,8 @@ static uint16_t doubletapConditionTimeout = 300;
 
 bool processCommand(const char* cmd, const char* cmdEnd);
 void continueMacro(void);
+void execMacro(uint8_t macroIndex);
+void callMacro(uint8_t macroIndex);
 
 bool Macros_ClaimReports() {
     s->reportsUsed = true;
@@ -428,26 +430,19 @@ void Macros_SetStatusChar(char n)
     Macros_SetStatusString(&n, &n+1);
 }
 
-void reportError(const char* err, const char* arg, const char *argEnd)
-{
-    LedDisplay_SetText(3, "ERR");
-    Macros_SetStatusString("line ", NULL);
-    Macros_SetStatusNum(s->currentMacroActionIndex);
-    Macros_SetStatusString(": ", NULL);
-    Macros_SetStatusString(err, NULL);
-    if(arg != NULL) {
+void reportErrorHeader() {
+    if(s != NULL) {
+        Macros_SetStatusString(AllMacros[s->currentMacroIndex].macroName, AllMacros[s->currentMacroIndex].macroName + AllMacros[s->currentMacroIndex].macroNameLength);
+        Macros_SetStatusString(":", NULL);
+        Macros_SetStatusNum(s->currentMacroActionIndex);
         Macros_SetStatusString(": ", NULL);
-        Macros_SetStatusString(arg, argEnd);
     }
-    Macros_SetStatusString("\n", NULL);
 }
 
 void Macros_ReportError(const char* err, const char* arg, const char *argEnd)
 {
     LedDisplay_SetText(3, "ERR");
-    Macros_SetStatusString("idx ", NULL);
-    Macros_SetStatusNum(s->currentMacroActionIndex);
-    Macros_SetStatusString(":", NULL);
+    reportErrorHeader();
     Macros_SetStatusString(err, NULL);
     if(arg != NULL) {
         Macros_SetStatusString(": ", NULL);
@@ -459,6 +454,7 @@ void Macros_ReportError(const char* err, const char* arg, const char *argEnd)
 void Macros_ReportErrorNum(const char* err, uint32_t num)
 {
     LedDisplay_SetText(3, "ERR");
+    reportErrorHeader();
     Macros_SetStatusString(err, NULL);
     Macros_SetStatusNum(num);
     Macros_SetStatusString("\n", NULL);
@@ -729,7 +725,7 @@ uint8_t parseKeymapId(const char* arg1, const char* cmdEnd) {
     } else {
         uint8_t idx = FindKeymapByAbbreviation(TokLen(arg1, cmdEnd), arg1);
         if(idx == 0xFF) {
-            reportError("Keymap not recognized: ", arg1, cmdEnd);
+            Macros_ReportError("Keymap not recognized: ", arg1, cmdEnd);
         }
         return idx;
     }
@@ -1125,7 +1121,7 @@ bool processMouseCommand(bool enable, const char* arg1, const char *argEnd)
         baseAction = SerializedMouseAction_Decelerate;
     }
     else {
-        reportError("unrecognized argument", arg1, argEnd);
+        Macros_ReportError("unrecognized argument", arg1, argEnd);
     }
 
     if(baseAction == SerializedMouseAction_MoveUp || baseAction == SerializedMouseAction_ScrollUp) {
@@ -1142,7 +1138,7 @@ bool processMouseCommand(bool enable, const char* arg1, const char *argEnd)
             dirOffset = 3;
         }
         else {
-            reportError("unrecognized argument", arg2, argEnd);
+            Macros_ReportError("unrecognized argument", arg2, argEnd);
         }
     }
 
@@ -1459,6 +1455,18 @@ bool processSetEmergencyKeyCommand(const char* arg1, const char* argEnd) {
     return false;
 }
 
+bool processExecCommand(const char* arg1, const char* argEnd) {
+    uint8_t macroIndex = FindMacroIndexByName(arg1, argEnd);
+    execMacro(macroIndex);
+    return false;
+}
+
+bool processCallCommand(const char* arg1, const char* argEnd) {
+    uint8_t macroIndex = FindMacroIndexByName(arg1, argEnd);
+    callMacro(macroIndex);
+    return false;
+}
+
 bool processCommand(const char* cmd, const char* cmdEnd)
 {
     while(*cmd) {
@@ -1483,8 +1491,12 @@ bool processCommand(const char* cmd, const char* cmdEnd)
         case 'c':
             if(TokenMatches(cmd, cmdEnd, "consumePending")) {
                 return processConsumePendingCommand(arg1, cmdEnd);
-            } else if(TokenMatches(cmd, cmdEnd, "clearStatus")) {
+            }
+            else if(TokenMatches(cmd, cmdEnd, "clearStatus")) {
                 return processClearStatusCommand();
+            }
+            else if(TokenMatches(cmd, cmdEnd, "call")) {
+                return processCallCommand(arg1, cmdEnd);
             }
             else {
                 goto failed;
@@ -1502,6 +1514,14 @@ bool processCommand(const char* cmd, const char* cmdEnd)
             }
             else if(TokenMatches(cmd, cmdEnd, "diagnose")) {
                 return processDiagnoseCommand();
+            }
+            else {
+                goto failed;
+            }
+            break;
+        case 'e':
+            if(TokenMatches(cmd, cmdEnd, "exec")) {
+                return processCallCommand(arg1, cmdEnd);
             }
             else {
                 goto failed;
@@ -1904,7 +1924,7 @@ bool processCommand(const char* cmd, const char* cmdEnd)
             break;
         default:
         failed:
-            reportError("unrecognized command", cmd, cmdEnd);
+            Macros_ReportError("unrecognized command", cmd, cmdEnd);
             return false;
             break;
         }
@@ -1961,7 +1981,7 @@ bool findFreeStateSlot() {
             return true;
         }
     }
-    reportError("Too many macros running at one time", "", NULL);
+    Macros_ReportError("Too many macros running at one time", "", NULL);
     return false;
 }
 
@@ -1970,7 +1990,31 @@ void initialize() {
     initialized = true;
 }
 
-void Macros_StartMacro(uint8_t index, key_state_t *keyState)
+
+void execMacro(uint8_t index) {
+    if(AllMacros[index].macroActionsCount == 0)  {
+       return;
+    }
+    s->currentMacroIndex = index;
+    s->currentMacroActionIndex = 0;
+    ValidatedUserConfigBuffer.offset = AllMacros[index].firstMacroActionOffset;
+    ParseMacroAction(&ValidatedUserConfigBuffer, &s->currentMacroAction);
+    s->bufferOffset = ValidatedUserConfigBuffer.offset;
+    continueMacro();
+}
+
+void callMacro(uint8_t macroIndex) {
+    macro_state_t* oldState = s;
+    s->macroSleeping = true;
+    uint32_t ptr1 = (uint32_t)(macro_state_t*)s;
+    uint32_t ptr2 = (uint32_t)(macro_state_t*)&(MacroState[0]);
+    uint32_t slotIndex = (ptr1 - ptr2) / sizeof(macro_state_t);
+    Macros_StartMacro(macroIndex, s->currentMacroKey, slotIndex);
+    s = oldState;
+}
+
+//partentMacroSlot == 255 means no parent
+void Macros_StartMacro(uint8_t index, key_state_t *keyState, uint8_t parentMacroSlot)
 {
     if(!findFreeStateSlot() || AllMacros[index].macroActionsCount == 0)  {
        return;
@@ -1989,6 +2033,7 @@ void Macros_StartMacro(uint8_t index, key_state_t *keyState)
     s->currentIfShortcutConditionPassed = false;
     s->reportsUsed = false;
     s->postponeNext = 0;
+    s->parentMacroSlot = parentMacroSlot;
     ValidatedUserConfigBuffer.offset = AllMacros[index].firstMacroActionOffset;
     ParseMacroAction(&ValidatedUserConfigBuffer, &s->currentMacroAction);
     s->bufferOffset = ValidatedUserConfigBuffer.offset;
@@ -1996,24 +2041,35 @@ void Macros_StartMacro(uint8_t index, key_state_t *keyState)
     memset(&s->macroBasicKeyboardReport, 0, sizeof s->macroBasicKeyboardReport);
     memset(&s->macroMediaKeyboardReport, 0, sizeof s->macroMediaKeyboardReport);
     memset(&s->macroSystemKeyboardReport, 0, sizeof s->macroSystemKeyboardReport);
-    continueMacro();
+    if(parentMacroSlot == 255 || s < &MacroState[parentMacroSlot]) {
+        //execute first action if macro has no caller Or is being called and its caller has higher slot index.
+        //The condition ensures that a called macro executes exactly one action in the same eventloop cycle.
+        continueMacro();
+    }
+    s = NULL;
 }
 
 void continueMacro(void)
 {
     PostponeKeys = s->postponeNext > 0;
     if (processCurrentMacroAction() && !s->macroBroken) {
+        //if action consists of multiple subactions, break here
         return;
     }
     s->postponeNext = s->postponeNext > 0 ? s->postponeNext - 1 : 0;
     if (++s->currentMacroActionIndex >= AllMacros[s->currentMacroIndex].macroActionsCount || s->macroBroken) {
+        //End macro for whatever reason
         s->macroPlaying = false;
         s->macroBroken = false;
         s->previousMacroIndex = s->currentMacroIndex;
         s->previousMacroEndTime = CurrentTime;
         s->previousMacroStartTime = s->currentMacroStartTime;
+        if(s->parentMacroSlot != 255) {
+            MacroState[s->parentMacroSlot].macroSleeping = false;
+        }
         return;
     }
+    //otherwise parse next action
     ValidatedUserConfigBuffer.offset = s->bufferOffset;
     ParseMacroAction(&ValidatedUserConfigBuffer, &s->currentMacroAction);
     s->bufferOffset = ValidatedUserConfigBuffer.offset;
@@ -2026,11 +2082,12 @@ void Macros_ContinueMacro(void)
 {
     bool someonePlaying = false;
     for(uint8_t i = 0; i < MACRO_STATE_POOL_SIZE; i++) {
-        if(MacroState[i].macroPlaying) {
+        if(MacroState[i].macroPlaying && !MacroState[i].macroSleeping) {
             someonePlaying = true;
             s = &MacroState[i];
             continueMacro();
         }
     }
+    s = NULL;
     MacroPlaying &= someonePlaying;
 }
