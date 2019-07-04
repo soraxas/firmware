@@ -25,10 +25,11 @@
 
 // Typedefs:
 
+    //TODO: optimize memory of this structure - macroActionCount, macroName and macroNameLength can all be cut to 8bits!
     typedef struct {
         uint16_t firstMacroActionOffset;
         uint16_t macroActionsCount;
-        const char* macroName;
+        const char* macroName;   //This eats 1KB of memory!
         uint8_t macroNameLength;
     } macro_reference_t;
 
