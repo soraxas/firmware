@@ -48,8 +48,8 @@ static uint16_t doubletapConditionTimeout = 300;
 
 bool processCommand(const char* cmd, const char* cmdEnd);
 void continueMacro(void);
-void execMacro(uint8_t macroIndex);
-void callMacro(uint8_t macroIndex);
+bool execMacro(uint8_t macroIndex);
+bool callMacro(uint8_t macroIndex);
 
 bool Macros_ClaimReports() {
     s->reportsUsed = true;
@@ -1461,14 +1461,12 @@ bool processSetEmergencyKeyCommand(const char* arg1, const char* argEnd) {
 
 bool processExecCommand(const char* arg1, const char* argEnd) {
     uint8_t macroIndex = FindMacroIndexByName(arg1, argEnd);
-    execMacro(macroIndex);
-    return false;
+    return execMacro(macroIndex);
 }
 
 bool processCallCommand(const char* arg1, const char* argEnd) {
     uint8_t macroIndex = FindMacroIndexByName(arg1, argEnd);
-    callMacro(macroIndex);
-    return false;
+    return callMacro(macroIndex);
 }
 
 bool processCommand(const char* cmd, const char* cmdEnd)
@@ -1525,7 +1523,7 @@ bool processCommand(const char* cmd, const char* cmdEnd)
             break;
         case 'e':
             if(TokenMatches(cmd, cmdEnd, "exec")) {
-                return processCallCommand(arg1, cmdEnd);
+                return processExecCommand(arg1, cmdEnd);
             }
             else {
                 goto failed;
@@ -1995,9 +1993,10 @@ void initialize() {
 }
 
 
-void execMacro(uint8_t index) {
+bool execMacro(uint8_t index) {
     if(AllMacros[index].macroActionsCount == 0)  {
-       return;
+       s->macroBroken = true;
+       return false;
     }
     s->currentMacroIndex = index;
     s->currentMacroActionIndex = 0;
@@ -2005,9 +2004,10 @@ void execMacro(uint8_t index) {
     ParseMacroAction(&ValidatedUserConfigBuffer, &s->currentMacroAction);
     s->bufferOffset = ValidatedUserConfigBuffer.offset;
     continueMacro();
+    return true; //this makes the above calling machinery skip loading next action for second time
 }
 
-void callMacro(uint8_t macroIndex) {
+bool callMacro(uint8_t macroIndex) {
     macro_state_t* oldState = s;
     s->macroSleeping = true;
     uint32_t ptr1 = (uint32_t)(macro_state_t*)s;
@@ -2015,6 +2015,7 @@ void callMacro(uint8_t macroIndex) {
     uint32_t slotIndex = (ptr1 - ptr2) / sizeof(macro_state_t);
     Macros_StartMacro(macroIndex, s->currentMacroKey, slotIndex);
     s = oldState;
+    return false;
 }
 
 //partentMacroSlot == 255 means no parent
