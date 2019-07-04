@@ -15,7 +15,7 @@
     #define MAX_MACRO_NUM 255
     #define STATUS_BUFFER_MAX_LENGTH 1024
     #define LAYER_STACK_SIZE 10
-    #define MACRO_STATE_POOL_SIZE 5
+    #define MACRO_STATE_POOL_SIZE 20
     #define MAX_REG_COUNT 32
 
     #define ALTMASK (HID_KEYBOARD_MODIFIER_LEFTALT | HID_KEYBOARD_MODIFIER_RIGHTALT)
@@ -25,12 +25,10 @@
 
 // Typedefs:
 
-    //TODO: optimize memory of this structure - macroActionCount, macroName and macroNameLength can all be cut to 8bits!
     typedef struct {
         uint16_t firstMacroActionOffset;
-        uint16_t macroActionsCount;
-        const char* macroName;   //This eats 1KB of memory!
-        uint8_t macroNameLength;
+        uint8_t macroActionsCount; //official uses uint16_t, we think that 256 actions per macro should suffice
+        uint8_t macroNameOffset; //negative w.r.t. firstMacroActionOffset, we think that 256 chars per name should suffice
     } macro_reference_t;
 
     typedef struct {

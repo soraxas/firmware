@@ -432,7 +432,9 @@ void Macros_SetStatusChar(char n)
 
 void reportErrorHeader() {
     if(s != NULL) {
-        Macros_SetStatusString(AllMacros[s->currentMacroIndex].macroName, AllMacros[s->currentMacroIndex].macroName + AllMacros[s->currentMacroIndex].macroNameLength);
+        const char *name, *nameEnd;
+        FindMacroName(&AllMacros[s->currentMacroIndex], &name, &nameEnd);
+        Macros_SetStatusString(name, nameEnd);
         Macros_SetStatusString(":", NULL);
         Macros_SetStatusNum(s->currentMacroActionIndex);
         Macros_SetStatusString(": ", NULL);
@@ -448,6 +450,8 @@ void Macros_ReportError(const char* err, const char* arg, const char *argEnd)
         Macros_SetStatusString(": ", NULL);
         Macros_SetStatusString(arg, argEnd);
     }
+    Macros_SetStatusString("\nptr length is ", NULL);
+    Macros_SetStatusNum(sizeof(char*));
     Macros_SetStatusString("\n", NULL);
 }
 
