@@ -109,6 +109,7 @@
 
         bool currentConditionPassed;
         bool currentIfShortcutConditionPassed;
+        bool currentIfSecondaryConditionPassed;
         uint8_t postponeNext;
 
         bool delayActive;

@@ -450,8 +450,6 @@ void Macros_ReportError(const char* err, const char* arg, const char *argEnd)
         Macros_SetStatusString(": ", NULL);
         Macros_SetStatusString(arg, argEnd);
     }
-    Macros_SetStatusString("\nptr length is ", NULL);
-    Macros_SetStatusNum(sizeof(char*));
     Macros_SetStatusString("\n", NULL);
 }
 
@@ -566,6 +564,42 @@ int32_t parseNUM(const char *a, const char *aEnd)
     else
     {
         return ParseInt32(a, aEnd);
+    }
+}
+
+
+uint8_t parseAddress(const char* arg, const char* argEnd)
+{
+    if(isNUM(arg, argEnd)) {
+        return parseNUM(arg, argEnd);
+    } else {
+        uint8_t currentAdr = s->currentMacroActionIndex;
+        uint8_t actionCount = AllMacros[s->currentMacroIndex].macroActionsCount;
+        config_buffer_t buffer = ValidatedUserConfigBuffer;
+        buffer.offset = AllMacros[s->currentMacroIndex].firstMacroActionOffset;
+        uint8_t firstFoundAdr = 255;
+        macro_action_t action;
+        for(int i = 0; i < actionCount; i++) {
+            ParseMacroAction(&buffer, &action);
+            if(action.type == MacroActionType_Text) {
+                const char* cmd = action.text.text;
+                const char* cmdEnd = action.text.text + action.text.textLen;
+                const char* cmdTokEnd = TokEnd(cmd, cmdEnd);
+                if(cmd < cmdEnd && *cmd == '$' && cmdTokEnd[-1] == ':') {
+                    if(TokenMatches2(cmd+1, cmdTokEnd-1, arg, argEnd)) {
+                        firstFoundAdr = firstFoundAdr == 255 ? i : firstFoundAdr;
+                        if(i > currentAdr)
+                        {
+                            return i;
+                        }
+                    }
+                }
+            }
+        }
+        if(firstFoundAdr == 255) {
+            Macros_ReportError("label not found", arg, argEnd);
+        }
+        return firstFoundAdr;
     }
 }
 
@@ -1095,7 +1129,7 @@ bool goTo(uint8_t address)
 
 bool processGoToCommand(const char* arg, const char *argEnd)
 {
-    uint8_t address = parseNUM(arg, argEnd);
+    uint8_t address = parseAddress(arg, argEnd);
     return goTo(address);
 }
 
@@ -1246,14 +1280,19 @@ bool processNoOpCommand()
     return false;
 }
 
-bool processResolveSecondary(uint16_t timeout1, uint16_t timeout2, uint8_t primaryAdr, uint8_t secondaryAdr) {
+#define RESOLVESEC_RESULT_DONTKNOWYET 0
+#define RESOLVESEC_RESULT_PRIMARY 1
+#define RESOLVESEC_RESULT_SECONDARY 2
+
+
+uint8_t processResolveSecondary(uint16_t timeout1, uint16_t timeout2) {
     postponeCurrent();
 
     //phase 1 - wait until some other key is released, then write down its release time
     bool timer1Exceeded = Timer_GetElapsedTime(&s->currentMacroStartTime) >= timeout1;
     if(!timer1Exceeded && currentMacroKeyIsActive() && !Postponer_IsPendingReleased()) {
         s->resolveSecondaryPhase2StartTime = 0;
-        return true;
+        return RESOLVESEC_RESULT_DONTKNOWYET;
     }
     if(s->resolveSecondaryPhase2StartTime == 0) {
         s->resolveSecondaryPhase2StartTime = CurrentTime;
@@ -1261,17 +1300,14 @@ bool processResolveSecondary(uint16_t timeout1, uint16_t timeout2, uint8_t prima
     //phase 2 - "safety margin" - wait another `timeout2` ms, and if the switcher is released during this time, still interpret it as a primary action
     bool timer2Exceeded = Timer_GetElapsedTime(&s->resolveSecondaryPhase2StartTime) >= timeout2;
     if(!timer1Exceeded && !timer2Exceeded && currentMacroKeyIsActive() && Postponer_IsPendingReleased() && Postponer_PendingCount() < 3) {
-        return true;
+        return RESOLVESEC_RESULT_DONTKNOWYET;
     }
     //phase 3 - resolve the situation - if the switcher is released first or within the "safety margin", interpret it as primary action, otherwise secondary
     if(timer1Exceeded || (Postponer_IsPendingReleased() && timer2Exceeded)) {
-        //secondary action
-        return goTo(secondaryAdr);
+        return RESOLVESEC_RESULT_SECONDARY;
     }
     else {
-        //primary action
-        postponeNextN(1);
-        return goTo(primaryAdr);
+        return RESOLVESEC_RESULT_PRIMARY;
     }
 
 }
@@ -1281,16 +1317,71 @@ bool processResolveSecondaryCommand(const char* arg1, const char* argEnd)
     const char* arg2 = NextTok(arg1, argEnd);
     const char* arg3 = NextTok(arg2, argEnd);
     const char* arg4 = NextTok(arg3, argEnd);
-    uint16_t num1 = parseNUM(arg1, argEnd);
-    uint16_t num2 = parseNUM(arg2, argEnd);
-    uint16_t num3 = parseNUM(arg3, argEnd);
+
+    uint8_t primaryAdr;
+    uint8_t secondaryAdr;
+    uint16_t timeout1;
+    uint16_t timeout2;
 
     if(arg4 == argEnd) {
-        return processResolveSecondary(num1, num1, num2, num3);
+        timeout1 = parseNUM(arg1, argEnd);
+        timeout2 = timeout1;
+        primaryAdr = parseAddress(arg2, argEnd);
+        secondaryAdr = parseAddress(arg3, argEnd);
     } else {
-        uint8_t num4 = parseNUM(arg4, argEnd);
-        return processResolveSecondary(num1, num2, num3, num4);
+        timeout1 = parseNUM(arg1, argEnd);
+        timeout2 = parseNUM(arg2, argEnd);
+        primaryAdr = parseAddress(arg3, argEnd);
+        secondaryAdr = parseAddress(arg4, argEnd);
     }
+
+    uint8_t res = processResolveSecondary(timeout1, timeout2);
+
+    switch(res) {
+    case RESOLVESEC_RESULT_DONTKNOWYET:
+        return true;
+    case RESOLVESEC_RESULT_PRIMARY:
+        postponeNextN(1);
+        return goTo(primaryAdr);
+    case RESOLVESEC_RESULT_SECONDARY:
+        return goTo(secondaryAdr);
+    }
+    //this is unreachable, prevents warning
+    return true;
+}
+
+
+bool processIfSecondaryCommand(bool negate, const char* arg, const char* argEnd) {
+    if(s->currentIfSecondaryConditionPassed) {
+        if(s->currentConditionPassed) {
+            goto conditionPassed;
+        } else {
+            s->currentIfSecondaryConditionPassed = false;
+        }
+    }
+
+    uint8_t res = processResolveSecondary(350, 50);
+
+    switch(res) {
+    case RESOLVESEC_RESULT_DONTKNOWYET:
+        return true;
+    case RESOLVESEC_RESULT_PRIMARY:
+        if(negate) {
+            goto conditionPassed;
+        } else {
+            return false;
+        }
+    case RESOLVESEC_RESULT_SECONDARY:
+        if(negate) {
+            return false;
+        } else {
+            goto conditionPassed;
+        }
+    }
+conditionPassed:
+    s->currentIfSecondaryConditionPassed = true;
+    s->currentConditionPassed = false; //otherwise following conditions would be skipped
+    return processCommand(arg, argEnd);
 }
 
 macro_action_t decodeKey(const char* arg1, const char* argEnd) {
@@ -1344,8 +1435,8 @@ bool processResolveNextKeyEqCommand(const char* arg1, const char* argEnd) {
     } else {
        timeout = parseNUM(arg3, argEnd);
     }
-    uint16_t adr1 = parseNUM(arg4, argEnd);
-    uint16_t adr2 = parseNUM(arg5, argEnd);
+    uint16_t adr1 = parseAddress(arg4, argEnd);
+    uint16_t adr2 = parseAddress(arg5, argEnd);
 
 
     if(idx > POSTPONER_MAX_FILL) {
@@ -1441,7 +1532,7 @@ bool processPostponeNextNCommand(const char* arg1, const char* argEnd) {
 
 bool processRepeatForCommand(const char* arg1, const char* argEnd) {
     uint8_t idx = parseNUM(arg1, argEnd);
-    uint8_t adr = parseNUM(NextTok(arg1, argEnd), argEnd);
+    uint8_t adr = parseAddress(NextTok(arg1, argEnd), argEnd);
     if(validReg(idx)) {
         if(regs[idx] > 0) {
             regs[idx]--;
@@ -1471,6 +1562,14 @@ bool processCallCommand(const char* arg1, const char* argEnd) {
 
 bool processCommand(const char* cmd, const char* cmdEnd)
 {
+    const char* cmdTokEnd = TokEnd(cmd, cmdEnd);
+    if(cmdTokEnd > cmd && cmdTokEnd[-1] == ':') {
+        //skip labels
+        cmd = NextTok(cmd, cmdEnd);
+        if(cmd == cmdEnd) {
+            return false;
+        }
+    }
     while(*cmd) {
         const char* arg1 = NextTok(cmd, cmdEnd);
         switch(*cmd) {
@@ -1732,6 +1831,12 @@ bool processCommand(const char* cmd, const char* cmdEnd)
                 //shift by two
                 cmd = NextTok(arg1, cmdEnd);
                 arg1 = NextTok(cmd, cmdEnd);
+            }
+            else if(TokenMatches(cmd, cmdEnd, "ifSecondary")) {
+                return processIfSecondaryCommand(false, arg1, cmdEnd);
+            }
+            else if(TokenMatches(cmd, cmdEnd, "ifPrimary")) {
+                return processIfSecondaryCommand(true, arg1, cmdEnd);
             }
             else if(TokenMatches(cmd, cmdEnd, "ifShortcut")) {
                 return processIfShortcutCommand(false, arg1, cmdEnd, true);

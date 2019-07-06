@@ -13,6 +13,7 @@
     bool StrEqual(const char* a, const char* aEnd, const char* b, const char* bEnd);
     const char* FindChar(char c, const char* str, const char* strEnd);
     bool TokenMatches(const char *a, const char *aEnd, const char *b);
+    bool TokenMatches2(const char *a, const char *aEnd, const char *b, const char *bEnd);
     uint8_t TokLen(const char *a, const char *aEnd);
     const char* NextTok(const char* cmd, const char *cmdEnd);
     const char* TokEnd(const char* cmd, const char *cmdEnd);

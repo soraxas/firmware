@@ -100,6 +100,19 @@ bool TokenMatches(const char *a, const char *aEnd, const char *b)
     return (*a <= 32 || a == aEnd) && *b <= 32;
 }
 
+bool TokenMatches2(const char *a, const char *aEnd, const char *b, const char *bEnd)
+{
+    while(a < aEnd && b < bEnd) {
+        if(*a <= 32 || a == aEnd || *b <= 32 || b == bEnd) {
+            return (*a <= 32 || a == aEnd) && *b <= 32;
+        }
+        if(*a++ != *b++){
+            return false;
+        }
+    }
+    return (*a <= 32 || a == aEnd) && (*b <= 32 || b == bEnd);
+}
+
 uint8_t TokLen(const char *a, const char *aEnd)
 {
     uint8_t l = 0;

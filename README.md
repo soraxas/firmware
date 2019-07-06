@@ -43,6 +43,7 @@ can be combined. E.g.:
     - Understand how to read the stated ebnf grammar. Using the grammar will give you precise instructions about how your commands should be constructed. In case you don't know anything about grammars:
         - The grammar describes a valid expression via a set of rules. At the beginning, the expression equals "BODY". Every capital word of the expression to be "rewritten" by a corresponding rule - i.e., the identifier is to be replaced by an expression which matches right side of the rule. 
         - Notation: `<>` mark informal (human-understandable) explanation of what is to be entered. `|` operator indicates choice between left and right operand. It is typically enclosed in `{}`, in order to separate the group from the rest of the rule. `[]` denote optional arguments. Especially `[]+` marks "one or more" and `[]*` arbitrary number.
+
     
 ## Examples
 **Note that every command (i.e., every line in the examples) has to be inputted as a separate action!** Also note that macros are being run "asynchronously" (i.e., interleaved with other event handling) at a pace of at most one action per update cycle. A macro action may take one or more update cycles to complete (esp. delay commands and all commands which interfere with usb reports).
@@ -112,7 +113,17 @@ The following applies some global settings. Namely turns off sticky modifiers (i
     $setSplitCompositeKeystroke 1
     $setKeystrokeDelay 10
 
-Postponed secondary role switch. This modification prevents secondary role hiccups on alphabetic keys. The `resolveSecondary` will listen for some time and once it decides whether the current situation fits primary or secondary action, it will issue goTo to the "second" line (line 1 since we index from 0) or the last line (line 3). Actions are indexed from 0. Any keys pressed during resolution are postponed until the first command after the jump is performed.
+Secondary role (i.e., a role which becomes active if another key is pressed with this key) can be implemented in two variants: regular and postponed. 
+
+  - Regular version can be implemented for instance as `$holdLayer mouse; ifNotInterrupted pressKey enter` - it always triggers secondary role, and once the key is released it either triggers primary role or not. 
+  - Postponed version postpones all other keypresses until it can distinguish between primary and secondary role. This is handy for alphabetic keys, because regular version would trigger on overlaps of alphabetic keys when writing regular textx. The postponed version can be used either via `ifPrimary` and `ifSecondary` conditions, or via a `resolveSecondary`. 
+
+Postponed secondary role switch - simple version using `ifPrimary`. 
+
+    $ifPrimary final holdKey a
+    $holdLayer mouse
+
+Postponed secondary role switch - `resolveSeccondary` is a bit more flexible and less user-friendly version of the `ifPrimary`/`ifSecondary` command. The `resolveSecondary` will listen for some time and once it decides whether the current situation fits primary or secondary action, it will issue goTo to the "second" line (line 1 since we index from 0) or the last line (line 3). Actions are indexed from 0. 
 
     $resolveSecondary 350 1 3
     $write f
@@ -145,21 +156,24 @@ In the above examples, `tapKey` can be (and probably should be) replaced by `hol
 You can simplify writing macros by using `#` and `@` characters. The first resolves a number as an index of a register. The second interprets the number as a relative action index. For instance the following macro will write out five "a"s with 50 ms delays
     
     //you can comment your code via two slashes. 
-    $setReg 0 50      //store number 50 into register 0
+    $ifCtrl goTo default    //goto can also go to labels
+    $ifShift final tapKey a //final modifier ends the macro once the command has finished
+    $setReg 0 50            //store number 50 into register 0
     $setReg 1 5
     $tapKey a
-    $delayUntil #0    //the #0 is replaced by content of register 0
-    $repeatFor 1 @-2  //decrement register 1; if it is non-zero, return by two commands to the tapKey command
+    $delayUntil #0          //the #0 is expands to content of register 0
+    $repeatFor 1 @-2        //decrement register 1; if it is non-zero, return by two commands to the tapKey command
+    $noOp                   //note the @ character - it resolves relative address to absolute (i.e., adds current adr)
+    $default: tapKey b      //$<string>: denotes a label, which can be used as jump target
     
     
 ## Reference manual
 
 The following grammar is supported:
 
-    BODY = $COMMAND 
-    BODY = $COMMAND [//<comment, excluding commands taking custom text arguments>]
-    BODY = //<comment>
     BODY = #<comment>
+    BODY = //<comment>
+    BODY = $[LABEL:] COMMAND [//<comment, excluding commands taking custom text arguments>]
     COMMAND = [CONDITION|MODIFIER]* COMMAND
     COMMAND = delayUntilRelease
     COMMAND = delayUntil <timeout (NUMBER)>
@@ -172,9 +186,9 @@ The following grammar is supported:
     COMMAND = holdLayerMax LAYERID <time in ms (NUMBER)>
     COMMAND = holdKeymapLayer KEYMAPID LAYERID
     COMMAND = holdKeymapLayerMax KEYMAPID LAYERID <time in ms (NUMBER)>
-    COMMAND = resolveSecondary <time in ms (NUMBER)> [<time in ms (NUMBER)>] <primary action macro action index (NUMBER)> <secondary action macro action index (NUMBER)>
+    COMMAND = resolveSecondary <time in ms (NUMBER)> [<time in ms (NUMBER)>] <primary action macro action index (ADDRESS)> <secondary action macro action index (ADDRESS)>
     COMMAND = resolveNextKeyId 
-    COMMAND = resolveNextKeyEq <queue position (NUMBER)> KEYID {<time in ms>|untilRelease} <action adr (NUMBER)> <action adr (NUMBER)>
+    COMMAND = resolveNextKeyEq <queue position (NUMBER)> KEYID {<time in ms>|untilRelease} <action adr (ADDRESS)> <action adr (ADDRESS)>
     COMMAND = consumePending <number of commands (NUMBER)>
     COMMAND = postponeNext <number of commands (NUMER)>
     COMMAND = break
@@ -190,8 +204,8 @@ The following grammar is supported:
     COMMAND = clearStatus 
     COMMAND = setLedTxt <timeout (NUMBER)> <custom text>
     COMMAND = write <custom text>
-    COMMAND = goTo <index (NUMBER)>
-    COMMAND = repeatFor <register index (NUMBER)> <action adr (NUMBER)>
+    COMMAND = goTo <index (ADDRESS)>
+    COMMAND = repeatFor <register index (NUMBER)> <action adr (ADDRESS)>
     COMMAND = recordMacroDelay
     COMMAND = {startRecording | startRecordingBlind} [<slot identifier (MACROID)>]
     COMMAND = {recordMacro | recordMacroBlind} [<slot identifier (MACROID)>]
@@ -207,18 +221,19 @@ The following grammar is supported:
     COMMAND = setEmergencyKey KEYID
     COMMAND = {addReg|subReg|mulReg} <register index (NUMBER)> <value (NUMBER)>
     COMMAND = {pressKey|holdKey|tapKey|releaseKey} SHORTCUT
-    CONDITION = {ifDoubletap|ifNotDoubletap}
-    CONDITION = {ifPending|ifNotPending} <n (NUMBER)>
-    CONDITION = {ifPendingId|ifNotPendingId} <idx in buffer (NUMBER)> KEYID
-    CONDITION = {ifInterrupted|ifNotInterrupted}
-    CONDITION = {ifReleased|ifNotReleased}
-    CONDITION = {ifPlaytime|ifNotPlaytime} <timeout in ms (NUMBER)>
+    CONDITION = {ifDoubletap | ifNotDoubletap}
+    CONDITION = {ifPending | ifNotPending} <n (NUMBER)>
+    CONDITION = {ifPendingId | ifNotPendingId} <idx in buffer (NUMBER)> KEYID
+    CONDITION = {ifInterrupted | ifNotInterrupted}
+    CONDITION = {ifReleased | ifNotReleased}
+    CONDITION = {ifPlaytime | ifNotPlaytime} <timeout in ms (NUMBER)>
     CONDITION = {ifShift | ifAlt | ifCtrl | ifGui | ifAnyMod | ifNotShift | ifNotAlt | ifNotCtrl | ifNotGui | ifNotAnyMod}
-    CONDITION = {ifRegEq|ifNotRegEq} <register index (NUMBER)> <value (NUMBER)>
-    CONDITION = {ifRecording|ifNotRecording}
-    CONDITION = {ifRecordingId|ifNotRecordingId} MACROID
-    CONDITION = {ifShortcut|ifNotShortcut} [KEYID]*
-    CONDITION = {ifGesture|ifNotGesture} [KEYID]*
+    CONDITION = {ifRegEq | ifNotRegEq} <register index (NUMBER)> <value (NUMBER)>
+    CONDITION = {ifRecording | ifNotRecording}
+    CONDITION = {ifRecordingId | ifNotRecordingId} MACROID
+    CONDITION = {ifShortcut | ifNotShortcut} [KEYID]*
+    CONDITION = {ifGesture | ifNotGesture} [KEYID]*
+    CONDITION = {ifPrimary | ifSecondary}
     MODIFIER = suppressMods
     MODIFIER = suppressKeys
     MODIFIER = postponeKeys
@@ -228,11 +243,14 @@ The following grammar is supported:
     KEYMAPID = <abbrev>|last
     MACROID = last|CHAR|NUMBER
     NUMBER = [0-9]+ | -[0-9]+ | #<register idx (NUMBER)> | #key | @<relative macro action index(NUMBER)> 
-    CHAR = <any ascii char>
+    CHAR = <any nonwhite ascii char>
     KEYID = <id of hardware key obtained by resolveNextKeyId (NUMBER)>
+    LABEL = <string identifier>
     SHORTCUT = MODMASK-KEY | KEY
     MODMASK = [MODMASK]+ | [L|R]{S|C|A|G}
     KEY = CHAR|KEYABBREV
+    ADDRESS = LABEL|NUMBER
+    
     KEYABBREV = enter | escape | backspace | tab | space | minusAndUnderscore | equalAndPlus | openingBracketAndOpeningBrace | closingBracketAndClosingBrace | backslashAndPipe | nonUsHashmarkAndTilde | semicolonAndColon | apostropheAndQuote | graveAccentAndTilde | commaAndLessThanSign | dotAndGreaterThanSign | slashAndQuestionMark | capsLock | f1 | f2 | f3 | f4 | f5 | f6 | f7 | f8 | f9 | f10 | f11 | f12 | printScreen | scrollLock | pause | insert | home | pageUp | delete | end | pageDown | rightArrow | leftArrow | downArrow | upArrow | numLock | keypadSlash | keypadAsterisk | keypadMinus | keypadPlus | keypadEnter | keypad1AndEnd | keypad2AndDownArrow | keypad3AndPageDown | keypad4AndLeftArrow | keypad5 | keypad6AndRightArrow | keypad7AndHome | keypad8AndUpArrow | keypad9AndPageUp | keypad0AndInsert | keypadDotAndDelete | nonUsBackslashAndPipe | application | power | keypadEqualSign | f13 | f14 | f15 | f16 | f17 | f18 | f19 | f20 | f21 | f22 | f23 | f24 | execute | help | menu | select | stop | again | undo | cut | copy | paste | find | mute | volumeUp | volumeDown | lockingCapsLock | lockingNumLock | lockingScrollLock | keypadComma | keypadEqualSignAs400 | international1 | international2 | international3 | international4 | international5 | international6 | international7 | international8 | international9 | lang1 | lang2 | lang3 | lang4 | lang5 | lang6 | lang7 | lang8 | lang9 | alternateErase | sysreq | cancel | clear | prior | return | separator | out | oper | clearAndAgain | crselAndProps | exsel | keypad00 | keypad000 | thousandsSeparator | decimalSeparator | currencyUnit | currencySubUnit | keypadOpeningParenthesis | keypadClosingParenthesis | keypadOpeningBrace | keypadClosingBrace | keypadTab | keypadBackspace | keypadA | keypadB | keypadC | keypadD | keypadE | keypadF | keypadXor | keypadCaret | keypadPercentage | keypadLessThanSign | keypadGreaterThanSign | keypadAmp | keypadAmpAmp | keypadPipe | keypadPipePipe | keypadColon | keypadHashmark | keypadSpace | keypadAt | keypadExclamationSign | keypadMemoryStore | keypadMemoryRecall | keypadMemoryClear | keypadMemoryAdd | keypadMemorySubtract | keypadMemoryMultiply | keypadMemoryDivide | keypadPlusAndMinus | keypadClear | keypadClearEntry | keypadBinary | keypadOctal | keypadDecimal | keypadHexadecimal | leftControl | leftShift | leftAlt | leftGui | rightControl | rightShift | rightAlt | rightGui 
     KEYABBREV = mediaVolumeMute | mediaVolumeUp | mediaVolumeDown | mediaRecord | mediaFastForward | mediaRewind | mediaNext | mediaPrevious | mediaStop | mediaPlayPause | mediaPause 
     KEYABBREV = systemPowerDown | systemSleep | systemWakeUp 
@@ -255,12 +273,12 @@ The following grammar is supported:
     - tap means pressing a key (more precisely, activating the scancode) and immediately releasing it again
     - hold means pressing the key, waiting until key which activated the macro is released and then releasing the key again. I.e., `$holdKey <x>` is equivalent to `$pressKey <x>; $delayUntilRelease; $releaseKey <x>`, while `$tapKey <x>` is equivalent to `$pressKey <x>; $releaseKey <x>`.
 - Control flow, macro execution (aka "functions"):
-  - `goTo <int>` will go to action index int. Actions are indexed from zero.
-  - `repeatFor <register index> <adr>` - abbreviation to simplify cycles. Will decrement the supplemented register and perform `goTo` to `adr` if the value is still greater than zero. Intended usecase - place after command which is to be repeated with the register containing number of repeats and adr `@-1` (or similar).
+  - `goTo ADDRESS` will go to action index int. Actions are indexed from zero. See `ADDRESS`
+  - `repeatFor <register index> ADDRESS` - abbreviation to simplify cycles. Will decrement the supplemented register and perform `goTo` to `adr` if the value is still greater than zero. Intended usecase - place after command which is to be repeated with the register containing number of repeats and adr `@-1` (or similar).
   - `break` will end playback of the current macro
   - `noOp` does nothing - i.e., stops macro for exactly one update cycle and then continues.
   - `exec MACRONAME` will execute different macro in current state slot. I.e., the macro will be executed in current context and will *not* return. First action of the called macro is executed within the same eventloop cycle.
-  - `call MACRONAME` will execute another macro in a new state slot. After the called macro finishes, the control returns to the caller macro. First action of the called macro is executed within the same eventloop cycle. The called macro has its own context (e.g., its own ifInterrupted flag, its own postponing counter and flags etc.) Beware, the state pool may be very small - do not use deep call trees!
+  - `call MACRONAME` will execute another macro in a new state slot. After the called macro finishes, the control returns to the caller macro. First action of the called macro is executed within the same eventloop cycle. The called macro has its own context (e.g., its own ifInterrupted flag, its own postponing counter and flags etc.) Beware, the state pool is small - do not use deep call trees!
 - Status buffer/Debugging tools
   - `printStatus` will "type" content of status buffer (256 or 1024 chars, depends on my mood) on the keyboard. Mainly for debug purposes.
   - `setStatus <custom text>` will append <custom text> to the status buffer, if there is enough space for that.
@@ -276,14 +294,14 @@ The following grammar is supported:
   - `delayUntilRelease` sleeps the macro until its activation key is released. Can be used to set action on key release. 
   - `delayUntilReleaseMax <timeout>` same as `delayUntilRelease`, but is also broken when timeout (in ms) is reached.
 - Layer/Keymap switching:
-  Layer/Keymap switching mechanism allows toggling/switching of keymaps of layers. We keep layer records in a stack of limited size, which can be used for nested toggling and/or holds.
+  Layer/Keymap switching mechanism allows toggling/switching of keymaps or layers. We keep layer records in a stack of limited size, which can be used for nested toggling and/or holds.
   - special ids:
     - `previous` refers to the second stack record (i.e., `stackTop-1`)
     - `last` always refers to the previously used layer/keymap (i.e., `stackTop-1` or `stackTop+1`)
   - terminology:
     - switch means loading the target keymap and reseting layer-switching context
     - toggle refers to activating a layer and remaining there (plus the activated layer is pushed onto layer stack)
-    - hold refers to activating to a layer when the command is activated and switching back when the activation key is released (plus the activated layer is pushed onto layer stack and then removed again)
+    - hold refers to activating a layer once the command is executed and switching back once the activation key is released (plus the activated layer is pushed onto layer stack and then removed again)
   - implementation details:
     - layer stack contains information about switch type (held  or toggle) and a boolean which indicates whether the record is active. Once hold ends or untoggle is issued, the corresponding record (not necessarily the top record) is marked as "inactive". Whenever some record is marked inactive, all inactive records are poped from top of the stack.
     - the stack contains both layer id and keymap id. If keymap ids of previous/current records do not match, full keymap is reloaded.
@@ -295,6 +313,7 @@ The following grammar is supported:
   - `holdLayer LAYERID` mostly corresponds to the sequence `toggleLayer <layer>; delayUntilRelease; unToggleLayer`, except for more elaborate conflict resolution (releasing holds in incorrect order).
   - `holdKeymapLayer KEYMAPID LAYERID` just as holdLayer, but allows referring to layer of different keymap. This reloads the entire keymap, so it may be very inefficient.
   - `holdLayerMax/holdKeymapLayerMax` will timeout after <timeout> ms if no action is performed in that time.
+  - `ifPrimary/ifSecondary` act as an abreviation for `resolveSecondary`. They use postponing mechanism and allow distinguishing between primary and secondary roles.
   - `resolveSecondary <timeout in ms> [<safety margin delay in ms>] <primary action macro action index> <secondary action macro action index>` is a special action used to resolve secondary roles on alphabetic keys. The following commands are supposed to determine behaviour of primary action and the secondary role. The command takes liberty to wait for the time specified by the first argument. If the key is held for more than the time, or if the algorithm decides that secondary role should be activated, goTo to secondary action is issued. Otherwise goTo to primary action is issued. Actions are indexed from 0. Any keys pressed during resolution are postponed until the first command after the jump is performed. See examples. 
     
     In more detail, the resolution waits for the first key release - if the switch key is released first or within the safety margin delay after release of the postponed key, it is taken for a primary action and goes to the section of the "primary action", then the postponed key is activated; if the postponed key is released first, then the switcher branches the secondary role (e.g., activates layer hold) and then the postponed key is activated; if the time given by first argument passes, the "secondary" branch is activated as in the previous case.
@@ -309,6 +328,7 @@ The following grammar is supported:
   - `ifPendingId/ifNotPendingId <idx> <keyId>` looks into postponing queue at `idx`th waiting key nad compares it to the `keyId`. 
   - `consumePending <n>` will remove n records from the queue.
   - `resolveSecondary` allows resolution of secondary roles depending on the next key - this allows us to accurately distinguish random press from intentional press of shortcut via secondary role. See `resolveSecondary` entry under Layer switching. Implicitly applies `postponeKeys` modifier.
+  - `ifPrimary/ifSecondary` act as an abreviation for `resolveSecondary`. They use postponing mechanism and allow distinguishing between primary and secondary roles.
   - `ifShortcut/ifNotShortcut [KEYID]*` will wait for next keypresses until the key is released. If the next keypresses correspond to the provided arguments (hardware ids), the keypresses are consumed and the condition is performed. This is shorter and simpler version of `resolveNextKeyEq`. E.g., `ifShortcut 090 089 final tapKey C-V; holdKey v`.
   - `ifGesture/ifNotGesture [KEYID]*` just as `ifShortcut`, but breaks after 1000ms instead of when the key is released.
   - `resolveNextKeyEq <queue idx> <key id> <timeout> <adr1> <adr2>` will wait for next (n) key press(es). When the key press happens, it will compare its id with the `<key id>` argument. If the id equals, it issues goto to adr1. Otherwise, to adr2. See examples. Implicitly applies `postponeKeys` modifier.
@@ -330,6 +350,7 @@ The following grammar is supported:
   - `ifRecording/ifNotRecording` and `ifRecordingId/ifNotRecordingId <macro id>` test if the runtime macro recorder is in recording state. 
   - `ifShortcut/ifNotShortcut [KEYID]*` will wait for next keypresses and compare them to the argument. See postponer mechanism section.
   - `ifGesture/ifNotGesture [KEYID]*` just as `ifShortcut`, but breaks after 1000ms instead of when the key is released.
+  - `ifPrimary/ifSecondary` act as an abreviation for `resolveSecondary`. They use postponing mechanism and allow distinguishing between primary and secondary roles.
 - `MODIFIER`s modify behaviour of the rest of the keyboard while the rest of the command is active (e.g., a delay) is active.
   - `suppressMods` will supress any modifiers except those applied via macro engine. Can be used to remap shift and nonShift characters independently.
   - `suppressKeys` will suppress all new key activations triggered while this modifier is active. 
@@ -362,6 +383,8 @@ The following grammar is supported:
   - `custom text` is an arbitrary text starting on next non-space character and ending at the end of the text action.
   - `KEYID` is a numeric id obtained by `resolveNextKeyId` macro.
   - `SHORTCUT` is an abbreviation of a key possibly accompanied by modifiers. Describes at most one scancode action. Can be prefixed by `C/S/A/G` denoting `Control/Shift/Alt/Gui`. Mods can further be prefixed by `L/R`, denoting left or right modifier. If a single ascii character is entered, it is translated into corresponding key combination (shift mask + scancode) according to standard EN-US layout. E.g., `pressKey mouseBtnLeft`, `tapKey LC-v` (Left Control + (lowercase) V (scancode)), `tapKey CS-f5` (Ctrl + Shift + F5), `tapKey v` (V), `tapKey V` (Shift + V).
+  - `LABEL` is and identifier marking some lines of the macro. When a string is encountered in a context of an address, UHK looks for a command beginning by '$<the string>:' and returns its addres (index). If same label is present multiple times, the next one w.r.t. currently processed command is returned.
+  - `ADDRESS` is either a `NUMBER` (including `#`, `@`, etc syntaxies) or a string which denotes label identifier. E.g., `$goTo 0` (go to beginning), `$goTo @-1` (go to previous command, since `@` resolves relative adresses to absolute), `$goTo @0` (active waiting), `$goTo default` (go to line which begins by `$default: ...`). 
 
 ## Error handling
 
