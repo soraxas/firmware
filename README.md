@@ -115,7 +115,7 @@ The following applies some global settings. Namely turns off sticky modifiers (i
 
 Secondary role (i.e., a role which becomes active if another key is pressed with this key) can be implemented in two variants: regular and postponed. 
 
-  - Regular version can be implemented for instance as `$holdLayer mouse; ifNotInterrupted pressKey enter` - it always triggers secondary role, and once the key is released it either triggers primary role or not. 
+  - Regular version can be implemented for instance as `$holdLayer mouse; ifNotInterrupted tapKey enter` - it always triggers secondary role, and once the key is released it either triggers primary role or not. 
   - Postponed version postpones all other keypresses until it can distinguish between primary and secondary role. This is handy for alphabetic keys, because regular version would trigger on overlaps of alphabetic keys when writing regular textx. The postponed version can be used either via `ifPrimary` and `ifSecondary` conditions, or via a `resolveSecondary`. 
 
 Postponed secondary role switch - simple version using `ifPrimary`. 
@@ -137,13 +137,13 @@ Mapping custom shortcuts may be done using `ifShortcut` command. The macro needs
     $ifShortcut 70 71 final tapKey CG-a
     $tapKey c
 
-Similar command can be used to implement "loose gestures" - i.g., gestures where the second keypress can follow without continuity of press of the first key. It suffices to replace the `ifShortcut` by `ifGesture`. Vim-like gt and gT (g+shift+t) tab switching:
+Similar command can be used to implement "loose gestures" - i.e., shortcuts where the second keypress can follow without continuity of press of the first key. It suffices to replace the `ifShortcut` by `ifGesture`. Vim-like gt and gT (g+shift+t) tab switching:
 
     $ifGesture 077 final tapKey C-pageUp 
     $ifGesture 085 077 final tapKey C-pageDown
     $tapKey g
 
-`resolveNextKeyEq` is a bit more flexible and less-user friendly version of the `ifShortcut` command. It does not consume keys, allows querying for keys which are further in the queue and timeout is not limited to release of the key. The example shows a "rocker guesture" where sequence c->v is mapped to V. This is macro for the c key. Alternatively, `resolveSecondary` could be used to implement similar functionality when combined with another layer. In that case, `resolveSecondary` will require prolonged press of c in order to activate the shortcut and won't interfere with writing. This version will eat all `cv`s encountered while writing, but does not depend on proper release of the keys. Rocker guestures (implemented via `ifGesture`, `ifShortcut` or `resolveNextKeyEq`) work fine for key combinations which are not encountered in normal text, i.e., for small number of special cases. `ResolveSecondary` should be used for mapping key clusters.
+`resolveNextKeyEq` is more flexible but less-user friendly version of the `ifShortcut` command. It does not consume keys, allows querying for keys which are further in the queue and timeout is not limited to release of the key. The example shows a "rocker guesture" where sequence c->v is mapped to V. This is macro for the c key. Alternatively, `resolveSecondary` could be used to implement similar functionality when combined with another layer. In that case, `resolveSecondary` will require prolonged press of c in order to activate the shortcut and won't interfere with writing. This version will eat all `cv`s encountered while writing, but does not depend on proper release of the keys. Rocker guestures (implemented via `ifGesture`, `ifShortcut` or `resolveNextKeyEq`) work fine for key combinations which are not encountered in normal text, i.e., for small number of special cases. `ResolveSecondary` should be used for mapping key clusters.
 
     $resolveNextKeyEq 0 90 untilRelease 1 4
     $consumePending 1
@@ -198,6 +198,7 @@ The following grammar is supported:
     COMMAND = statsLayerStack
     COMMAND = statsPostponerStack
     COMMAND = statsActiveKeys
+    COMMAND = statsActiveMacros
     COMMAND = diagnose
     COMMAND = printStatus
     COMMAND = setStatus <custom text>
@@ -287,6 +288,7 @@ The following grammar is supported:
   - `statsLayerStack` will output information about layer stack (into the buffer). 
   - `statsPostponerStack` will output information about postponer queue (into the buffer).
   - `statsActiveKeys` will output all active keys and their states (into the buffer).
+  - `statsActiveMacros` will output all active macros (into the buffer).
   - `diagnose` will deactivate all keys and macros and print diagnostic information into the status buffer.
   - `setEmergencyKey KEYID` will make the one key be ignored by postponing mechanisms. `diagnose` command on such key can be used to recover keyboard from conditions like infinite postponing loop...
 - Delays:

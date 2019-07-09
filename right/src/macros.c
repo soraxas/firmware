@@ -691,10 +691,27 @@ bool processStatsPostponerStackCommand() {
     return false;
 }
 
+bool processStatsActiveMacrosCommand() {
+    Macros_SetStatusString("macro/adr\n", NULL);
+    for(int i = 0; i < MACRO_STATE_POOL_SIZE; i++) {
+        if(MacroState[i].macroPlaying) {
+            const char *name, *nameEnd;
+            FindMacroName(&AllMacros[MacroState[i].currentMacroIndex], &name, &nameEnd);
+            Macros_SetStatusString(name, nameEnd);
+            Macros_SetStatusString("/", NULL);
+            Macros_SetStatusNum(MacroState[i].currentMacroActionIndex);
+            Macros_SetStatusString("\n", NULL);
+
+        }
+    }
+    return false;
+}
+
 bool processDiagnoseCommand() {
     processStatsLayerStackCommand();
     processStatsActiveKeysCommand();
     processStatsPostponerStackCommand();
+    processStatsActiveMacrosCommand();
     for (uint8_t slotId=0; slotId<SLOT_COUNT; slotId++) {
         for (uint8_t keyId=0; keyId<MAX_KEY_COUNT_PER_MODULE; keyId++) {
             key_state_t *keyState = &KeyStates[slotId][keyId];
@@ -1943,6 +1960,9 @@ bool processCommand(const char* cmd, const char* cmdEnd)
             }
             else if(TokenMatches(cmd, cmdEnd, "statsActiveKeys")) {
                 return processStatsActiveKeysCommand();
+            }
+            else if(TokenMatches(cmd, cmdEnd, "statsActiveMacros")) {
+                return processStatsActiveMacrosCommand();
             }
             else if(TokenMatches(cmd, cmdEnd, "statsPostponerStack")) {
                 return processStatsPostponerStackCommand();

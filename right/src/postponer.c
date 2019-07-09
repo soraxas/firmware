@@ -193,7 +193,8 @@ uint16_t Postponer_PendingId(int idx) {
 void Postponer_PrintContent() {
     postponer_buffer_record_type_t* first = &buffer[POS(0)];
     postponer_buffer_record_type_t* last = &buffer[POS(buffer_size-1)];
-    Macros_SetStatusString("keyid/active", NULL);
+    Macros_SetStatusString("keyid/active, size = ", NULL);
+    Macros_SetStatusNum(buffer_size);
     Macros_SetStatusString("\n", NULL);
     for(int i = 0; i < POSTPONER_BUFFER_SIZE; i++) {
         postponer_buffer_record_type_t* ptr = &buffer[i];
