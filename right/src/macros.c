@@ -218,12 +218,13 @@ bool processDelayAction() {
 
 void postponeNextN(uint8_t count) {
     s->postponeNext = count + 1;
+    s->postponingNow = true;
     PostponeKeys = true;
 }
 
-void postponeCurrent() {
-    s->postponeNext = 1;
+void postponeCurrentCycle() {
     PostponeKeys = true;
+    s->postponingNow = true;
 }
 
 /**
@@ -233,7 +234,7 @@ void postponeCurrent() {
  * initiates postponing in the current cycle.
  */
 bool currentMacroKeyIsActive() {
-    if(s->postponeNext > 0) {
+    if(s->postponeNext > 0 || s->postponingNow) {
         return ACTIVE(s->currentMacroKey) && !Postponer_IsKeyReleased(s->currentMacroKey);
     } else {
         return ACTIVE(s->currentMacroKey);
@@ -697,6 +698,7 @@ bool processStatsActiveMacrosCommand() {
         if(MacroState[i].macroPlaying) {
             const char *name, *nameEnd;
             FindMacroName(&AllMacros[MacroState[i].currentMacroIndex], &name, &nameEnd);
+            Macros_SetStatusString(" ", NULL);
             Macros_SetStatusString(name, nameEnd);
             Macros_SetStatusString("/", NULL);
             Macros_SetStatusNum(MacroState[i].currentMacroActionIndex);
@@ -1083,6 +1085,7 @@ bool processPrintStatusCommand()
 bool processSetStatusCommand(const char* arg, const char *argEnd)
 {
     Macros_SetStatusString(arg, argEnd);
+    Macros_SetStatusString("\n", NULL);
     return false;
 }
 
@@ -1242,7 +1245,7 @@ bool processSuppressKeysCommand()
 
 bool processPostponeKeysCommand()
 {
-    postponeCurrent();
+    postponeCurrentCycle();
     return false;
 }
 
@@ -1303,7 +1306,7 @@ bool processNoOpCommand()
 
 
 uint8_t processResolveSecondary(uint16_t timeout1, uint16_t timeout2) {
-    postponeCurrent();
+    postponeCurrentCycle();
 
     //phase 1 - wait until some other key is released, then write down its release time
     bool timer1Exceeded = Timer_GetElapsedTime(&s->currentMacroStartTime) >= timeout1;
@@ -1422,7 +1425,7 @@ bool processKeyCommand(macro_sub_action_t type, const char* arg1, const char* ar
 
 bool processResolveNextKeyIdCommand() {
     char num[4];
-    postponeCurrent();
+    postponeCurrentCycle();
     if(Postponer_PendingCount() == 0) {
         return true;
     }
@@ -1438,7 +1441,7 @@ bool processResolveNextKeyIdCommand() {
 }
 
 bool processResolveNextKeyEqCommand(const char* arg1, const char* argEnd) {
-    postponeCurrent();
+    postponeCurrentCycle();
     const char* arg2 = NextTok(arg1, argEnd);
     const char* arg3 = NextTok(arg2, argEnd);
     const char* arg4 = NextTok(arg3, argEnd);
@@ -1483,7 +1486,7 @@ bool processIfShortcutCommand(bool negate, const char* arg, const char* argEnd, 
         }
     }
 
-    postponeCurrent();
+    postponeCurrentCycle();
     uint8_t pendingCount = Postponer_PendingCount();
     uint8_t numArgs = 0;
     while(isNUM(arg, argEnd) && arg < argEnd) {
@@ -2163,6 +2166,7 @@ void Macros_StartMacro(uint8_t index, key_state_t *keyState, uint8_t parentMacro
     s->currentIfShortcutConditionPassed = false;
     s->reportsUsed = false;
     s->postponeNext = 0;
+    s->postponingNow = false;
     s->parentMacroSlot = parentMacroSlot;
     ValidatedUserConfigBuffer.offset = AllMacros[index].firstMacroActionOffset;
     ParseMacroAction(&ValidatedUserConfigBuffer, &s->currentMacroAction);
