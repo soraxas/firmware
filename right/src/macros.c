@@ -2181,7 +2181,7 @@ void Macros_StartMacro(uint8_t index, key_state_t *keyState, uint8_t parentMacro
 
 void continueMacro(void)
 {
-    PostponeKeys = s->postponeNext > 0;
+    PostponeKeys |= s->postponeNext > 0;
     if (processCurrentMacroAction() && !s->macroBroken) {
         //if action consists of multiple subactions, break here
         return;
