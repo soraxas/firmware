@@ -1570,13 +1570,13 @@ bool processSetEmergencyKeyCommand(const char* arg1, const char* argEnd) {
     return false;
 }
 
-bool processExecCommand(const char* arg1, const char* argEnd) {
-    uint8_t macroIndex = FindMacroIndexByName(arg1, argEnd);
+bool processExecCommand(const char* arg1, const char* cmdEnd) {
+    uint8_t macroIndex = FindMacroIndexByName(arg1, TokEnd(arg1, cmdEnd));
     return execMacro(macroIndex);
 }
 
-bool processCallCommand(const char* arg1, const char* argEnd) {
-    uint8_t macroIndex = FindMacroIndexByName(arg1, argEnd);
+bool processCallCommand(const char* arg1, const char* cmdEnd) {
+    uint8_t macroIndex = FindMacroIndexByName(arg1, TokEnd(arg1, cmdEnd));
     return callMacro(macroIndex);
 }
 
