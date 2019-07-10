@@ -59,6 +59,7 @@ bool Postponer_Overflowing(void) {
 }
 
 void Postponer_FinishCycle(void) {
+    cycles_until_activation = PostponeKeys ? CYCLES_SINCE_MACRO_ENGINE_ACTIVE : cycles_until_activation;
     cycles_until_activation -= cycles_until_activation > 0 ? 1 : 0;
 }
 
