@@ -118,6 +118,7 @@ bool MacroShortcutParser_CharacterToShift(char character)
 }
 
 lookup_record_t lookup_table[] = {
+        {"", 0, scType_basic},
         {"enter", HID_KEYBOARD_SC_ENTER, scType_basic},
         {"escape", HID_KEYBOARD_SC_ESCAPE, scType_basic},
         {"backspace", HID_KEYBOARD_SC_BACKSPACE, scType_basic},
