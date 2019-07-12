@@ -32,8 +32,8 @@ static key_action_t actionCache[SLOT_COUNT][MAX_KEY_COUNT_PER_MODULE];
 
 volatile uint8_t UsbReportUpdateSemaphore = 0;
 
-uint8_t OldModifierState;
-uint8_t SuppressedModifierState;
+uint8_t HardwareModifierState;
+uint8_t HardwareModifierStatePrevious;
 bool SuppressMods = false;
 bool PostponeKeys = false;
 bool SuppressKeys = false;
@@ -305,9 +305,7 @@ static void applyKeyAction(key_state_t *keyState, key_action_t *action, uint8_t 
             if(!SuppressMods) {
                 ActiveUsbBasicKeyboardReport->modifiers |= action->keystroke.modifiers;
             }
-            else {
-                SuppressedModifierState |= action->keystroke.modifiers;
-            }
+            HardwareModifierState |= action->keystroke.modifiers;
             if (action->keystroke.modifiers == 0 || SplitCompositeKeystroke == 0 || ACTIVATED_EARLIER(keyState)) {
                 switch (action->keystroke.keystrokeType) {
                     case KeystrokeType_Basic:
@@ -472,7 +470,8 @@ static inline void preprocessKeyState(key_state_t *keyState) {
 static void updateActiveUsbReports(void)
 {
     clearActiveReports();
-    SuppressedModifierState = 0;
+    HardwareModifierStatePrevious = HardwareModifierState;
+    HardwareModifierState = 0;
     SuppressMods = false;
     SuppressKeys = false;
     PostponeKeys = false;
@@ -649,7 +648,6 @@ void UpdateUsbReports(void)
     }
 
     if (HasUsbBasicKeyboardReportChanged) {
-        OldModifierState = ActiveUsbBasicKeyboardReport->modifiers | SuppressedModifierState;
         MacroRecorder_RecordBasicReport(ActiveUsbBasicKeyboardReport);
 #ifdef DEBUG_POSTPONER
         reportReport();

@@ -1013,7 +1013,7 @@ bool processIfDoubletapCommand(bool negate)
 
 bool processIfModifierCommand(bool negate, uint8_t modmask)
 {
-    return ((OldModifierState & modmask) > 0) != negate;
+    return ((HardwareModifierStatePrevious & modmask) > 0) != negate;
 }
 
 bool processIfRecordingCommand(bool negate)
