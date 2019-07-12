@@ -16,7 +16,7 @@
  * - that key remains active for at least that number of cycles (split composite keystrokes take 2 cycles to complete)
  */
     #define CYCLES_PER_ACTIVATION 2
-    #define CYCLES_SINCE_MACRO_ENGINE_ACTIVE 2
+    #define CYCLES_SINCE_MACRO_ENGINE_ACTIVE 4
 
 // Typedefs:
     typedef struct {
