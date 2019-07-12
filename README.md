@@ -199,6 +199,7 @@ The following grammar is supported:
     COMMAND = statsPostponerStack
     COMMAND = statsActiveKeys
     COMMAND = statsActiveMacros
+    COMMAND = statsRegs
     COMMAND = diagnose
     COMMAND = printStatus
     COMMAND = setStatus <custom text>
@@ -288,6 +289,7 @@ The following grammar is supported:
   - `statsPostponerStack` will output information about postponer queue (into the buffer).
   - `statsActiveKeys` will output all active keys and their states (into the buffer).
   - `statsActiveMacros` will output all active macros (into the buffer).
+  - `statsRegs` will output content of all registers (into the buffer).
   - `diagnose` will deactivate all keys and macros and print diagnostic information into the status buffer.
   - `setEmergencyKey KEYID` will make the one key be ignored by postponing mechanisms. `diagnose` command on such key can be used to recover keyboard from conditions like infinite postponing loop...
 - Delays:

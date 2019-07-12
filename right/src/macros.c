@@ -709,6 +709,17 @@ bool processStatsActiveMacrosCommand() {
     return false;
 }
 
+bool processStatsRegs() {
+    Macros_SetStatusString("reg/val\n", NULL);
+    for(int i = 0; i < MAX_REG_COUNT; i++) {
+        Macros_SetStatusNum(i);
+        Macros_SetStatusString("/", NULL);
+        Macros_SetStatusNum(regs[i]);
+        Macros_SetStatusString("\n", NULL);
+    }
+    return false;
+}
+
 bool processDiagnoseCommand() {
     processStatsLayerStackCommand();
     processStatsActiveKeysCommand();
@@ -1966,6 +1977,9 @@ bool processCommand(const char* cmd, const char* cmdEnd)
             }
             else if(TokenMatches(cmd, cmdEnd, "statsActiveMacros")) {
                 return processStatsActiveMacrosCommand();
+            }
+            else if(TokenMatches(cmd, cmdEnd, "statsRegs")) {
+                return processStatsRegs();
             }
             else if(TokenMatches(cmd, cmdEnd, "statsPostponerStack")) {
                 return processStatsPostponerStackCommand();
