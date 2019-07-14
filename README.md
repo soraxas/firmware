@@ -189,7 +189,8 @@ The following grammar is supported:
     COMMAND = resolveSecondary <time in ms (NUMBER)> [<time in ms (NUMBER)>] <primary action macro action index (ADDRESS)> <secondary action macro action index (ADDRESS)>
     COMMAND = resolveNextKeyId 
     COMMAND = resolveNextKeyEq <queue position (NUMBER)> KEYID {<time in ms>|untilRelease} <action adr (ADDRESS)> <action adr (ADDRESS)>
-    COMMAND = consumePending <number of commands (NUMBER)>
+    COMMAND = consumePending <number of keys (NUMBER)>
+    COMMAND = consumeActive 
     COMMAND = postponeNext <number of commands (NUMER)>
     COMMAND = break
     COMMAND = noOp
