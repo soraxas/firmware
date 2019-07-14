@@ -316,12 +316,12 @@ lookup_record_t lookup_table[] = {
         {"systemPowerDown", SYSTEM_POWER_DOWN, scType_system},
         {"systemSleep", SYSTEM_SLEEP, scType_system},
         {"systemWakeUp", SYSTEM_WAKE_UP, scType_system},
-        {"mouseBtnLeft", SerializedMouseAction_LeftClick, scType_mouseBtn},
-        {"mouseBtnRight", SerializedMouseAction_RightClick, scType_mouseBtn},
-        {"mouseBtnMiddle", SerializedMouseAction_MiddleClick, scType_mouseBtn},
-        {"mouseBtn4", SerializedMouseAction_Button_4, scType_mouseBtn},
-        {"mouseBtn5", SerializedMouseAction_Button_5, scType_mouseBtn},
-        {"mouseBtn6", SerializedMouseAction_Button_6, scType_mouseBtn},
+        {"mouseBtnLeft", MouseButton_Left, scType_mouseBtn},
+        {"mouseBtnRight", MouseButton_Right, scType_mouseBtn},
+        {"mouseBtnMiddle", MouseButton_Middle, scType_mouseBtn},
+        {"mouseBtn4", MouseButton_4, scType_mouseBtn},
+        {"mouseBtn5", MouseButton_5, scType_mouseBtn},
+        {"mouseBtn6", MouseButton_6, scType_mouseBtn},
 };
 
 size_t lookup_size = sizeof(lookup_table)/sizeof(lookup_table[0]);
