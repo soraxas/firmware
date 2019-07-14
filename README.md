@@ -305,7 +305,7 @@ The following grammar is supported:
   - terminology:
     - switch means loading the target keymap and reseting layer-switching context
     - toggle refers to activating a layer and remaining there (plus the activated layer is pushed onto layer stack)
-    - hold refers to activating a layer once the command is executed and switching back once the activation key is released (plus the activated layer is pushed onto layer stack and then removed again)
+    - hold refers to activating a layer, waiting until the key is released and then switching back (plus the activated layer is pushed onto layer stack and then removed again)
   - implementation details:
     - layer stack contains information about switch type (held  or toggle) and a boolean which indicates whether the record is active. Once hold ends or untoggle is issued, the corresponding record (not necessarily the top record) is marked as "inactive". Whenever some record is marked inactive, all inactive records are poped from top of the stack.
     - the stack contains both layer id and keymap id. If keymap ids of previous/current records do not match, full keymap is reloaded.
@@ -331,6 +331,7 @@ The following grammar is supported:
   - `ifPending/ifNotPending <n>` is true if there is at least `n` postponed keys in the queue.
   - `ifPendingId/ifNotPendingId <idx> <keyId>` looks into postponing queue at `idx`th waiting key nad compares it to the `keyId`. 
   - `consumePending <n>` will remove n records from the queue.
+  - `consumeActive` will deactivate/suppress all currently active keys.
   - `resolveSecondary` allows resolution of secondary roles depending on the next key - this allows us to accurately distinguish random press from intentional press of shortcut via secondary role. See `resolveSecondary` entry under Layer switching. Implicitly applies `postponeKeys` modifier.
   - `ifPrimary/ifSecondary` act as an abreviation for `resolveSecondary`. They use postponing mechanism and allow distinguishing between primary and secondary roles.
   - `ifShortcut/ifNotShortcut [KEYID]*` will wait for next keypresses until the key is released. If the next keypresses correspond to the provided arguments (hardware ids), the keypresses are consumed and the condition is performed. This is shorter and simpler version of `resolveNextKeyEq`. E.g., `ifShortcut 090 089 final tapKey C-V; holdKey v`.
