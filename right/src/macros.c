@@ -2134,6 +2134,15 @@ void initialize() {
     initialized = true;
 }
 
+void loadNextAction(void) {
+    //otherwise parse next action
+    ValidatedUserConfigBuffer.offset = s->bufferOffset;
+    ParseMacroAction(&ValidatedUserConfigBuffer, &s->currentMacroAction);
+    s->bufferOffset = ValidatedUserConfigBuffer.offset;
+    s->currentConditionPassed = false;
+    s->currentIfShortcutConditionPassed = false;
+    s->currentIfSecondaryConditionPassed = false;
+}
 
 bool execMacro(uint8_t index) {
     if(AllMacros[index].macroActionsCount == 0)  {
@@ -2142,11 +2151,12 @@ bool execMacro(uint8_t index) {
     }
     s->currentMacroIndex = index;
     s->currentMacroActionIndex = 0;
-    ValidatedUserConfigBuffer.offset = AllMacros[index].firstMacroActionOffset;
-    ParseMacroAction(&ValidatedUserConfigBuffer, &s->currentMacroAction);
-    s->bufferOffset = ValidatedUserConfigBuffer.offset;
-    continueMacro();
-    return true; //this makes the above calling machinery skip loading next action for second time
+    s->bufferOffset = AllMacros[index].firstMacroActionOffset; //set offset to first action
+    loadNextAction();  //loads first action, sets offset to second action
+    uint16_t second = s->bufferOffset;
+    continueMacro();  //runs first action, loads second and sets offset to third
+    s->bufferOffset = second; //the above machinery will load next action again, therefore set second action offset again
+    return false;
 }
 
 bool callMacro(uint8_t macroIndex) {
@@ -2178,6 +2188,7 @@ void Macros_StartMacro(uint8_t index, key_state_t *keyState, uint8_t parentMacro
     s->currentMacroStartTime = CurrentTime;
     s->currentConditionPassed = false;
     s->currentIfShortcutConditionPassed = false;
+    s->currentIfSecondaryConditionPassed = false;
     s->reportsUsed = false;
     s->postponeNext = 0;
     s->postponingNow = false;
@@ -2217,12 +2228,7 @@ void continueMacro(void)
         }
         return;
     }
-    //otherwise parse next action
-    ValidatedUserConfigBuffer.offset = s->bufferOffset;
-    ParseMacroAction(&ValidatedUserConfigBuffer, &s->currentMacroAction);
-    s->bufferOffset = ValidatedUserConfigBuffer.offset;
-    s->currentConditionPassed = false;
-    s->currentIfShortcutConditionPassed = false;
+    loadNextAction();
 }
 
 
