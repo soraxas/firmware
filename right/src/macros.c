@@ -46,6 +46,7 @@ static macro_state_t *s = MacroState;
 static uint16_t doubletapConditionTimeout = 300;
 
 
+int32_t parseNUM(const char *a, const char *aEnd);
 bool processCommand(const char* cmd, const char* cmdEnd);
 void continueMacro(void);
 bool execMacro(uint8_t macroIndex);
@@ -393,16 +394,32 @@ bool processClearStatusCommand()
 }
 
 //textEnd is allowed to be null if text is null-terminated
-void Macros_SetStatusString(const char* text, const char *textEnd)
+void setStatusStringInterpolated(const char* text, const char *textEnd, bool interpolated)
 {
     if(statusBufferPrinting) {
         return;
     }
     while(*text && statusBufferLen < STATUS_BUFFER_MAX_LENGTH && (text < textEnd || textEnd == NULL)) {
-        statusBuffer[statusBufferLen] = *text;
-        text++;
-        statusBufferLen++;
+        if(*text == '#' && interpolated) {
+            int32_t parsed = parseNUM(text, textEnd);
+            text = TokEnd(text, textEnd);
+            Macros_SetStatusNum(parsed);
+        } else {
+            statusBuffer[statusBufferLen] = *text;
+            text++;
+            statusBufferLen++;
+        }
     }
+}
+
+void Macros_SetStatusString(const char* text, const char *textEnd)
+{
+    setStatusStringInterpolated(text, textEnd, false);
+}
+
+void Macros_SetStatusStringInterpolated(const char* text, const char *textEnd)
+{
+    setStatusStringInterpolated(text, textEnd, true);
 }
 
 void Macros_SetStatusBool(bool b)
@@ -1095,7 +1112,7 @@ bool processPrintStatusCommand()
 
 bool processSetStatusCommand(const char* arg, const char *argEnd)
 {
-    Macros_SetStatusString(arg, argEnd);
+    Macros_SetStatusStringInterpolated(arg, argEnd);
     Macros_SetStatusString("\n", NULL);
     return false;
 }
