@@ -48,7 +48,7 @@ static uint16_t doubletapConditionTimeout = 300;
 
 int32_t parseNUM(const char *a, const char *aEnd);
 bool processCommand(const char* cmd, const char* cmdEnd);
-void continueMacro(void);
+bool continueMacro(void);
 bool execMacro(uint8_t macroIndex);
 bool callMacro(uint8_t macroIndex);
 
@@ -2187,9 +2187,18 @@ bool execMacro(uint8_t index) {
     s->bufferOffset = AllMacros[index].firstMacroActionOffset; //set offset to first action
     loadNextAction();  //loads first action, sets offset to second action
     uint16_t second = s->bufferOffset;
-    continueMacro();  //runs first action, loads second and sets offset to third
-    s->bufferOffset = second; //the above machinery will load next action again, therefore set second action offset again
-    return false;
+    if(continueMacro())  //runs first action, loads second and sets offset to third
+    {
+        //Our action is in progress and didn't parse second action;
+        //Our callee won't parse second action and will set condition flags to true;
+        return true;
+    } else {
+        //Our action has finished and therefore parsed second action. Buffer therefore points to third.
+        //Our callee is going to parse one action, we therefore have to reset bufferOffset to second action (which was already parsed by our action)
+        s->bufferOffset = second;
+        s->currentMacroActionIndex = 0;
+        return false;
+    }
 }
 
 bool callMacro(uint8_t macroIndex) {
@@ -2241,12 +2250,12 @@ void Macros_StartMacro(uint8_t index, key_state_t *keyState, uint8_t parentMacro
     s = NULL;
 }
 
-void continueMacro(void)
+bool continueMacro(void)
 {
     PostponeKeys |= s->postponeNext > 0;
     if (processCurrentMacroAction() && !s->macroBroken) {
         //if action consists of multiple subactions, break here
-        return;
+        return true;
     }
     s->postponeNext = s->postponeNext > 0 ? s->postponeNext - 1 : 0;
     if (++s->currentMacroActionIndex >= AllMacros[s->currentMacroIndex].macroActionsCount || s->macroBroken) {
@@ -2259,9 +2268,10 @@ void continueMacro(void)
         if(s->parentMacroSlot != 255) {
             MacroState[s->parentMacroSlot].macroSleeping = false;
         }
-        return;
+        return false;
     }
     loadNextAction();
+    return false;
 }
 
 
