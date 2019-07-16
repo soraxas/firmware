@@ -1505,7 +1505,7 @@ bool processResolveNextKeyEqCommand(const char* arg1, const char* argEnd) {
     }
 }
 
-bool processIfShortcutCommand(bool negate, const char* arg, const char* argEnd, bool untilRelease) {
+bool processIfShortcutCommand(bool negate, const char* arg, const char* argEnd, bool untilRelease, bool consume) {
     if(s->currentIfShortcutConditionPassed) {
         if(s->currentConditionPassed) {
             goto conditionPassed;
@@ -1541,10 +1541,14 @@ bool processIfShortcutCommand(bool negate, const char* arg, const char* argEnd, 
         }
     }
     if(negate) {
-        Postponer_ConsumePending(numArgs, true);
+        if(consume) {
+            Postponer_ConsumePending(numArgs, true);
+        }
         return false;
     } else {
-        Postponer_ConsumePending(numArgs, true);
+        if(consume) {
+            Postponer_ConsumePending(numArgs, true);
+        }
         goto conditionPassed;
     }
 conditionPassed:
@@ -1887,16 +1891,28 @@ bool processCommand(const char* cmd, const char* cmdEnd)
                 return processIfSecondaryCommand(true, arg1, cmdEnd);
             }
             else if(TokenMatches(cmd, cmdEnd, "ifShortcut")) {
-                return processIfShortcutCommand(false, arg1, cmdEnd, true);
+                return processIfShortcutCommand(false, arg1, cmdEnd, true, true);
             }
             else if(TokenMatches(cmd, cmdEnd, "ifNotShortcut")) {
-                return processIfShortcutCommand(true, arg1, cmdEnd, true);
+                return processIfShortcutCommand(true, arg1, cmdEnd, true, true);
+            }
+            else if(TokenMatches(cmd, cmdEnd, "ifPressedWith")) {
+                return processIfShortcutCommand(false, arg1, cmdEnd, true, false);
+            }
+            else if(TokenMatches(cmd, cmdEnd, "ifNotPressedWith")) {
+                return processIfShortcutCommand(true, arg1, cmdEnd, true, false);
             }
             else if(TokenMatches(cmd, cmdEnd, "ifGesture")) {
-                return processIfShortcutCommand(false, arg1, cmdEnd, false);
+                return processIfShortcutCommand(false, arg1, cmdEnd, false, true);
             }
             else if(TokenMatches(cmd, cmdEnd, "ifNotGesture")) {
-                return processIfShortcutCommand(true, arg1, cmdEnd, false);
+                return processIfShortcutCommand(true, arg1, cmdEnd, false, true);
+            }
+            else if(TokenMatches(cmd, cmdEnd, "ifFollowedBy")) {
+                return processIfShortcutCommand(false, arg1, cmdEnd, false, false);
+            }
+            else if(TokenMatches(cmd, cmdEnd, "ifNotFollowedBy")) {
+                return processIfShortcutCommand(true, arg1, cmdEnd, false, false);
             }
             else {
                 goto failed;

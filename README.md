@@ -236,6 +236,7 @@ The following grammar is supported:
     CONDITION = {ifRecordingId | ifNotRecordingId} MACROID
     CONDITION = {ifShortcut | ifNotShortcut} [KEYID]*
     CONDITION = {ifGesture | ifNotGesture} [KEYID]*
+    CONDITION = {ifFollowedBy | ifNotFollowedBy} [KEYID]*
     CONDITION = {ifPrimary | ifSecondary}
     MODIFIER = suppressMods
     MODIFIER = suppressKeys
@@ -335,7 +336,9 @@ The following grammar is supported:
   - `resolveSecondary` allows resolution of secondary roles depending on the next key - this allows us to accurately distinguish random press from intentional press of shortcut via secondary role. See `resolveSecondary` entry under Layer switching. Implicitly applies `postponeKeys` modifier.
   - `ifPrimary/ifSecondary` act as an abreviation for `resolveSecondary`. They use postponing mechanism and allow distinguishing between primary and secondary roles.
   - `ifShortcut/ifNotShortcut [KEYID]*` will wait for next keypresses until the key is released. If the next keypresses correspond to the provided arguments (hardware ids), the keypresses are consumed and the condition is performed. This is shorter and simpler version of `resolveNextKeyEq`. E.g., `ifShortcut 090 089 final tapKey C-V; holdKey v`.
+  - `ifPressedWith/ifNotPressedWith [KEYID]*` is a non-consuming version of `ifShortcut`.
   - `ifGesture/ifNotGesture [KEYID]*` just as `ifShortcut`, but breaks after 1000ms instead of when the key is released.
+  - `ifFollowedBy/ifNotFollowedBy [KEYID]*` is a non-consuming version of `ifGesture`.
   - `resolveNextKeyEq <queue idx> <key id> <timeout> <adr1> <adr2>` will wait for next (n) key press(es). When the key press happens, it will compare its id with the `<key id>` argument. If the id equals, it issues goto to adr1. Otherwise, to adr2. See examples. Implicitly applies `postponeKeys` modifier.
     - `arg1 - queue idx` idx of key to compare, indexed from 0. Typically 0, if we want to resolve the key after next key then 1, etc.
     - `arg2 - key id` key id obtained by `resolveNextKeyId`. This is static identifier of the hardware key.
@@ -355,6 +358,7 @@ The following grammar is supported:
   - `ifRecording/ifNotRecording` and `ifRecordingId/ifNotRecordingId <macro id>` test if the runtime macro recorder is in recording state. 
   - `ifShortcut/ifNotShortcut [KEYID]*` will wait for next keypresses and compare them to the argument. See postponer mechanism section.
   - `ifGesture/ifNotGesture [KEYID]*` just as `ifShortcut`, but breaks after 1000ms instead of when the key is released.
+  - `ifPressedWith/ifNotPressedWith/ifFollowedBy/ifNotFollowedBy` are nonconsuming versions of `ifShortcut` and `ifGesture`.
   - `ifPrimary/ifSecondary` act as an abreviation for `resolveSecondary`. They use postponing mechanism and allow distinguishing between primary and secondary roles.
 - `MODIFIER`s modify behaviour of the rest of the keyboard while the rest of the command is active (e.g., a delay) is active.
   - `suppressMods` will supress any modifiers except those applied via macro engine. Can be used to remap shift and nonShift characters independently.
