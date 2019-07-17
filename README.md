@@ -237,6 +237,7 @@ The following grammar is supported:
     CONDITION = {ifShortcut | ifNotShortcut} [KEYID]*
     CONDITION = {ifGesture | ifNotGesture} [KEYID]*
     CONDITION = {ifFollowedBy | ifNotFollowedBy} [KEYID]*
+    CONDITION = {ifPressedWith | ifNotPressedWith} [KEYID]*
     CONDITION = {ifPrimary | ifSecondary}
     MODIFIER = suppressMods
     MODIFIER = suppressKeys
