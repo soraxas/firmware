@@ -1505,7 +1505,34 @@ bool processResolveNextKeyEqCommand(const char* arg1, const char* argEnd) {
     }
 }
 
-bool processIfShortcutCommand(bool negate, const char* arg, const char* argEnd, bool untilRelease, bool consume) {
+bool processIfShortcutCommand(bool negate, const char* arg, const char* argEnd, bool untilRelease) {
+    //parse optional flags
+    bool consume = true;
+    bool transitive = false;
+    uint16_t cancelIn = 0;
+    uint16_t timeoutIn= 0;
+    while(arg < argEnd && !isNUM(arg, argEnd)) {
+        if(TokenMatches(arg, argEnd, "noConsume")) {
+            arg = NextTok(arg, argEnd);
+            consume = false;
+        } else if(TokenMatches(arg, argEnd, "transitive")) {
+            arg = NextTok(arg, argEnd);
+            transitive = true;
+        } else if(TokenMatches(arg, argEnd, "timeoutIn")) {
+            arg = NextTok(arg, argEnd);
+            timeoutIn = parseNUM(arg, argEnd);
+            arg = NextTok(arg, argEnd);
+        } else if(TokenMatches(arg, argEnd, "cancelIn")) {
+            arg = NextTok(arg, argEnd);
+            cancelIn = parseNUM(arg, argEnd);
+            arg = NextTok(arg, argEnd);
+        } else {
+            Macros_ReportError("Unrecognized option", arg, argEnd);
+            arg = NextTok(arg, argEnd);
+        }
+    }
+
+    //
     if(s->currentIfShortcutConditionPassed) {
         if(s->currentConditionPassed) {
             goto conditionPassed;
@@ -1514,17 +1541,32 @@ bool processIfShortcutCommand(bool negate, const char* arg, const char* argEnd, 
         }
     }
 
+    //parse and check KEYIDs
     postponeCurrentCycle();
     uint8_t pendingCount = Postponer_PendingCount();
     uint8_t numArgs = 0;
+    bool someoneNotReleased = false;
     while(isNUM(arg, argEnd) && arg < argEnd) {
         numArgs++;
         uint8_t argKeyid = parseNUM(arg, argEnd);
         arg = NextTok(arg, argEnd);
         if(pendingCount < numArgs) {
-            if((untilRelease && currentMacroKeyIsActive()) || (!untilRelease && Timer_GetElapsedTime(&s->currentMacroStartTime) < 1000)) {
+            uint32_t referenceTime = transitive && pendingCount > 0 ? Postponer_LastPressTime() : s->currentMacroStartTime;
+            uint16_t elapsedSinceReference = Timer_GetElapsedTime(&referenceTime);
+
+            bool shortcutTimedOut = untilRelease && !currentMacroKeyIsActive() && (!transitive || !someoneNotReleased);
+            bool gestureDefaultTimedOut = !untilRelease && cancelIn == 0 && timeoutIn == 0 && elapsedSinceReference > 1000;
+            bool cancelInTimedOut = cancelIn != 0 && elapsedSinceReference > cancelIn;
+            bool timeoutInTimedOut = timeoutIn != 0 && elapsedSinceReference > timeoutIn;
+            if(!shortcutTimedOut && !gestureDefaultTimedOut && !cancelInTimedOut && !timeoutInTimedOut) {
                 return true;
-            } else {
+            }
+            else if(cancelInTimedOut) {
+                Postponer_ConsumePending(numArgs, true);
+                s->macroBroken = true;
+                return false;
+            }
+            else {
                 if(negate) {
                     goto conditionPassed;
                 } else {
@@ -1539,7 +1581,11 @@ bool processIfShortcutCommand(bool negate, const char* arg, const char* argEnd, 
                 return false;
             }
         }
+        else {
+            someoneNotReleased |= !Postponer_IsKeyReleased(&((key_state_t*)KeyStates)[argKeyid]);
+        }
     }
+    //all keys match
     if(negate) {
         if(consume) {
             Postponer_ConsumePending(numArgs, true);
@@ -1891,28 +1937,16 @@ bool processCommand(const char* cmd, const char* cmdEnd)
                 return processIfSecondaryCommand(true, arg1, cmdEnd);
             }
             else if(TokenMatches(cmd, cmdEnd, "ifShortcut")) {
-                return processIfShortcutCommand(false, arg1, cmdEnd, true, true);
+                return processIfShortcutCommand(false, arg1, cmdEnd, true);
             }
             else if(TokenMatches(cmd, cmdEnd, "ifNotShortcut")) {
-                return processIfShortcutCommand(true, arg1, cmdEnd, true, true);
-            }
-            else if(TokenMatches(cmd, cmdEnd, "ifPressedWith")) {
-                return processIfShortcutCommand(false, arg1, cmdEnd, true, false);
-            }
-            else if(TokenMatches(cmd, cmdEnd, "ifNotPressedWith")) {
-                return processIfShortcutCommand(true, arg1, cmdEnd, true, false);
+                return processIfShortcutCommand(true, arg1, cmdEnd, true);
             }
             else if(TokenMatches(cmd, cmdEnd, "ifGesture")) {
-                return processIfShortcutCommand(false, arg1, cmdEnd, false, true);
+                return processIfShortcutCommand(false, arg1, cmdEnd, false);
             }
             else if(TokenMatches(cmd, cmdEnd, "ifNotGesture")) {
-                return processIfShortcutCommand(true, arg1, cmdEnd, false, true);
-            }
-            else if(TokenMatches(cmd, cmdEnd, "ifFollowedBy")) {
-                return processIfShortcutCommand(false, arg1, cmdEnd, false, false);
-            }
-            else if(TokenMatches(cmd, cmdEnd, "ifNotFollowedBy")) {
-                return processIfShortcutCommand(true, arg1, cmdEnd, false, false);
+                return processIfShortcutCommand(true, arg1, cmdEnd, false);
             }
             else {
                 goto failed;

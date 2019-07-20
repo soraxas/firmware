@@ -1,12 +1,15 @@
 #include "postponer.h"
 #include "usb_report_updater.h"
 #include "macros.h"
+#include "timer.h"
 
 postponer_buffer_record_type_t buffer[POSTPONER_BUFFER_SIZE];
 uint8_t buffer_size = 0;
 uint8_t buffer_position = 0;
+
 uint8_t cycles_until_activation = 0;
 key_state_t* Postponer_NextEventKey;
+uint32_t last_press_time;
 
 #define POS(idx) ((buffer_position + (idx)) % POSTPONER_BUFFER_SIZE)
 
@@ -127,6 +130,7 @@ void Postponer_TrackKey(key_state_t *keyState, bool active) {
     buffer_size = buffer_size < POSTPONER_BUFFER_SIZE ? buffer_size + 1 : buffer_size;
     cycles_until_activation = CYCLES_PER_ACTIVATION;
     Postponer_NextEventKey = buffer_size == 1 ? buffer[buffer_position].key : Postponer_NextEventKey;
+    last_press_time = active ? CurrentTime : last_press_time;
 }
 
 uint8_t Postponer_PendingCount() {
@@ -210,4 +214,8 @@ void Postponer_PrintContent() {
         }
         Macros_SetStatusString("\n", NULL);
     }
+}
+
+uint32_t Postponer_LastPressTime() {
+    return last_press_time;
 }

@@ -44,5 +44,6 @@
     bool Postponer_RunKey(key_state_t* key, bool active);
     void Postponer_FinishCycle(void);
     void Postponer_Reset(void);
+    uint32_t Postponer_LastPressTime(void);
 
 #endif /* SRC_POSTPONER_H_ */

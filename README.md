@@ -143,14 +143,6 @@ Similar command can be used to implement "loose gestures" - i.e., shortcuts wher
     $ifGesture 085 077 final tapKey C-pageDown
     $tapKey g
 
-`resolveNextKeyEq` is more flexible but less-user friendly version of the `ifShortcut` command. It does not consume keys, allows querying for keys which are further in the queue and timeout is not limited to release of the key. The example shows a "rocker guesture" where sequence c->v is mapped to V. This is macro for the c key. Alternatively, `resolveSecondary` could be used to implement similar functionality when combined with another layer. In that case, `resolveSecondary` will require prolonged press of c in order to activate the shortcut and won't interfere with writing. This version will eat all `cv`s encountered while writing, but does not depend on proper release of the keys. Rocker guestures (implemented via `ifGesture`, `ifShortcut` or `resolveNextKeyEq`) work fine for key combinations which are not encountered in normal text, i.e., for small number of special cases. `ResolveSecondary` should be used for mapping key clusters.
-
-    $resolveNextKeyEq 0 90 untilRelease 1 4
-    $consumePending 1
-    $tapKey V
-    $break
-    $tapKey c
-
 In the above examples, `tapKey` can be (and probably should be) replaced by `holdKey`. "Hold" activates the scancode for as long as the key is pressed while "tap" activates it just for a fraction of a second. This distinction may seem unimportant, but just as long as you don't try to play some games with it.
 
 You can simplify writing macros by using `#` and `@` characters. The first resolves a number as an index of a register. The second interprets the number as a relative action index. For instance the following macro will write out five "a"s with 50 ms delays
@@ -188,7 +180,6 @@ The following grammar is supported:
     COMMAND = holdKeymapLayerMax KEYMAPID LAYERID <time in ms (NUMBER)>
     COMMAND = resolveSecondary <time in ms (NUMBER)> [<time in ms (NUMBER)>] <primary action macro action index (ADDRESS)> <secondary action macro action index (ADDRESS)>
     COMMAND = resolveNextKeyId 
-    COMMAND = resolveNextKeyEq <queue position (NUMBER)> KEYID {<time in ms>|untilRelease} <action adr (ADDRESS)> <action adr (ADDRESS)>
     COMMAND = consumePending <number of keys (NUMBER)>
     COMMAND = consumeActive 
     COMMAND = postponeNext <number of commands (NUMER)>
@@ -234,15 +225,14 @@ The following grammar is supported:
     CONDITION = {ifRegEq | ifNotRegEq} <register index (NUMBER)> <value (NUMBER)>
     CONDITION = {ifRecording | ifNotRecording}
     CONDITION = {ifRecordingId | ifNotRecordingId} MACROID
-    CONDITION = {ifShortcut | ifNotShortcut} [KEYID]*
-    CONDITION = {ifGesture | ifNotGesture} [KEYID]*
-    CONDITION = {ifFollowedBy | ifNotFollowedBy} [KEYID]*
-    CONDITION = {ifPressedWith | ifNotPressedWith} [KEYID]*
+    CONDITION = {ifShortcut | ifNotShortcut} [IFSHORTCUTFLAGS]* [KEYID]*
+    CONDITION = {ifGesture | ifNotGesture} [IFSHORTCUTFLAGS]* [KEYID]*
     CONDITION = {ifPrimary | ifSecondary}
     MODIFIER = suppressMods
     MODIFIER = suppressKeys
     MODIFIER = postponeKeys
     MODIFIER = final
+    IFSHORTCUTFLAGS = noConsume | transitive | timeoutIn <time in ms (NUMBER)> | cancelIn <time in ms(NUMBER)>
     DIRECTION = {left|right|up|down}
     LAYERID = {fn|mouse|mod|base}|last|previous
     KEYMAPID = <abbrev>|last
@@ -265,6 +255,7 @@ The following grammar is supported:
     ############
     COMMAND = switchLayer LAYERID
     COMMAND = switchKeymapLayer KEYMAPID LAYERID
+    COMMAND = resolveNextKeyEq <queue position (NUMBER)> KEYID {<time in ms>|untilRelease} <action adr (ADDRESS)> <action adr (ADDRESS)>
 
 - Uncategorized commands:
   - `setLedTxt <time> <custom text>` will set led display to supplemented text for the given time. (Blocks for the given time.)
@@ -336,11 +327,15 @@ The following grammar is supported:
   - `consumeActive` will deactivate/suppress all currently active keys.
   - `resolveSecondary` allows resolution of secondary roles depending on the next key - this allows us to accurately distinguish random press from intentional press of shortcut via secondary role. See `resolveSecondary` entry under Layer switching. Implicitly applies `postponeKeys` modifier.
   - `ifPrimary/ifSecondary` act as an abreviation for `resolveSecondary`. They use postponing mechanism and allow distinguishing between primary and secondary roles.
-  - `ifShortcut/ifNotShortcut [KEYID]*` will wait for next keypresses until the key is released. If the next keypresses correspond to the provided arguments (hardware ids), the keypresses are consumed and the condition is performed. This is shorter and simpler version of `resolveNextKeyEq`. E.g., `ifShortcut 090 089 final tapKey C-V; holdKey v`.
-  - `ifPressedWith/ifNotPressedWith [KEYID]*` is a non-consuming version of `ifShortcut`.
-  - `ifGesture/ifNotGesture [KEYID]*` just as `ifShortcut`, but breaks after 1000ms instead of when the key is released.
-  - `ifFollowedBy/ifNotFollowedBy [KEYID]*` is a non-consuming version of `ifGesture`.
-  - `resolveNextKeyEq <queue idx> <key id> <timeout> <adr1> <adr2>` will wait for next (n) key press(es). When the key press happens, it will compare its id with the `<key id>` argument. If the id equals, it issues goto to adr1. Otherwise, to adr2. See examples. Implicitly applies `postponeKeys` modifier.
+  - `ifShortcut/ifNotShortcut/ifGesture/ifNotGesture [IFSHORTCUTFLAGS]* [KEYID]*` will wait for next keypresses until sufficient number of keys has been pressed. If the next keypresses correspond to the provided arguments (hardware ids), the keypresses are consumed and the condition is performed. E.g., `ifShortcut 090 089 final tapKey C-V; holdKey v`. 
+    - `Shortcut` requires continual press of keys (e.g., like Ctrl+c). By default, timeouts with release of the activation key.
+    - `Gesture` allows noncontinual sequence of keys (e.g., vim's gg). By default, timeouts in 1000 ms since activation.
+    - `IFSHORTCUTFLAGS`:
+      - `noConsume` allows not consuming the keys. Useful if the next action is a standalone action, yet we want to branch behaviour of current action depending on it. 
+      - `transitive` makes termination conditions relate to any of the referenced keys (normally, they always refer to the activation key) - e.g., in transitive mode, first key can be released if second key is being held. Timers count time since last performed action in this mode. Both `timeoutIn` and `cancelIn` behave according to this flag.
+      - `timeoutIn <time (NUMBER)>` adds a timeout timer to both `Shortcut` and `Gesture` commands. If the timer times out (i.e., the condition does not suceed or fail earlier), the command continues as if matching KEYIDs failed. Can be used to shorten life of `Shortcut` resolution.
+      - `cancelIn <time (NUMBER)>` adds a timer to both commands. If this timer times out, all related keys are consumed and macro is broken. *"This action has never happened, lets not talk about it anymore."* (Note that this is an only condition which behaves same in both `if` and `ifNot` cases.)
+  - DEPRECATED (use `ifShortcut/ifGesture` instead) `resolveNextKeyEq <queue idx> <key id> <timeout> <adr1> <adr2>` will wait for next (n) key press(es). When the key press happens, it will compare its id with the `<key id>` argument. If the id equals, it issues goto to adr1. Otherwise, to adr2. See examples. Implicitly applies `postponeKeys` modifier.
     - `arg1 - queue idx` idx of key to compare, indexed from 0. Typically 0, if we want to resolve the key after next key then 1, etc.
     - `arg2 - key id` key id obtained by `resolveNextKeyId`. This is static identifier of the hardware key.
     - `arg3 - timeout` timeout. If not enough keys is pressed within the time, goto to `arg5` is issued. Either number in ms, or `untilRelease`.
@@ -357,9 +352,8 @@ The following grammar is supported:
   - `ifShift/ifAlt/ifCtrl/ifGui/ifAnyMod/ifNotShift/ifNotAlt/ifNotCtrl/ifNotGui/ifNotAnyMod` is true if either right or left modifier was held in the previous update cycle. This does not indicate modifiers which were triggered from macroes. 
   - `{ifRegEq|ifNotRegEq} <register inex> <value>` will test if the value in the register identified by first argument equals second argument.
   - `ifRecording/ifNotRecording` and `ifRecordingId/ifNotRecordingId <macro id>` test if the runtime macro recorder is in recording state. 
-  - `ifShortcut/ifNotShortcut [KEYID]*` will wait for next keypresses and compare them to the argument. See postponer mechanism section.
-  - `ifGesture/ifNotGesture [KEYID]*` just as `ifShortcut`, but breaks after 1000ms instead of when the key is released.
-  - `ifPressedWith/ifNotPressedWith/ifFollowedBy/ifNotFollowedBy` are nonconsuming versions of `ifShortcut` and `ifGesture`.
+  - `ifShortcut/ifNotShortcut [IFSHORTCUTFLAGS]* [KEYID]*` will wait for next keypresses and compare them to the argument. See postponer mechanism section.
+  - `ifGesture/ifNotGesture [IFSHORTCUTFLAGS]* [KEYID]*` just as `ifShortcut`, but breaks after 1000ms instead of when the key is released. See postponer mechanism section.
   - `ifPrimary/ifSecondary` act as an abreviation for `resolveSecondary`. They use postponing mechanism and allow distinguishing between primary and secondary roles.
 - `MODIFIER`s modify behaviour of the rest of the keyboard while the rest of the command is active (e.g., a delay) is active.
   - `suppressMods` will supress any modifiers except those applied via macro engine. Can be used to remap shift and nonShift characters independently.
