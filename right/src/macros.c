@@ -555,6 +555,7 @@ bool isNUM(const char *a, const char *aEnd) {
     case '#':
     case '-':
     case '@':
+    case '%':
         return true;
     default:
         return false;
@@ -574,6 +575,15 @@ int32_t parseNUM(const char *a, const char *aEnd)
         } else {
             return 0;
         }
+    }
+    else if(*a == '%') {
+        a++;
+        uint8_t idx = parseNUM(a, aEnd);
+        if(idx >= Postponer_PendingCount()) {
+            Macros_ReportError("Not enough pending keys! Note that this is zero-indexed!",  NULL,  NULL);
+            return 0;
+        }
+        return Postponer_PendingId(idx);
     }
     else if(*a == '@') {
         a++;
@@ -1582,7 +1592,7 @@ bool processIfShortcutCommand(bool negate, const char* arg, const char* argEnd, 
             }
         }
         else {
-            someoneNotReleased |= !Postponer_IsKeyReleased(&((key_state_t*)KeyStates)[argKeyid]);
+            someoneNotReleased |= !Postponer_IsKeyReleased(Postponer_KeyState(argKeyid));
         }
     }
     //all keys match
@@ -1606,12 +1616,35 @@ conditionPassed:
     return processCommand(arg, argEnd);
 }
 
-bool processIfPendingIdCommand(bool negate, const char* arg1, const char* argEnd) {
+bool processifKeyPendingAtCommand(bool negate, const char* arg1, const char* argEnd) {
     const char* arg2 = NextTok(arg1, argEnd);
     uint16_t idx = parseNUM(arg1, argEnd);
     uint16_t key = parseNUM(arg2, argEnd);
 
     return (Postponer_PendingId(idx) == key) != negate;
+}
+
+bool processifKeyActiveCommand(bool negate, const char* arg1, const char* argEnd) {
+    uint16_t keyid = parseNUM(arg1, argEnd);
+    key_state_t* key = Postponer_KeyState(keyid);
+    return ACTIVE(key) != negate;
+}
+
+bool processifKeyDefinedCommand(bool negate, const char* arg1, const char* argEnd) {
+    uint16_t keyid = parseNUM(arg1, argEnd);
+    uint8_t slot;
+    uint8_t slotIdx;
+    Postponer_DecodeId(keyid, &slot, &slotIdx);
+    key_action_t* action = &CurrentKeymap[ToggledLayer][slot][slotIdx];
+    return (action->type != KeyActionType_None) != negate;
+}
+
+bool processActivateKeyPostponedCommand(const char* arg1, const char* argEnd) {
+    uint16_t keyid = parseNUM(arg1, argEnd);
+    key_state_t* key = Postponer_KeyState(keyid);
+    Postponer_TrackKey(key, true);
+    Postponer_TrackKey(key, false);
+    return false;
 }
 
 bool processConsumePendingCommand(const char* arg1, const char* argEnd) {
@@ -1643,8 +1676,8 @@ bool processRepeatForCommand(const char* arg1, const char* argEnd) {
 }
 
 bool processSetEmergencyKeyCommand(const char* arg1, const char* argEnd) {
-    uint8_t key = parseNUM(arg1, argEnd);
-    EmergencyKey = &(((key_state_t*)KeyStates)[key]);
+    uint16_t key = parseNUM(arg1, argEnd);
+    EmergencyKey = Postponer_KeyState(key);
     return false;
 }
 
@@ -1674,6 +1707,9 @@ bool processCommand(const char* cmd, const char* cmdEnd)
         case 'a':
             if(TokenMatches(cmd, cmdEnd, "addReg")) {
                 return processRegAddCommand(arg1, cmdEnd, false);
+            }
+            else if(TokenMatches(cmd, cmdEnd, "activateKeyPostponed")) {
+                return processActivateKeyPostponedCommand(arg1, cmdEnd);
             }
             else {
                 goto failed;
@@ -1914,20 +1950,48 @@ bool processCommand(const char* cmd, const char* cmdEnd)
                 cmd = arg1;
                 arg1 = NextTok(cmd, cmdEnd);
             }
-            else if(TokenMatches(cmd, cmdEnd, "ifPendingId")) {
-                if(!processIfPendingIdCommand(false, arg1, cmdEnd) && !s->currentConditionPassed) {
+            else if(TokenMatches(cmd, cmdEnd, "ifKeyPendingAt")) {
+                if(!processifKeyPendingAtCommand(false, arg1, cmdEnd) && !s->currentConditionPassed) {
                     return false;
                 }
                 //shift by two
                 cmd = NextTok(arg1, cmdEnd);
                 arg1 = NextTok(cmd, cmdEnd);
             }
-            else if(TokenMatches(cmd, cmdEnd, "ifNotPendingId")) {
-                if(!processIfPendingIdCommand(true, arg1, cmdEnd) && !s->currentConditionPassed) {
+            else if(TokenMatches(cmd, cmdEnd, "ifNotKeyPendingAt")) {
+                if(!processifKeyPendingAtCommand(true, arg1, cmdEnd) && !s->currentConditionPassed) {
                     return false;
                 }
                 //shift by two
                 cmd = NextTok(arg1, cmdEnd);
+                arg1 = NextTok(cmd, cmdEnd);
+            }
+            else if(TokenMatches(cmd, cmdEnd, "ifKeyActive")) {
+                if(!processifKeyActiveCommand(false, arg1, cmdEnd) && !s->currentConditionPassed) {
+                    return false;
+                }
+                cmd = arg1;
+                arg1 = NextTok(cmd, cmdEnd);
+            }
+            else if(TokenMatches(cmd, cmdEnd, "ifNotKeyActive")) {
+                if(!processifKeyActiveCommand(true, arg1, cmdEnd) && !s->currentConditionPassed) {
+                    return false;
+                }
+                cmd = arg1;
+                arg1 = NextTok(cmd, cmdEnd);
+            }
+            else if(TokenMatches(cmd, cmdEnd, "ifKeyDefined")) {
+                if(!processifKeyDefinedCommand(false, arg1, cmdEnd) && !s->currentConditionPassed) {
+                    return false;
+                }
+                cmd = arg1;
+                arg1 = NextTok(cmd, cmdEnd);
+            }
+            else if(TokenMatches(cmd, cmdEnd, "ifNotKeyDefined")) {
+                if(!processifKeyDefinedCommand(true, arg1, cmdEnd) && !s->currentConditionPassed) {
+                    return false;
+                }
+                cmd = arg1;
                 arg1 = NextTok(cmd, cmdEnd);
             }
             else if(TokenMatches(cmd, cmdEnd, "ifSecondary")) {

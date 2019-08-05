@@ -181,6 +181,12 @@ bool Postponer_IsPendingReleased() {
     return Postponer_IsKeyReleased(getPending(0));
 }
 
+//this is noop at the moment, prepared for time when MAX_KEY_COUNT_PER_MODULE changes
+//the purpose is to preserve current keyids
+uint16_t recodeId(uint16_t newFormat, uint16_t fromBase, uint16_t toBase) {
+    return toBase * (newFormat / fromBase) + (newFormat % fromBase);
+}
+
 uint16_t Postponer_KeyId(key_state_t* key) {
     if(key == NULL) {
         return 0;
@@ -188,10 +194,21 @@ uint16_t Postponer_KeyId(key_state_t* key) {
     uint32_t ptr1 = (uint32_t)(key_state_t*)key;
     uint32_t ptr2 = (uint32_t)(key_state_t*)&(KeyStates[0][0]);
     uint32_t res = (ptr1 - ptr2) / sizeof(key_state_t);
-    return res;
+    return recodeId(res, MAX_KEY_COUNT_PER_MODULE, 64);
 }
 
-uint16_t Postponer_PendingId(int idx) {
+key_state_t* Postponer_KeyState(uint16_t keyid) {
+    return &(((key_state_t*)KeyStates)[recodeId(keyid, 64, MAX_KEY_COUNT_PER_MODULE)]);
+}
+
+void Postponer_DecodeId(uint16_t keyid, uint8_t* outSlotId, uint8_t* outSlotIdx) {
+    //we want to guarantee that slot ids will remain the same even if slot size
+    //changes in the future, therefore hardcoded 64 is indeed correct
+    *outSlotId = keyid/64;
+    *outSlotIdx = keyid%64;
+}
+
+uint16_t Postponer_PendingId(uint16_t idx) {
     return Postponer_KeyId(getPending(idx));
 }
 
