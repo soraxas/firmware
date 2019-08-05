@@ -35,7 +35,7 @@
     uint8_t Postponer_PendingCount();
     bool Postponer_IsActive(void);
     bool Postponer_Overflowing(void);
-    bool Postponer_IsPendingReleased();
+    bool Postponer_IsPendingReleased(uint8_t idx);
     bool Postponer_IsKeyReleased(key_state_t* key);
     uint16_t Postponer_PendingId(uint16_t idx);
     uint16_t Postponer_KeyId(key_state_t* key);

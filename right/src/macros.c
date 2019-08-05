@@ -1345,10 +1345,11 @@ bool processNoOpCommand()
 
 uint8_t processResolveSecondary(uint16_t timeout1, uint16_t timeout2) {
     postponeCurrentCycle();
+    bool pendingReleased = Postponer_IsPendingReleased(0);
 
     //phase 1 - wait until some other key is released, then write down its release time
     bool timer1Exceeded = Timer_GetElapsedTime(&s->currentMacroStartTime) >= timeout1;
-    if(!timer1Exceeded && currentMacroKeyIsActive() && !Postponer_IsPendingReleased()) {
+    if(!timer1Exceeded && currentMacroKeyIsActive() && !pendingReleased) {
         s->resolveSecondaryPhase2StartTime = 0;
         return RESOLVESEC_RESULT_DONTKNOWYET;
     }
@@ -1357,11 +1358,11 @@ uint8_t processResolveSecondary(uint16_t timeout1, uint16_t timeout2) {
     }
     //phase 2 - "safety margin" - wait another `timeout2` ms, and if the switcher is released during this time, still interpret it as a primary action
     bool timer2Exceeded = Timer_GetElapsedTime(&s->resolveSecondaryPhase2StartTime) >= timeout2;
-    if(!timer1Exceeded && !timer2Exceeded && currentMacroKeyIsActive() && Postponer_IsPendingReleased() && Postponer_PendingCount() < 3) {
+    if(!timer1Exceeded && !timer2Exceeded && currentMacroKeyIsActive() && pendingReleased && Postponer_PendingCount() < 3) {
         return RESOLVESEC_RESULT_DONTKNOWYET;
     }
     //phase 3 - resolve the situation - if the switcher is released first or within the "safety margin", interpret it as primary action, otherwise secondary
-    if(timer1Exceeded || (Postponer_IsPendingReleased() && timer2Exceeded)) {
+    if(timer1Exceeded || (pendingReleased && timer2Exceeded)) {
         return RESOLVESEC_RESULT_SECONDARY;
     }
     else {
@@ -1628,6 +1629,11 @@ bool processifKeyActiveCommand(bool negate, const char* arg1, const char* argEnd
     uint16_t keyid = parseNUM(arg1, argEnd);
     key_state_t* key = Postponer_KeyState(keyid);
     return ACTIVE(key) != negate;
+}
+
+bool processifPendingKeyReleasedCommand(bool negate, const char* arg1, const char* argEnd) {
+    uint16_t idx = parseNUM(arg1, argEnd);
+    return Postponer_IsPendingReleased(idx) != negate;
 }
 
 bool processifKeyDefinedCommand(bool negate, const char* arg1, const char* argEnd) {
@@ -1975,6 +1981,20 @@ bool processCommand(const char* cmd, const char* cmdEnd)
             }
             else if(TokenMatches(cmd, cmdEnd, "ifNotKeyActive")) {
                 if(!processifKeyActiveCommand(true, arg1, cmdEnd) && !s->currentConditionPassed) {
+                    return false;
+                }
+                cmd = arg1;
+                arg1 = NextTok(cmd, cmdEnd);
+            }
+            else if(TokenMatches(cmd, cmdEnd, "ifPendingKeyReleased")) {
+                if(!processifPendingKeyReleasedCommand(false, arg1, cmdEnd) && !s->currentConditionPassed) {
+                    return false;
+                }
+                cmd = arg1;
+                arg1 = NextTok(cmd, cmdEnd);
+            }
+            else if(TokenMatches(cmd, cmdEnd, "ifNotPendingKeyReleased")) {
+                if(!processifPendingKeyReleasedCommand(true, arg1, cmdEnd) && !s->currentConditionPassed) {
                     return false;
                 }
                 cmd = arg1;

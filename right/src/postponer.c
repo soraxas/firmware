@@ -177,8 +177,8 @@ key_state_t* getPending(uint8_t n) {
     }
 }
 
-bool Postponer_IsPendingReleased() {
-    return Postponer_IsKeyReleased(getPending(0));
+bool Postponer_IsPendingReleased(uint8_t idx) {
+    return Postponer_IsKeyReleased(getPending(idx));
 }
 
 //this is noop at the moment, prepared for time when MAX_KEY_COUNT_PER_MODULE changes
