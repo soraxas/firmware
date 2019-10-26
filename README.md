@@ -171,10 +171,10 @@ You can simplify writing macros by using `#` and `@` characters. The first resol
 
 ## Example Keymaps
 
-I am including my user config in examples/mirroring_keymap.json as an advanced example of abilities of UHK with this firmware. Some basic documentation is included within the keymap as description of layers in Agent.
+I am including my user config in [examples/mirroring_keymap.json](examples/mirroring_keymap.json) as an advanced example of abilities of UHK with this firmware. Some basic documentation is included within the keymap as description of layers in Agent.
 
 Main features:
-- Mirroring setup which allows you to write right-hand key by your left hand. (And generally, to use all other features.)
+- Mirroring setup which allows you to use right-hand keys by your left hand. (And generally, to use all other features.)
 - Experimental subset of VIM bindings. Possibly buggy, incomplete and maybe even dangerous. 
 - Some application-specific auxiliaries.
 
