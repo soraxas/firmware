@@ -426,7 +426,7 @@ This version of firmware includes basic error handling. If an error is encounter
 
 ## Known issues/limitations
 
-Bugs and features Of this firmware:
+Bugs and features of this firmware:
 - Layers can be untoggled only via macro or "toggle" feature. The combined hold/doubletap will *not* release layer toggle (this is bug of the official firmware, waiting for reply from devs).  
 - Generally, interaction of legacy layer switching mechanisms with the newly implemented ones is not very well tested. Therefore, we advise you to use only one of the mechanisms in each of your layer systems. Of course, you are welcome to test and report problems.
 - Only one-liners are allowed, due to our need to respect firmware's indexation of actions.
