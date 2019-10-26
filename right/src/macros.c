@@ -1346,10 +1346,11 @@ bool processNoOpCommand()
 uint8_t processResolveSecondary(uint16_t timeout1, uint16_t timeout2) {
     postponeCurrentCycle();
     bool pendingReleased = Postponer_IsPendingReleased(0);
+    bool currentKeyIsActive = currentMacroKeyIsActive();
 
     //phase 1 - wait until some other key is released, then write down its release time
     bool timer1Exceeded = Timer_GetElapsedTime(&s->currentMacroStartTime) >= timeout1;
-    if(!timer1Exceeded && currentMacroKeyIsActive() && !pendingReleased) {
+    if(!timer1Exceeded && currentKeyIsActive && !pendingReleased) {
         s->resolveSecondaryPhase2StartTime = 0;
         return RESOLVESEC_RESULT_DONTKNOWYET;
     }
@@ -1358,7 +1359,7 @@ uint8_t processResolveSecondary(uint16_t timeout1, uint16_t timeout2) {
     }
     //phase 2 - "safety margin" - wait another `timeout2` ms, and if the switcher is released during this time, still interpret it as a primary action
     bool timer2Exceeded = Timer_GetElapsedTime(&s->resolveSecondaryPhase2StartTime) >= timeout2;
-    if(!timer1Exceeded && !timer2Exceeded && currentMacroKeyIsActive() && pendingReleased && Postponer_PendingCount() < 3) {
+    if(!timer1Exceeded && !timer2Exceeded &&  currentKeyIsActive && pendingReleased && Postponer_PendingCount() < 3) {
         return RESOLVESEC_RESULT_DONTKNOWYET;
     }
     //phase 3 - resolve the situation - if the switcher is released first or within the "safety margin", interpret it as primary action, otherwise secondary
