@@ -29,16 +29,18 @@ Some of the usecases which can be achieved via these commands are:
     
 ## Getting started
 
-1) Flash the firmware. You will find the newest firmware release under "code/releases" tab of github. I.e., at https://github.com/kareltucek/firmware/releases/ .
+1) Flash the firmware via Agent. You will find the newest firmware release under "code/releases" tab of github. I.e., at https://github.com/kareltucek/firmware/releases/ .
 
 2) Create some macro. Enter each command as a single text action. All action types
 can be combined. E.g.:
 
-![Example macro showing double-shift-to-caps lock.](https://github.com/kareltucek/firmware/raw/master/macroExample.png)
+    ![Example macro showing double-shift-to-caps lock.](https://github.com/kareltucek/firmware/raw/master/macroExample.png)
+
+    If you are on Mac, this macro won't work. See known issues and examples.
 
 3) Understanding this readme:
 
-    - Go through the sections of the reference manual - just reading the top section lines will give you some idea about available  types of commands.
+    - Go through the sections of the reference manual below - just reading the top section lines will give you some idea about available  types of commands.
     - Read through examples in order to understand how the constructs can be combined.
     - Understand how to read the stated ebnf grammar. Using the grammar will give you precise instructions about how your commands should be constructed. In case you don't know anything about grammars:
         - The grammar describes a valid expression via a set of rules. At the beginning, the expression equals "BODY". Every capital word of the expression to be "rewritten" by a corresponding rule - i.e., the identifier is to be replaced by an expression which matches right side of the rule. 
@@ -74,7 +76,7 @@ Alternative way to implement the above example would be the following. However, 
     $untoggleLayer 
     $ifDoubletap toggleLayer fn
 
-Creating double-shift-to-caps may look like:
+Creating double-shift-to-caps may look like (If you are on Mac, see known issues.):
    
     <press Shift>
     $delayUntilRelease
@@ -86,6 +88,15 @@ Or (with newer releases):
 
     $holdKey leftShift
     $ifDoubletap tapKey capsLock
+
+Or with Mac (which requires prolonged press of caps lock):
+
+    $holdKey leftShift
+    $ifNotDoubletap break
+    $pressKey capsLock
+    $delayUntil 400
+    $releaseKey capsLock
+
 
 Smart toggle (if tapped, locks layer; if used with a key, acts as a secondary role):
 
@@ -157,7 +168,19 @@ You can simplify writing macros by using `#` and `@` characters. The first resol
     $repeatFor 1 @-2        //decrement register 1; if it is non-zero, return by two commands to the tapKey command
     $noOp                   //note the @ character - it resolves relative address to absolute (i.e., adds current adr)
     $default: tapKey b      //$<string>: denotes a label, which can be used as jump target
-    
+
+## Example Keymaps
+
+I am including my user config in examples/mirroring_keymap.json as an advanced example of abilities of UHK with this firmware. Some basic documentation is included within the keymap as description of layers in Agent.
+
+Main features:
+- Mirroring setup which allows you to write right-hand key by your left hand. (And generally, to use all other features.)
+- Experimental subset of VIM bindings. Possibly buggy, incomplete and maybe even dangerous. 
+- Some application-specific auxiliaries.
+
+**DO NOT FORGET TO BACKUP YOUR OWN USER CONFIG BEFORE IMPORTING SOMEONE ELSE'S CONFIG!!!**
+
+If you wish to feature your keymap here, feel free to post a PR or a ticket with the keymap and a brief summary of features.
     
 ## Reference manual
 
@@ -403,10 +426,15 @@ This version of firmware includes basic error handling. If an error is encounter
 
 ## Known issues/limitations
 
+Bugs and features Of this firmware:
 - Layers can be untoggled only via macro or "toggle" feature. The combined hold/doubletap will *not* release layer toggle (this is bug of the official firmware, waiting for reply from devs).  
 - Generally, interaction of legacy layer switching mechanisms with the newly implemented ones is not very well tested. Therefore, we advise you to use only one of the mechanisms in each of your layer systems. Of course, you are welcome to test and report problems.
 - Only one-liners are allowed, due to our need to respect firmware's indexation of actions.
-- Global settings and recorded macros are remembered until power cycling only. 
+- Global settings and recorded macros are remembered until power cycling only. (We recommend you to create an "init" layer, which will contain only one macro which will set all global settings and then switch to your keymap.) 
+
+General troubleshooting:
+- MacOS requires prolonged press of capsLock, so secondaries, `tapKey` and in certain contexts `holdKey` won't work.
+- MacOS Karabiner elements are known to cause problems in combination with various features of UHK. It is recommended to disable it.
 
 ## Performance impact and other statistics
 
