@@ -36,7 +36,7 @@ can be combined. E.g.:
 
     ![Example macro showing double-shift-to-caps lock.](https://github.com/kareltucek/firmware/raw/master/macroExample.png)
 
-    If you are on Mac, this macro won't work. See known issues and examples.
+    If you are on Mac, this macro probably won't work. See known issues and examples.
 
 3) Understanding this readme:
 
@@ -76,7 +76,7 @@ Alternative way to implement the above example would be the following. However, 
     $untoggleLayer 
     $ifDoubletap toggleLayer fn
 
-Creating double-shift-to-caps may look like (If you are on Mac, see known issues.):
+Creating double-shift-to-caps may look like:
    
     <press Shift>
     $delayUntilRelease
@@ -159,12 +159,12 @@ In the above examples, `tapKey` can be (and probably should be) replaced by `hol
 You can simplify writing macros by using `#` and `@` characters. The first resolves a number as an index of a register. The second interprets the number as a relative action index. For instance the following macro will write out five "a"s with 50 ms delays
     
     //you can comment your code via two slashes. 
-    $ifCtrl goTo default    //goto can also go to labels
+    $ifCtrl goTo default    //goto can also go to labels, absolute adresses and relative adresses
     $ifShift final tapKey a //final modifier ends the macro once the command has finished
     $setReg 0 50            //store number 50 into register 0
     $setReg 1 5
     $tapKey a
-    $delayUntil #0          //the #0 is expands to content of register 0
+    $delayUntil #0          //the #0 is expanded to content of register 0
     $repeatFor 1 @-2        //decrement register 1; if it is non-zero, return by two commands to the tapKey command
     $noOp                   //note the @ character - it resolves relative address to absolute (i.e., adds current adr)
     $default: tapKey b      //$<string>: denotes a label, which can be used as jump target
