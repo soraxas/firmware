@@ -10,6 +10,7 @@
 #include "macro_recorder.h"
 #include "macro_shortcut_parser.h"
 #include "str_utils.h"
+#include "utils.h"
 
 
 macro_reference_t AllMacros[MAX_MACRO_NUM];
@@ -218,14 +219,14 @@ bool processDelayAction() {
 
 
 void postponeNextN(uint8_t count) {
-    s->postponeNext = count + 1;
-    s->postponingNow = true;
-    PostponeKeys = true;
+    s->postponeNextNCommands = count + 1;
+    s->weInitiatedPostponing = true;
+    PostponerCore_PostponeNCycles(MACRO_CYCLES_TO_POSTPONE);
 }
 
 void postponeCurrentCycle() {
-    PostponeKeys = true;
-    s->postponingNow = true;
+    PostponerCore_PostponeNCycles(MACRO_CYCLES_TO_POSTPONE);
+    s->weInitiatedPostponing = true;
 }
 
 /**
@@ -235,8 +236,8 @@ void postponeCurrentCycle() {
  * initiates postponing in the current cycle.
  */
 bool currentMacroKeyIsActive() {
-    if(s->postponeNext > 0 || s->postponingNow) {
-        return ACTIVE(s->currentMacroKey) && !Postponer_IsKeyReleased(s->currentMacroKey);
+    if(s->postponeNextNCommands > 0 || s->weInitiatedPostponing) {
+        return ACTIVE(s->currentMacroKey) && !PostponerQuery_IsKeyReleased(s->currentMacroKey);
     } else {
         return ACTIVE(s->currentMacroKey);
     }
@@ -567,7 +568,7 @@ int32_t parseNUM(const char *a, const char *aEnd)
     if(*a == '#') {
         a++;
         if(TokenMatches(a, aEnd, "key")) {
-            return Postponer_KeyId(s->currentMacroKey);
+            return Utils_KeyStateToKeyId(s->currentMacroKey);
         }
         uint8_t adr = parseNUM(a, aEnd);
         if(validReg(adr)) {
@@ -579,11 +580,11 @@ int32_t parseNUM(const char *a, const char *aEnd)
     else if(*a == '%') {
         a++;
         uint8_t idx = parseNUM(a, aEnd);
-        if(idx >= Postponer_PendingCount()) {
+        if(idx >= PostponerQuery_PendingKeypressCount()) {
             Macros_ReportError("Not enough pending keys! Note that this is zero-indexed!",  NULL,  NULL);
             return 0;
         }
-        return Postponer_PendingId(idx);
+        return PostponerExtended_PendingId(idx);
     }
     else if(*a == '@') {
         a++;
@@ -639,7 +640,7 @@ int32_t parseMacroId(const char *a, const char *aEnd) {
         return lastMacroId;
     }
     else if(a == aEnd) {
-        lastMacroId = Postponer_KeyId(s->currentMacroKey);
+        lastMacroId = Utils_KeyStateToKeyId(s->currentMacroKey);
     } else if(end == a+1) {
         lastMacroId = (uint8_t)(*a);
     } else {
@@ -698,7 +699,7 @@ bool processStatsActiveKeysCommand() {
         for (uint8_t keyId=0; keyId<MAX_KEY_COUNT_PER_MODULE; keyId++) {
             key_state_t *keyState = &KeyStates[slotId][keyId];
             if(keyState->current || keyState->previous) {
-                Macros_SetStatusNum(Postponer_KeyId(keyState));
+                Macros_SetStatusNum(Utils_KeyStateToKeyId(keyState));
                 Macros_SetStatusString("/", NULL);
                 Macros_SetStatusNum(keyState->previous);
                 Macros_SetStatusString("/", NULL);
@@ -715,7 +716,7 @@ bool processStatsActiveKeysCommand() {
 }
 
 bool processStatsPostponerStackCommand() {
-    Postponer_PrintContent();
+    PostponerExtended_PrintContent();
     return false;
 }
 
@@ -766,7 +767,7 @@ bool processDiagnoseCommand() {
             MacroState[i].macroBroken = true;
         }
     }
-    Postponer_Reset();
+    PostponerExtended_ResetPostponer();
     return false;
 }
 
@@ -1070,7 +1071,7 @@ bool processIfPendingCommand(bool negate, const char* arg, const char *argEnd)
 {
     uint32_t cnt = parseNUM(arg, argEnd);
 
-    return (Postponer_PendingCount() >= cnt) != negate;
+    return (PostponerQuery_PendingKeypressCount() >= cnt) != negate;
 }
 
 bool processIfPlaytimeCommand(bool negate, const char* arg, const char *argEnd)
@@ -1345,7 +1346,7 @@ bool processNoOpCommand()
 
 uint8_t processResolveSecondary(uint16_t timeout1, uint16_t timeout2) {
     postponeCurrentCycle();
-    bool pendingReleased = Postponer_IsPendingReleased(0);
+    bool pendingReleased = PostponerQuery_IsKeyReleased(s->currentMacroKey);
     bool currentKeyIsActive = currentMacroKeyIsActive();
 
     //phase 1 - wait until some other key is released, then write down its release time
@@ -1359,7 +1360,7 @@ uint8_t processResolveSecondary(uint16_t timeout1, uint16_t timeout2) {
     }
     //phase 2 - "safety margin" - wait another `timeout2` ms, and if the switcher is released during this time, still interpret it as a primary action
     bool timer2Exceeded = Timer_GetElapsedTime(&s->resolveSecondaryPhase2StartTime) >= timeout2;
-    if(!timer1Exceeded && !timer2Exceeded &&  currentKeyIsActive && pendingReleased && Postponer_PendingCount() < 3) {
+    if(!timer1Exceeded && !timer2Exceeded &&  currentKeyIsActive && pendingReleased && PostponerQuery_PendingKeypressCount() < 3) {
         return RESOLVESEC_RESULT_DONTKNOWYET;
     }
     //phase 3 - resolve the situation - if the switcher is released first or within the "safety margin", interpret it as primary action, otherwise secondary
@@ -1466,15 +1467,15 @@ bool processKeyCommand(macro_sub_action_t type, const char* arg1, const char* ar
 bool processResolveNextKeyIdCommand() {
     char num[4];
     postponeCurrentCycle();
-    if(Postponer_PendingCount() == 0) {
+    if(PostponerQuery_PendingKeypressCount() == 0) {
         return true;
     }
-    num[0] = Postponer_PendingId(0) / 100 % 10 + 48;
-    num[1] = Postponer_PendingId(0) / 10 % 10 + 48;
-    num[2] = Postponer_PendingId(0) % 10 + 48;
+    num[0] = PostponerExtended_PendingId(0) / 100 % 10 + 48;
+    num[1] = PostponerExtended_PendingId(0) / 10 % 10 + 48;
+    num[2] = PostponerExtended_PendingId(0) % 10 + 48;
     num[3] = '\0';
     if(!dispatchText(num, 3)){
-        Postponer_ConsumePending(1, true);
+        PostponerExtended_ConsumePendingKeypresses(1, true);
         return false;
     }
     return true;
@@ -1499,18 +1500,18 @@ bool processResolveNextKeyEqCommand(const char* arg1, const char* argEnd) {
     uint16_t adr2 = parseAddress(arg5, argEnd);
 
 
-    if(idx > POSTPONER_MAX_FILL) {
+    if(idx > POSTPONER_BUFFER_MAX_FILL) {
         Macros_ReportErrorNum("Invalid argument 1, allowed at most: ", idx);
     }
 
     if(untilRelease ? !currentMacroKeyIsActive() : Timer_GetElapsedTime(&s->currentMacroStartTime) >= timeout) {
         return goTo(adr2);
     }
-    if(Postponer_PendingCount() < idx + 1) {
+    if(PostponerQuery_PendingKeypressCount() < idx + 1) {
         return true;
     }
 
-    if(Postponer_PendingId(idx) == key) {
+    if(PostponerExtended_PendingId(idx) == key) {
         return goTo(adr1);
     } else {
         return goTo(adr2);
@@ -1555,7 +1556,7 @@ bool processIfShortcutCommand(bool negate, const char* arg, const char* argEnd, 
 
     //parse and check KEYIDs
     postponeCurrentCycle();
-    uint8_t pendingCount = Postponer_PendingCount();
+    uint8_t pendingCount = PostponerQuery_PendingKeypressCount();
     uint8_t numArgs = 0;
     bool someoneNotReleased = false;
     while(isNUM(arg, argEnd) && arg < argEnd) {
@@ -1563,7 +1564,7 @@ bool processIfShortcutCommand(bool negate, const char* arg, const char* argEnd, 
         uint8_t argKeyid = parseNUM(arg, argEnd);
         arg = NextTok(arg, argEnd);
         if(pendingCount < numArgs) {
-            uint32_t referenceTime = transitive && pendingCount > 0 ? Postponer_LastPressTime() : s->currentMacroStartTime;
+            uint32_t referenceTime = transitive && pendingCount > 0 ? PostponerExtended_LastPressTime() : s->currentMacroStartTime;
             uint16_t elapsedSinceReference = Timer_GetElapsedTime(&referenceTime);
 
             bool shortcutTimedOut = untilRelease && !currentMacroKeyIsActive() && (!transitive || !someoneNotReleased);
@@ -1574,7 +1575,7 @@ bool processIfShortcutCommand(bool negate, const char* arg, const char* argEnd, 
                 return true;
             }
             else if(cancelInTimedOut) {
-                Postponer_ConsumePending(numArgs, true);
+                PostponerExtended_ConsumePendingKeypresses(numArgs, true);
                 s->macroBroken = true;
                 return false;
             }
@@ -1586,7 +1587,7 @@ bool processIfShortcutCommand(bool negate, const char* arg, const char* argEnd, 
                 }
             }
         }
-        else if (Postponer_PendingId(numArgs - 1) != argKeyid) {
+        else if (PostponerExtended_PendingId(numArgs - 1) != argKeyid) {
             if(negate) {
                 goto conditionPassed;
             } else {
@@ -1594,18 +1595,18 @@ bool processIfShortcutCommand(bool negate, const char* arg, const char* argEnd, 
             }
         }
         else {
-            someoneNotReleased |= !Postponer_IsKeyReleased(Postponer_KeyState(argKeyid));
+            someoneNotReleased |= !PostponerQuery_IsKeyReleased(Utils_KeyIdToKeyState(argKeyid));
         }
     }
     //all keys match
     if(negate) {
         if(consume) {
-            Postponer_ConsumePending(numArgs, true);
+            PostponerExtended_ConsumePendingKeypresses(numArgs, true);
         }
         return false;
     } else {
         if(consume) {
-            Postponer_ConsumePending(numArgs, true);
+            PostponerExtended_ConsumePendingKeypresses(numArgs, true);
         }
         goto conditionPassed;
     }
@@ -1623,46 +1624,46 @@ bool processifKeyPendingAtCommand(bool negate, const char* arg1, const char* arg
     uint16_t idx = parseNUM(arg1, argEnd);
     uint16_t key = parseNUM(arg2, argEnd);
 
-    return (Postponer_PendingId(idx) == key) != negate;
+    return (PostponerExtended_PendingId(idx) == key) != negate;
 }
 
 bool processifKeyActiveCommand(bool negate, const char* arg1, const char* argEnd) {
     uint16_t keyid = parseNUM(arg1, argEnd);
-    key_state_t* key = Postponer_KeyState(keyid);
+    key_state_t* key = Utils_KeyIdToKeyState(keyid);
     return ACTIVE(key) != negate;
 }
 
 bool processifPendingKeyReleasedCommand(bool negate, const char* arg1, const char* argEnd) {
     uint16_t idx = parseNUM(arg1, argEnd);
-    return Postponer_IsPendingReleased(idx) != negate;
+    return PostponerExtended_IsPendingKeyReleased(idx) != negate;
 }
 
 bool processifKeyDefinedCommand(bool negate, const char* arg1, const char* argEnd) {
     uint16_t keyid = parseNUM(arg1, argEnd);
     uint8_t slot;
     uint8_t slotIdx;
-    Postponer_DecodeId(keyid, &slot, &slotIdx);
+    Utils_DecodeId(keyid, &slot, &slotIdx);
     key_action_t* action = &CurrentKeymap[ToggledLayer][slot][slotIdx];
     return (action->type != KeyActionType_None) != negate;
 }
 
 bool processActivateKeyPostponedCommand(const char* arg1, const char* argEnd) {
     uint16_t keyid = parseNUM(arg1, argEnd);
-    key_state_t* key = Postponer_KeyState(keyid);
-    Postponer_TrackKey(key, true);
-    Postponer_TrackKey(key, false);
+    key_state_t* key = Utils_KeyIdToKeyState(keyid);
+    PostponerCore_TrackKey(key, true);
+    PostponerCore_TrackKey(key, false);
     return false;
 }
 
 bool processConsumePendingCommand(const char* arg1, const char* argEnd) {
     uint16_t cnt = parseNUM(arg1, argEnd);
-    Postponer_ConsumePending(cnt, true);
+    PostponerExtended_ConsumePendingKeypresses(cnt, true);
     return false;
 }
 
 bool processPostponeNextNCommand(const char* arg1, const char* argEnd) {
     uint16_t cnt = parseNUM(arg1, argEnd);
-    PostponeKeys = true;
+    PostponerCore_PostponeNCycles(MACRO_CYCLES_TO_POSTPONE);
     postponeNextN(cnt);
     return false;
 }
@@ -1684,7 +1685,7 @@ bool processRepeatForCommand(const char* arg1, const char* argEnd) {
 
 bool processSetEmergencyKeyCommand(const char* arg1, const char* argEnd) {
     uint16_t key = parseNUM(arg1, argEnd);
-    EmergencyKey = Postponer_KeyState(key);
+    EmergencyKey = Utils_KeyIdToKeyState(key);
     return false;
 }
 
@@ -2351,8 +2352,8 @@ void Macros_StartMacro(uint8_t index, key_state_t *keyState, uint8_t parentMacro
     s->currentIfShortcutConditionPassed = false;
     s->currentIfSecondaryConditionPassed = false;
     s->reportsUsed = false;
-    s->postponeNext = 0;
-    s->postponingNow = false;
+    s->postponeNextNCommands = 0;
+    s->weInitiatedPostponing = false;
     s->parentMacroSlot = parentMacroSlot;
     ValidatedUserConfigBuffer.offset = AllMacros[index].firstMacroActionOffset;
     ParseMacroAction(&ValidatedUserConfigBuffer, &s->currentMacroAction);
@@ -2371,13 +2372,15 @@ void Macros_StartMacro(uint8_t index, key_state_t *keyState, uint8_t parentMacro
 
 bool continueMacro(void)
 {
-    PostponeKeys |= s->postponeNext > 0;
-    s->postponingNow = false;
+    if(s->postponeNextNCommands > 0) {
+        PostponerCore_PostponeNCycles(1);
+    }
+    s->weInitiatedPostponing = false;
     if (processCurrentMacroAction() && !s->macroBroken) {
         //if action consists of multiple subactions, break here
         return true;
     }
-    s->postponeNext = s->postponeNext > 0 ? s->postponeNext - 1 : 0;
+    s->postponeNextNCommands = s->postponeNextNCommands > 0 ? s->postponeNextNCommands - 1 : 0;
     if (++s->currentMacroActionIndex >= AllMacros[s->currentMacroIndex].macroActionsCount || s->macroBroken) {
         //End macro for whatever reason
         s->macroPlaying = false;

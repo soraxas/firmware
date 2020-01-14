@@ -35,7 +35,6 @@ volatile uint8_t UsbReportUpdateSemaphore = 0;
 uint8_t HardwareModifierState;
 uint8_t HardwareModifierStatePrevious;
 bool SuppressMods = false;
-bool PostponeKeys = false;
 bool SuppressKeys = false;
 bool SuppressingKeys = false;
 bool StickyModifiersEnabled = true;
@@ -439,24 +438,17 @@ static inline void preprocessKeyState(key_state_t *keyState) {
     } else if (prevDB != currHW) {
         keyState->timestamp = CurrentTime;
         keyState->debouncing = true;
-#ifdef DEBUG_POSTPONER
-            if(currDB) {
-                Macros_SetStatusString("Keydown ", NULL);
-                Macros_SetStatusNum(Postponer_KeyId(keyState));
-                Macros_SetStatusString("\n", NULL);
-            }
-#endif
     }
 
     bool currSW = currDB && !keyState->suppressed;
 
-     if (Postponer_IsActive() && keyState != EmergencyKey) {
+     if (PostponerCore_IsActive() && keyState != EmergencyKey) {
         currSW = prevSW;
         if(currDB != prevDB) {
-            Postponer_TrackKey(keyState, currDB);
+            PostponerCore_TrackKey(keyState, currDB);
         }
-        if(Postponer_NextEventKey == keyState && !PostponeKeys) {
-            currSW = Postponer_RunKey(keyState, currSW);
+        if(Postponer_NextEventKey == keyState /* TODO: && !PostponeKeys*/) {
+            currSW = PostponerCore_RunKey(keyState, currSW);
         }
     } else if (SuppressKeys) {
         currSW = currDB && prevSW && !keyState->suppressed;
@@ -474,14 +466,13 @@ static void updateActiveUsbReports(void)
     HardwareModifierState = 0;
     SuppressMods = false;
     SuppressKeys = false;
-    PostponeKeys = false;
 
 
     if (MacroPlaying) {
         Macros_ContinueMacro();
     }
 
-    /*
+    /* TODO: enable this again?
     if(!PostponeKeys || Postponer_Overflowing()) {
         Postponer_RunPostponed();
     }*/
@@ -576,7 +567,7 @@ static void updateActiveUsbReports(void)
         }
     }
 
-    Postponer_FinishCycle();
+    PostponerCore_FinishCycle();
 
     mergeReports();
 

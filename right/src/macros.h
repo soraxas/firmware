@@ -10,7 +10,7 @@
     #include "key_states.h"
 
 // Macros:
-//#define DEBUG_POSTPONER
+    #define MACRO_CYCLES_TO_POSTPONE 4
 
     #define MAX_MACRO_NUM 255
     #define STATUS_BUFFER_MAX_LENGTH 1024
@@ -110,8 +110,8 @@
         bool currentConditionPassed;
         bool currentIfShortcutConditionPassed;
         bool currentIfSecondaryConditionPassed;
-        uint8_t postponeNext;
-        bool postponingNow;
+        uint8_t postponeNextNCommands;
+        bool weInitiatedPostponing;
 
         bool delayActive;
         uint32_t delayStart;
