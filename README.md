@@ -209,6 +209,7 @@ The following grammar is supported:
     COMMAND = break
     COMMAND = noOp
     COMMAND = {exec|call} MACRONAME
+    COMMAND = stopAllMacros
     COMMAND = statsRuntime
     COMMAND = statsLayerStack
     COMMAND = statsPostponerStack
@@ -217,7 +218,7 @@ The following grammar is supported:
     COMMAND = statsRegs
     COMMAND = diagnose
     COMMAND = printStatus
-    COMMAND = setStatus <custom text>
+    COMMAND = {setStatus  | setStatusPart} <custom text>
     COMMAND = clearStatus 
     COMMAND = setLedTxt <timeout (NUMBER)> <custom text>
     COMMAND = write <custom text>
@@ -286,7 +287,7 @@ The following grammar is supported:
 - Uncategorized commands:
   - `setLedTxt <time> <custom text>` will set led display to supplemented text for the given time. (Blocks for the given time.)
 - Triggering keyboard actions (pressing keys, clicking, etc.):
-  - `write <custom text>` will type rest of the string. Same as the plain text command. This is just easier to use with conditionals...
+  - `write <custom text>` will type rest of the string. Same as the plain text command. This is just easier to use with conditionals... If you want to interpolate register values, use (e.g.) `$setStatus Register 0 contains #0; $printStatus`.
   - `startMouse/stopMouse` start/stop corresponding mouse action. E.g., `startMouse move left`
   - `pressKey|holdKey|tapKey|releaseKey` Presses/holds/taps/releases the provided scancode. E.g., `pressKey mouseBtnLeft`, `tapKey LC-v` (Left Control + (lowercase) v), `tapKey CS-f5` (Ctrl + Shift + F5).
     - press means adding the scancode into a list of "active keys" and continuing the macro. The key is released once the macro ends. I.e., if the command is not followed by any sort of delay, the key will be released again almost immediately.
@@ -300,9 +301,10 @@ The following grammar is supported:
   - `noOp` does nothing - i.e., stops macro for exactly one update cycle and then continues.
   - `exec MACRONAME` will execute different macro in current state slot. I.e., the macro will be executed in current context and will *not* return. First action of the called macro is executed within the same eventloop cycle.
   - `call MACRONAME` will execute another macro in a new state slot. After the called macro finishes, the control returns to the caller macro. First action of the called macro is executed within the same eventloop cycle. The called macro has its own context (e.g., its own ifInterrupted flag, its own postponing counter and flags etc.) Beware, the state pool is small - do not use deep call trees!
+  - `stopAllMacros` interrupts all macros. 
 - Status buffer/Debugging tools
   - `printStatus` will "type" content of status buffer (256 or 1024 chars, depends on my mood) on the keyboard. Mainly for debug purposes.
-  - `setStatus <custom text>` will append <custom text> to the status buffer, if there is enough space for that.
+  - `{setStatus | setStatusPart} <custom text>` will append <custom text> to the status buffer, if there is enough space for that. This text can then be printed by `printStatus`. This command interpolates register expressions. `setStatus` automatically appends newline, `setStatusPart` does not.
   - `clearStatus` will clear the buffer.
   - `statsRuntime` will output information about runtime of current macro into the status buffer. The time is measured before the printing mechanism is initiated.
   - `statsLayerStack` will output information about layer stack (into the buffer). 

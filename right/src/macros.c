@@ -403,7 +403,7 @@ void setStatusStringInterpolated(const char* text, const char *textEnd, bool int
         if(*text == '#' && interpolated) {
             int32_t parsed = parseNUM(text, textEnd);
             text = TokEnd(text, textEnd);
-            Macros_SetStatusNum(parsed);
+            Macros_SetStatusNumSpaced(parsed, false);
         } else {
             statusBuffer[statusBufferLen] = *text;
             text++;
@@ -427,13 +427,15 @@ void Macros_SetStatusBool(bool b)
     Macros_SetStatusString(b ? "1" : "0", NULL);
 }
 
-void Macros_SetStatusNum(uint32_t n)
+void Macros_SetStatusNumSpaced(uint32_t n, bool spaced)
 {
     uint32_t orig = n;
     char buff[2];
     buff[0] = ' ';
     buff[1] = '\0';
-    Macros_SetStatusString(buff, NULL);
+    if(spaced) {
+        Macros_SetStatusString(buff, NULL);
+    }
     for(uint32_t div = 1000000000; div > 0; div /= 10) {
         buff[0] = (char)(((uint8_t)(n/div)) + '0');
         n = n%div;
@@ -441,6 +443,11 @@ void Macros_SetStatusNum(uint32_t n)
           Macros_SetStatusString(buff, NULL);
         }
     }
+}
+
+void Macros_SetStatusNum(uint32_t n)
+{
+    Macros_SetStatusNumSpaced(n, true);
 }
 
 void Macros_SetStatusChar(char n)
@@ -747,6 +754,15 @@ bool processStatsRegs() {
     return false;
 }
 
+bool stopAllMacrosCommand() {
+    for(uint8_t i = 0; i < MACRO_STATE_POOL_SIZE; i++) {
+        if(&MacroState[i] != s) {
+            MacroState[i].macroBroken = true;
+        }
+    }
+    return false;
+}
+
 bool processDiagnoseCommand() {
     processStatsLayerStackCommand();
     processStatsActiveKeysCommand();
@@ -761,11 +777,7 @@ bool processDiagnoseCommand() {
             }
         }
     }
-    for(uint8_t i = 0; i < MACRO_STATE_POOL_SIZE; i++) {
-        if(&MacroState[i] != s) {
-            MacroState[i].macroBroken = true;
-        }
-    }
+    stopAllMacrosCommand();
     Postponer_Reset();
     return false;
 }
@@ -1120,10 +1132,12 @@ bool processPrintStatusCommand()
     return res;
 }
 
-bool processSetStatusCommand(const char* arg, const char *argEnd)
+bool processSetStatusCommand(const char* arg, const char *argEnd, bool addEndline)
 {
     Macros_SetStatusStringInterpolated(arg, argEnd);
-    Macros_SetStatusString("\n", NULL);
+    if(addEndline) {
+        Macros_SetStatusString("\n", NULL);
+    }
     return false;
 }
 
@@ -2103,13 +2117,16 @@ bool processCommand(const char* cmd, const char* cmdEnd)
             }
             break;
         case 's':
-            if(TokenMatches(cmd, cmdEnd, "setStatus")) {
-                return processSetStatusCommand(arg1, cmdEnd);
+            if(TokenMatches(cmd, cmdEnd, "setStatusPart")) {
+                return processSetStatusCommand(arg1, cmdEnd, false);
             }
-            if(TokenMatches(cmd, cmdEnd, "startRecording")) {
+            else if(TokenMatches(cmd, cmdEnd, "setStatus")) {
+                return processSetStatusCommand(arg1, cmdEnd, true);
+            }
+            else if(TokenMatches(cmd, cmdEnd, "startRecording")) {
                 return processStartRecordingCommand(arg1, cmdEnd, false);
             }
-            if(TokenMatches(cmd, cmdEnd, "startRecordingBlind")) {
+            else if(TokenMatches(cmd, cmdEnd, "startRecordingBlind")) {
                 return processStartRecordingCommand(arg1, cmdEnd, true);
             }
             else if(TokenMatches(cmd, cmdEnd, "setLedTxt")) {
@@ -2156,6 +2173,9 @@ bool processCommand(const char* cmd, const char* cmdEnd)
             }
             else if(TokenMatches(cmd, cmdEnd, "stopRecording")) {
                 return processStopRecordingCommand();
+            }
+            else if(TokenMatches(cmd, cmdEnd, "stopAllMacros")) {
+                return stopAllMacrosCommand();
             }
             else if(TokenMatches(cmd, cmdEnd, "stopRecordingBlind")) {
                 return processStopRecordingCommand();
