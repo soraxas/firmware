@@ -442,8 +442,7 @@ General troubleshooting:
 
 Some measurements:
 
-- Typical update cycle without running macros takes approximately 2 ms.
-- With four macros running, the update cycle takes around 4 ms. (The parsing mechanism is stateless, therefore eating up performance on every update cycle.)
+- /out of date/ need to gather new data
 - According to my measurements, typical key tap takes between 90 and 230 ms, with quite large variation (i.e., full range is encountered when writing regularly). Currently, debouncing delay is set to 50 ms, which means that after any change of state, the state is prevented from changing for the next 50 ms. This means that one key tap cannot last less than 50 ms with UHK (except for macro-induced taps and secondary roles). It also means that a key cannot be repeated faster than once per 100ms (in ideal conditions).
 - According to my experience, 250ms is a good double-tap delay trashold. 
 - According to my experience, 350ms is a good trashold for secondary role activation. I.e., at this time, it can be safely assumed that the key held was prolonged at purpose. 
