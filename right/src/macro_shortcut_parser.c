@@ -184,6 +184,7 @@ lookup_record_t lookup_table[] = {
         {"keypad0AndInsert", HID_KEYBOARD_SC_KEYPAD_0_AND_INSERT, scType_basic},
         {"keypadDotAndDelete", HID_KEYBOARD_SC_KEYPAD_DOT_AND_DELETE, scType_basic},
         {"nonUsBackslashAndPipe", HID_KEYBOARD_SC_NON_US_BACKSLASH_AND_PIPE, scType_basic},
+        {"backslashAndPipeIso", HID_KEYBOARD_SC_NON_US_BACKSLASH_AND_PIPE, scType_basic},
         {"application", HID_KEYBOARD_SC_APPLICATION, scType_basic},
         {"power", HID_KEYBOARD_SC_POWER, scType_basic},
         {"keypadEqualSign", HID_KEYBOARD_SC_KEYPAD_EQUAL_SIGN, scType_basic},

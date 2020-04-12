@@ -5,7 +5,7 @@
 
 uint8_t IconsAndLayerTextsBrightness = 0xff;
 uint8_t AlphanumericSegmentsBrightness = 0xff;
-bool ledIconStates[LedDisplayIcon_Last];
+bool ledIconStates[LedDisplayIcon_Count];
 char LedDisplay_DebugString[] = "   ";
 
 static const uint16_t capitalLetterToSegmentMap[] = {
@@ -164,7 +164,7 @@ void LedDisplay_SetIcon(led_display_icon_t icon, bool isEnabled)
 
 void LedDisplay_UpdateIcons(void)
 {
-    for (led_display_icon_t i=0; i<=LedDisplayIcon_Last; i++) {
+    for (led_display_icon_t i=0; i<LedDisplayIcon_Count; i++) {
         LedDisplay_SetIcon(i, ledIconStates[i]);
     }
 }

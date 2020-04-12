@@ -151,6 +151,7 @@
     void Macros_SetStatusStringInterpolated(const char* text, const char *textEnd);
     void Macros_SetStatusBool(bool b);
     void Macros_SetStatusNum(uint32_t n);
+    void Macros_SetStatusNumSpaced(uint32_t n, bool space);
     void Macros_SetStatusChar(char n);
     void Macros_UpdateLayerStack();
     bool Macros_IsLayerHeld();
