@@ -10,6 +10,7 @@
 // Macros:
 
     #define LED_DISPLAY_DEBUG_MODE 0
+    #define LED_DISPLAY_KEYMAP_NAME_LENGTH 3
 
 // Typedefs:
 
@@ -17,7 +18,8 @@
         LedDisplayIcon_CapsLock,
         LedDisplayIcon_Agent,
         LedDisplayIcon_Adaptive,
-        LedDisplayIcon_Count,
+        LedDisplayIcon_Last = LedDisplayIcon_Adaptive,
+        LedDisplayIcon_Count = LedDisplayIcon_Last + 1,
     } led_display_icon_t;
 
 // Variables:

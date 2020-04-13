@@ -7,34 +7,49 @@
     #include "slot.h"
     #include "module.h"
 
-// Macros:
-
-    #define ACTIVE(A) (((A)->current & KeyState_Sw))
-    #define INACTIVE(A) (!((A)->current & KeyState_Sw))
-    #define ACTIVATED_NOW(A) (((A)->current & KeyState_Sw) && !((A)->previous & KeyState_Sw) )
-    #define ACTIVATED_EARLIER(A) (((A)->current & KeyState_Sw) && ((A)->previous & KeyState_Sw) )
-    #define DEACTIVATED_NOW(A) (!((A)->current & KeyState_Sw) && ((A)->previous & KeyState_Sw) )
-    #define DEACTIVATED_EARLIER(A) (!((A)->current & KeyState_Sw) && !((A)->previous & KeyState_Sw) )
-    #define KEYSTATE(A, B, C) (((A) ? KeyState_Hw : 0 ) | ((B) ? KeyState_HwDebounced : 0) | ((C) ? KeyState_Sw : 0))
-
 // Typedefs:
 
+/*
+ * TODO:remove this
     typedef enum {
         KeyState_Hw = 1,
         KeyState_HwDebounced = 2,
         KeyState_Sw = 4
     } key_state_mask_t;
+    */
+
+    // Next is used as an accumulator of the state - asynchronous state updates
+    // are stored there. The hardwareSwitchState always contains the most up-to-date
+    // information about hardware state of the switch.
+    //
+    // `Previous` and `current` are computed from `hardwareSwitchState` by "debouncing"
+    // algorithm.  Especially values (0, 1) signify that key has been pressed
+    // right now and an action (e.g., start of a macro) should take place.
+    //
+    // Debouncing flag & timestamp are used by debouncer to prevent the value
+    // of current from changing for next 50 ms whenever the key state changes.
 
     typedef struct {
         uint8_t timestamp;
-        uint8_t previous;
-        uint8_t current;
+        volatile bool hardwareSwitchState : 1;
+        bool debouncedSwitchState : 1;
+        bool current : 1;
+        bool previous : 1;
         bool debouncing : 1;
-        bool suppressed : 1;
     } key_state_t;
 
 // Variables:
 
     extern key_state_t KeyStates[SLOT_COUNT][MAX_KEY_COUNT_PER_MODULE];
+
+// Inline functions
+
+    static inline bool KeyState_Active(key_state_t* s) { return s->current; };
+    static inline bool KeyState_Inactive(key_state_t* s) { return !s->current; };
+    static inline bool KeyState_ActivatedNow(key_state_t* s) { return !s->previous && s->current; };
+    static inline bool KeyState_DeactivatedNow(key_state_t* s) { return s->previous && !s->current; };
+    static inline bool KeyState_ActivatedEarlier(key_state_t* s) { return s->previous && s->current; };
+    static inline bool KeyState_DeactivatedEarlier(key_state_t* s) { return !s->previous && !s->current; };
+    static inline bool KeyState_NonZero(key_state_t* s) { return s->previous || s->current; };
 
 #endif

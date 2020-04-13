@@ -1,7 +1,8 @@
 #include "fsl_i2c.h"
 #include "slave_scheduler.h"
 #include "slot.h"
-#include "slave_drivers/is31fl3731_driver.h"
+#include "slave_drivers/is31fl37_driver.h"
+#include "slave_drivers/touchpad_driver.h"
 #include "slave_drivers/uhk_module_driver.h"
 #include "slave_drivers/kboot_driver.h"
 #include "i2c.h"
@@ -32,6 +33,12 @@ uhk_slave_t Slaves[] = {
         .update = UhkModuleSlaveDriver_Update,
         .disconnect = UhkModuleSlaveDriver_Disconnect,
         .perDriverId = UhkModuleDriverId_RightModule,
+    },
+    {
+        .init = TouchpadDriver_Init,
+        .update = TouchpadDriver_Update,
+        .disconnect = TouchpadDriver_Disconnect,
+        .perDriverId = TouchpadDriverId_Singleton,
     },
     {
         .init = LedSlaveDriver_Init,

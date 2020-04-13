@@ -1,5 +1,5 @@
 #include "led_display.h"
-#include "slave_drivers/is31fl3731_driver.h"
+#include "slave_drivers/is31fl37_driver.h"
 #include "layer.h"
 #include "keymap.h"
 
@@ -8,158 +8,134 @@ uint8_t AlphanumericSegmentsBrightness = 0xff;
 bool ledIconStates[LedDisplayIcon_Count];
 char LedDisplay_DebugString[] = "   ";
 
-static const uint16_t capitalLetterToSegmentMap[] = {
-    0b0000000011110111,
-    0b0001001010001111,
-    0b0000000000111001,
-    0b0001001000001111,
-    0b0000000011111001,
-    0b0000000011110001,
-    0b0000000010111101,
-    0b0000000011110110,
-    0b0001001000001001,
-    0b0000000000001110,
-    0b0010010001110000,
-    0b0000000000111000,
-    0b0000010100110110,
-    0b0010000100110110,
-    0b0000000000111111,
-    0b0000000011110011,
-    0b0010000000111111,
-    0b0010000011110011,
-    0b0000000011101101,
-    0b0001001000000001,
-    0b0000000000111110,
-    0b0000110000110000,
-    0b0010100000110110,
-    0b0010110100000000,
-    0b0001010100000000,
-    0b0000110000001001,
-};
-
-static const uint16_t digitToSegmentMap[] = {
-    0b0000110000111111,
-    0b0000010000000110,
-    0b0000100010001011,
-    0b0000000011001111,
-    0b0000000011100110,
-    0b0010000001101001,
-    0b0000000011111101,
-    0b0001010000000001,
-    0b0000000011111111,
-    0b0000000011101111,
-};
-
-static const uint16_t whiteToNumsToSegmentMap[] = {
-    0b0000000000000110,
-    0b0000001000100000,
-    0b0001001011001110,
-    0b0001001011101101,
-    0b0000110000100100,
-    0b0010001101011101,
-    0b0000010000000000,
-    0b0010010000000000,
-    0b0000100100000000,
-    0b0011111111000000,
-    0b0001001011000000,
-    0b0000100000000000,
-    0b0000000011000000,
-    0b0000000000000000,
-    0b0000110000000000,
-};
-
-static const uint16_t numsToCharsToSegmentMap[] = {
-    0b0001001000000000,
-    0b0000101000000000,
-    0b0010010000000000,
-    0b0000000011001000,
-    0b0000100100000000,
-    0b0001000010000011,
-    0b0000001010111011,
-};
-
-static const uint16_t lowerToUpperToSegmentMap[] = {
-    0b0000000000111001,
-    0b0010000100000000,
-    0b0000000000001111,
-    0b0000110000000011,
-    0b0000000000001000,
-    0b0000000100000000,
+static const uint16_t letterToSegmentMap[] = {
+    0b00000000000000, // space
+    0b00000000000000, // !
+    0b00000000000000, // "
+    0b00000000000000, // #
+    0b00000000000000, // $
+    0b00000000000000, // %
+    0b00000000000000, // &
+    0b00000000000000, // '
+    0b00000000000000, // (
+    0b00000000000000, // )
+    0b00000000000000, // *
+    0b00000000000000, // +
+    0b00000000000000, // ,
+    0b00000000000000, // -
+    0b00000000000000, // .
+    0b00000000000000, // /
+    0b11001100110011, // 0
+    0b01000000110000, // 1
+    0b10001010100001, // 2
+    0b11000011100001, // 3
+    0b01000011100010, // 4
+    0b10100001000011, // 5
+    0b11000111000011, // 6
+    0b00010000010001, // 7
+    0b11000111100011, // 8
+    0b11000011100011, // 9
+    0b00000000000000, // :
+    0b00000000000000, // ;
+    0b00000000000000, // <
+    0b00000000000000, // =
+    0b00000000000000, // >
+    0b00000000000000, // ?
+    0b00000000000000, // @
+    0b01000111100011, // A
+    0b11010010101001, // B
+    0b10000100000011, // C
+    0b11010000101001, // D
+    0b10000111000011, // E
+    0b00000111000011, // F
+    0b11000110000011, // G
+    0b01000111100010, // H
+    0b10010000001001, // I
+    0b11000000100000, // J
+    0b00100101010010, // K
+    0b10000100000010, // L
+    0b01000100110110, // M
+    0b01100100100110, // N
+    0b11000100100011, // O
+    0b00000111100011, // P
+    0b11100100100011, // Q
+    0b00100111100011, // R
+    0b11000011000011, // S
+    0b00010000001001, // T
+    0b11000100100010, // U
+    0b00001100010010, // V
+    0b01101100100010, // W
+    0b00101000010100, // X
+    0b00010000010100, // Y
+    0b10001000010001, // Z
+    0b00000000000000, // [
+    0b00000000000000, // backslash
+    0b00000000000000, // ]
+    0b00000000000000, // ^
+    0b00000000000000, // _
+    0b00000000000000, // `
 };
 
 static const uint16_t aboveUpperToSegmentMap[] = {
-    0b0000100101001001,
-    0b0001001000000000,
-    0b0010010010001001,
-    0b0000010100100000,
+    0b0000100101001001, // {
+    0b0001001000000000, // |
+    0b0010010010001001, // }
+    0b0000010100100000, // ~
 };
+
+static const uint8_t layerLedIds[LAYER_COUNT-1] = {13, 29, 45};
+static const uint8_t iconLedIds[LedDisplayIcon_Count] = {8, 9, 10};
 
 static uint16_t characterToSegmentMap(char character)
 {
     switch (character) {
-        case '!' ... '/':
-            return whiteToNumsToSegmentMap[character - '!'];
-        case '0' ... '9':
-            return digitToSegmentMap[character - '0'];
-        case ':' ... '@':
-            return numsToCharsToSegmentMap[character - ':'];
+        case ' ' ... '`':
+            return letterToSegmentMap[character - ' '];
         case 'a' ... 'z':
-            return capitalLetterToSegmentMap[character - 'a'];
-        case '[' ... '`':
-            return lowerToUpperToSegmentMap[character - '['];
-        case 'A' ... 'Z':
-            return capitalLetterToSegmentMap[character - 'A'];
+            return letterToSegmentMap[character - ' ' - ('a' - 'A')];
         case '{' ... '~':
             return aboveUpperToSegmentMap[character - '{'];
     }
     return 0;
 }
 
+#define maxSegmentChars 3
+#define ledCountPerChar 14
+static const uint8_t segmentLedIds[maxSegmentChars][ledCountPerChar] = {
+    {11, 27, 41, 42, 43, 12, 28, 40, 26, 44, 56, 57, 24, 25},
+    {58, 74, 88, 89, 90, 59, 75, 76, 73, 91, 92, 104, 60, 72},
+    {105, 121, 124, 136, 137, 106, 122, 123, 120, 138, 139, 140, 107, 108},
+};
+
 void LedDisplay_SetText(uint8_t length, const char* text)
 {
-    uint64_t allSegmentSets = 0;
-
-    switch (length) {
-        case 3:
-            allSegmentSets = (uint64_t)characterToSegmentMap(text[2]) << 28;
-        case 2:
-            allSegmentSets |= characterToSegmentMap(text[1]) << 14;
-        case 1:
-            allSegmentSets |= characterToSegmentMap(text[0]);
-    }
-
-    LedDriverValues[LedDriverId_Left][11] = allSegmentSets & 0b00000001 ? AlphanumericSegmentsBrightness : 0;
-    LedDriverValues[LedDriverId_Left][12] = allSegmentSets & 0b00000010 ? AlphanumericSegmentsBrightness : 0;
-    allSegmentSets >>= 2;
-
-    for (uint8_t i = 24; i <= 136; i += 16) {
-        for (uint8_t j = 0; j < 5; j++) {
-            LedDriverValues[LedDriverId_Left][i + j] = allSegmentSets & 1 << j ? AlphanumericSegmentsBrightness : 0;
+    for (uint8_t charId=0; charId<LED_DISPLAY_KEYMAP_NAME_LENGTH; charId++) {
+        char keymapChar = charId < length ? text[charId] : ' ';
+        uint16_t charBits = characterToSegmentMap(keymapChar);
+        for (uint8_t ledId=0; ledId<ledCountPerChar; ledId++) {
+            uint8_t ledIdx = segmentLedIds[charId][ledId];
+            bool isLedOn = charBits & (1 << ledId);
+            LedDriverValues[LedDriverId_Left][ledIdx] = isLedOn ? AlphanumericSegmentsBrightness : 0;
         }
-        allSegmentSets >>= 5;
     }
 }
 
 void LedDisplay_SetLayer(layer_id_t layerId)
 {
-    for (uint8_t i = 13; i <= 45; i += 16) {
-        LedDriverValues[LedDriverId_Left][i] = 0;
-    }
-
-    if (layerId >= LayerId_Mod && layerId <= LayerId_Mouse) {
-        LedDriverValues[LedDriverId_Left][16 * layerId - 3] = IconsAndLayerTextsBrightness;
+    for (uint8_t i=1; i<LAYER_COUNT; i++) {
+        LedDriverValues[LedDriverId_Left][layerLedIds[i-1]] = layerId == i ? IconsAndLayerTextsBrightness : 0;
     }
 }
 
 bool LedDisplay_GetIcon(led_display_icon_t icon)
 {
-    return LedDriverValues[LedDriverId_Left][8 + icon];
+    return LedDriverValues[LedDriverId_Left][iconLedIds[icon]];
 }
 
 void LedDisplay_SetIcon(led_display_icon_t icon, bool isEnabled)
 {
     ledIconStates[icon] = isEnabled;
-    LedDriverValues[LedDriverId_Left][icon + 8] = isEnabled ? IconsAndLayerTextsBrightness : 0;
+    LedDriverValues[LedDriverId_Left][iconLedIds[icon]] = isEnabled ? IconsAndLayerTextsBrightness : 0;
 }
 
 void LedDisplay_UpdateIcons(void)

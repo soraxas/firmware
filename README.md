@@ -118,12 +118,6 @@ Mapping shift/nonshift scancodes independently:
     $ifShift suppressMods write 4
     $ifNotShift write %
     
-The following applies some global settings. Namely turns off sticky modifiers (i.e., modifiers of composite keystrokes will apply but will no longer stick) so that composite actions don't affect external mouse. Furthermore, it enables separation of composite keystrokes, and increases update delay - this may be useful if macro playback needs to be slown down or if artificial delays need to be introduced for reason (e.g., because some software does not register short taps). (Recommended values are 0,1,0.)
-
-    $setStickyModsEnabled 0 
-    $setSplitCompositeKeystroke 1
-    $setKeystrokeDelay 10
-
 Secondary role (i.e., a role which becomes active if another key is pressed with this key) can be implemented in two variants: regular and postponed. 
 
   - Regular version can be implemented for instance as `$holdLayer mouse; ifNotInterrupted tapKey enter` - it always triggers secondary role, and once the key is released it either triggers primary role or not. 
@@ -232,8 +226,6 @@ The following grammar is supported:
     COMMAND = {startMouse|stopMouse} {move DIRECTION|scroll DIRECTION|accelerate|decelerate}
     COMMAND = setStickyModsEnabled {0|1}
     COMMAND = setActivateOnRelease {0|1}
-    COMMAND = setSplitCompositeKeystroke {0|1}
-    COMMAND = setKeystrokeDelay <time in ms, at most 250 (NUMBER)>
     COMMAND = setDebounceDelay <time in ms, at most 250 (NUMBER)>
     COMMAND = setReg <register index (NUMBER)> <value (NUMBER)> 
     COMMAND = setEmergencyKey KEYID
@@ -407,8 +399,6 @@ The following grammar is supported:
   - Register values can also be used in place of all numeric arguments by prefixing register index by '#'. E.g., waiting until release or for amount of time defined by reg 1 can be achieved by `$delayUntilReleaseMax #1`
 - Global configuration options:
   - `setStickyModsEnabled` globally turns on or off sticky modifiers
-  - `setSplitCompositeKeystroke {0|1}` If enabled, composite keystrokes (e.g., Ctrl+c sent by a single key) are separated into distinct usb reports. This makes order of keypresses clearly determined. Enabled by default.
-  - `setKeystrokeDelay <time in ms, at most 250>` will stop event processing for the specified time after every usb report change. May be used to slow down macroes, to insert delay between composite keystrokes. Beware, this does not queue keypresses - if the delay is too long, some keypresses may be skipped entirelly!
   - `setDebounceDelay <time in ms, at most 250>` prevents key state from changing for some time after every state change. This is needed because contacts of mechanical switches can bounce after contact and therefore change state multiple times in span of a few milliseconds. Official firmware debounce time is 50 ms for both press and release. Recommended value is 10-50, default is 50.
   - `setActivateOnRelease {0|1}` **experimental** if turned on, key actions are activated just once upon key release. This is a highly experimental feature, not guaranteed to work properly with all features of the keyboard! Intended usecase - if you wish to see whether or not you release keys in proper order. 
 - Argument parsing rules:

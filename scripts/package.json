@@ -15,8 +15,8 @@
     "commander": "^2.11.0",
     "shelljs": "^0.7.8"
   },
-  "firmwareVersion": "8.6.0",
-  "deviceProtocolVersion": "4.5.0",
+  "firmwareVersion": "8.8.1",
+  "deviceProtocolVersion": "4.7.0",
   "moduleProtocolVersion": "4.1.0",
   "userConfigVersion": "4.1.1",
   "hardwareConfigVersion": "1.0.0",
@@ -32,6 +32,21 @@
       "moduleId": 1,
       "name": "uhk60-left",
       "source": "left/build_make/uhk_left.bin"
+    },
+    {
+      "moduleId": 2,
+      "name": "keycluster-left",
+      "source": "keycluster/build_make/uhk_keycluster.bin"
+    },
+    {
+      "moduleId": 3,
+      "name": "trackball-right",
+      "source": "trackball/build_make/uhk_trackball.bin"
+    },
+    {
+      "moduleId": 4,
+      "name": "trackpoint-right",
+      "source": "trackpoint/build_make/uhk_trackpoint.bin"
     }
   ]
 }

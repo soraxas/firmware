@@ -16,12 +16,12 @@ void updateLayerStates(void)
     for (uint8_t slotId=0; slotId<SLOT_COUNT; slotId++) {
         for (uint8_t keyId=0; keyId<MAX_KEY_COUNT_PER_MODULE; keyId++) {
             key_state_t *keyState = &KeyStates[slotId][keyId];
-            if (ACTIVE(keyState)) {
+            if (KeyState_Active(keyState)) {
                 key_action_t action = CurrentKeymap[LayerId_Base][slotId][keyId];
                 if (action.type == KeyActionType_SwitchLayer) {
                     if (action.switchLayer.mode != SwitchLayerMode_Toggle) {
                         heldLayers[action.switchLayer.layer] = true;
-                    } else if (ACTIVATED_NOW(keyState)) {
+                    } else if (KeyState_ActivatedNow(keyState)) {
                         toggledLayers[action.switchLayer.layer] = true;
                     }
                 }

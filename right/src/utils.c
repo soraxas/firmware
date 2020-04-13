@@ -1,5 +1,7 @@
 #include "utils.h"
 #include "key_states.h"
+#include "macros.h"
+#include "macro_shortcut_parser.h"
 
 //this is noop at the moment, prepared for time when MAX_KEY_COUNT_PER_MODULE changes
 //the purpose is to preserve current keyids
@@ -31,4 +33,14 @@ void Utils_DecodeId(uint16_t keyid, uint8_t* outSlotId, uint8_t* outSlotIdx)
     //changes in the future, therefore hardcoded 64 is indeed correct
     *outSlotId = keyid/64;
     *outSlotIdx = keyid%64;
+}
+
+void Utils_reportReport(usb_basic_keyboard_report_t* report) {
+    Macros_SetStatusString("Reporting ", NULL);
+    for ( int i = 0; i < USB_BASIC_KEYBOARD_MAX_KEYS; i++) {
+        if(report->scancodes[i] != 0){
+            Macros_SetStatusChar(MacroShortcutParser_ScancodeToCharacter(report->scancodes[i]));
+        }
+    }
+    Macros_SetStatusString("\n", NULL);
 }

@@ -237,15 +237,16 @@ void postponeCurrentCycle() {
  */
 bool currentMacroKeyIsActive() {
     if(s->postponeNextNCommands > 0 || s->weInitiatedPostponing) {
-        return ACTIVE(s->currentMacroKey) && !PostponerQuery_IsKeyReleased(s->currentMacroKey);
+        return KeyState_Active(s->currentMacroKey) && !PostponerQuery_IsKeyReleased(s->currentMacroKey);
     } else {
-        return ACTIVE(s->currentMacroKey);
+        return KeyState_Active(s->currentMacroKey);
     }
 }
 
 
 bool processKey(macro_action_t macro_action)
 {
+    //TODO: remove ClaimReports
     if(!Macros_ClaimReports()) {
         return true;
     }
@@ -254,54 +255,51 @@ bool processKey(macro_action_t macro_action)
     uint8_t modifierMask = macro_action.key.modifierMask;
     uint16_t scancode = macro_action.key.scancode;
 
-#ifdef DEBUG_POSTPONER
-    Macros_SetStatusString("m> ", NULL);
-    Macros_SetStatusChar(MacroShortcutParser_ScancodeToCharacter(scancode));
-    Macros_SetStatusString("\n", NULL);
-#endif
+    s->pressPhase++;
 
     switch (action) {
         case MacroSubAction_Hold:
         case MacroSubAction_Tap:
-            if (s->pressPhase == 0) {
-                s->pressPhase = 1;
-                addModifiers(modifierMask);
-                if (modifierMask != 0 && SplitCompositeKeystroke != 0) {
+            switch(s->pressPhase) {
+                case 1:
+                    addModifiers(modifierMask);
                     return true;
-                }
-            }
-            if (s->pressPhase == 1) {
-                s->pressPhase = 2;
-                addScancode(scancode, type);
-                return true;
-            }
-            if (s->pressPhase == 2) {
-                if(currentMacroKeyIsActive() && action == MacroSubAction_Hold) {
+                case 2:
+                    addScancode(scancode, type);
                     return true;
-                }
-                s->pressPhase = 3;
-            }
-            if (s->pressPhase == 3) {
-                s->pressPhase = 0;
-                deleteModifiers(modifierMask);
-                deleteScancode(scancode, type);
+                case 3:
+                    if(currentMacroKeyIsActive() && action == MacroSubAction_Hold) {
+                        s->pressPhase--;
+                        return true;
+                    }
+                    deleteScancode(scancode, type);
+                    return true;
+                case 4:
+                    deleteModifiers(modifierMask);
+                    s->pressPhase = 0;
+                    return false;
             }
             break;
         case MacroSubAction_Release:
-            deleteModifiers(modifierMask);
-            deleteScancode(scancode, type);
+            switch (s->pressPhase) {
+                case 1:
+                    deleteScancode(scancode, type);
+                    return true;
+                case 2:
+                    deleteModifiers(modifierMask);
+                    s->pressPhase = 0;
+                    return false;
+            }
             break;
         case MacroSubAction_Press:
-            if (s->pressPhase == 0) {
-                s->pressPhase = 1;
-                addModifiers(modifierMask);
-                if (modifierMask != 0 && SplitCompositeKeystroke != 0) {
+            switch (s->pressPhase) {
+                case 1:
+                    addModifiers(modifierMask);
                     return true;
-                }
-            }
-            if (s->pressPhase == 1) {
-                s->pressPhase = 0;
-                addScancode(scancode, type);
+                case 2:
+                    addScancode(scancode, type);
+                    s->pressPhase = 0;
+                    return false;
             }
             break;
     }
@@ -321,30 +319,33 @@ bool processMouseButton(macro_action_t macro_action)
     uint8_t mouseButtonMask = macro_action.mouseButton.mouseButtonsMask;
     macro_sub_action_t action = macro_action.mouseButton.action;
 
+    s->pressPhase++;
+
     switch (macro_action.mouseButton.action) {
         case MacroSubAction_Hold:
         case MacroSubAction_Tap:
-            if (s->pressPhase == 0) {
+            switch(s->pressPhase) {
+            case 1:
                 s->macroMouseReport.buttons |= mouseButtonMask;
-                s->pressPhase = 1;
                 return true;
-            }
-            if (s->pressPhase == 1) {
+            case 2:
                 if(currentMacroKeyIsActive() && action == MacroSubAction_Hold) {
+                    s->pressPhase--;
                     return true;
                 }
-                s->pressPhase = 2;
-            }
-            if (s->pressPhase == 2) {
                 s->macroMouseReport.buttons &= ~mouseButtonMask;
                 s->pressPhase = 0;
+                break;
+
             }
             break;
         case MacroSubAction_Release:
             s->macroMouseReport.buttons &= ~mouseButtonMask;
+            s->pressPhase = 0;
             break;
         case MacroSubAction_Press:
             s->macroMouseReport.buttons |= mouseButtonMask;
+            s->pressPhase = 0;
             break;
     }
     return false;
@@ -496,6 +497,13 @@ void printReport(usb_basic_keyboard_report_t *report) {
     Macros_SetStatusString("\n", NULL);
 }
 
+static void clearScancodes()
+{
+    uint8_t oldMods = MacroBasicKeyboardReport.modifiers;
+    memset(&MacroBasicKeyboardReport, 0, sizeof MacroBasicKeyboardReport);
+    MacroBasicKeyboardReport.modifiers = oldMods;
+}
+
 bool dispatchText(const char* text, uint16_t textLen)
 {
     if(!Macros_ClaimReports()) {
@@ -507,40 +515,61 @@ bool dispatchText(const char* text, uint16_t textLen)
     } else {
         dispatchMutex = s;
     }
-    char character;
-    uint8_t scancode;
-    uint8_t mods;
-
     uint8_t max_keys = USB_BASIC_KEYBOARD_MAX_KEYS/2;
+    char character = 0;
+    uint8_t scancode = 0;
+    uint8_t mods = 0;
 
-    if (s->dispatchTextIndex == textLen) {
+    // Precompute modifiers and scancode.
+    if(s->dispatchTextIndex != s->currentMacroAction.text.textLen) {
+        character = s->currentMacroAction.text.text[s->dispatchTextIndex];
+        scancode = MacroShortcutParser_CharacterToScancode(character);
+        mods = MacroShortcutParser_CharacterToShift(character) ? HID_KEYBOARD_MODIFIER_LEFTSHIFT : 0;
+    }
+
+    // If required modifiers differ, first clear scancodes and send empty report
+    // containing only old modifiers. Then set new modifiers and send that new report.
+    // Just then continue.
+    if (mods != MacroBasicKeyboardReport.modifiers) {
+        if (s->dispatchReportIndex != 0) {
+            s->dispatchReportIndex = 0;
+            clearScancodes();
+            return true;
+        } else {
+            MacroBasicKeyboardReport.modifiers = mods;
+            return true;
+        }
+    }
+
+    // If all characters have been sent, finish.
+    if (s->dispatchTextIndex == s->currentMacroAction.text.textLen) {
         s->dispatchTextIndex = 0;
         s->dispatchReportIndex = max_keys;
         memset(&s->macroBasicKeyboardReport, 0, sizeof s->macroBasicKeyboardReport);
         dispatchMutex = NULL;
         return false;
     }
+
+    // Whenever the report is full, we clear the report and send it empty before continuing.
     if (s->dispatchReportIndex == max_keys) {
         s->dispatchReportIndex = 0;
         memset(&s->macroBasicKeyboardReport, 0, sizeof s->macroBasicKeyboardReport);
         return true;
     }
-    character = text[s->dispatchTextIndex];
-    mods = MacroShortcutParser_CharacterToShift(character) ? HID_KEYBOARD_MODIFIER_LEFTSHIFT : 0;
-    scancode = MacroShortcutParser_CharacterToScancode(character);
+
+    // If current character is already contained in the report, we need to
+    // release it first. We do so by artificially marking the report
+    // full. Next call will do rest of the work for us.
     for (uint8_t i = 0; i < s->dispatchReportIndex; i++) {
         if (s->macroBasicKeyboardReport.scancodes[i] == scancode) {
             s->dispatchReportIndex = max_keys;
             return true;
         }
     }
-    if(mods != 0 && (s->macroBasicKeyboardReport.modifiers & mods) != mods && SplitCompositeKeystroke) {
-        s->macroBasicKeyboardReport.modifiers = mods;
-    } else {
-        s->macroBasicKeyboardReport.scancodes[s->dispatchReportIndex++] = scancode;
-        s->macroBasicKeyboardReport.modifiers = mods;
-        ++s->dispatchTextIndex;
-    }
+
+    // Send the scancode.
+    s->macroBasicKeyboardReport.scancodes[s->dispatchReportIndex++] = scancode;
+    ++s->dispatchTextIndex;
     return true;
 }
 
@@ -701,7 +730,7 @@ bool processStatsLayerStackCommand()
 }
 
 bool processStatsActiveKeysCommand() {
-    Macros_SetStatusString("keyid/previous/current/debouncing/supressed\n", NULL);
+    Macros_SetStatusString("keyid/previous/current/debouncing\n", NULL);
     for (uint8_t slotId=0; slotId<SLOT_COUNT; slotId++) {
         for (uint8_t keyId=0; keyId<MAX_KEY_COUNT_PER_MODULE; keyId++) {
             key_state_t *keyState = &KeyStates[slotId][keyId];
@@ -714,8 +743,6 @@ bool processStatsActiveKeysCommand() {
                 Macros_SetStatusString("/", NULL);
                 Macros_SetStatusNum(keyState->debouncing);
                 Macros_SetStatusString("/", NULL);
-                Macros_SetStatusNum(keyState->suppressed);
-                Macros_SetStatusString("\n", NULL);
             }
         }
     }
@@ -1308,26 +1335,6 @@ bool processSetStickyModsEnabledCommand(const char* arg, const char *argEnd)
     return false;
 }
 
-bool processSetActivateOnReleaseCommand(const char* arg, const char *argEnd)
-{
-    uint8_t enabled = parseNUM(arg,  argEnd);
-    ActivateOnRelease = enabled;
-    return false;
-}
-
-bool processSetSplitCompositeKeystrokeCommand(const char* arg, const char *argEnd)
-{
-    SplitCompositeKeystroke  = parseNUM(arg,  argEnd);
-    return false;
-}
-
-bool processSetKeystrokeDelayCommand(const char* arg, const char *argEnd)
-{
-    KeystrokeDelay  = parseNUM(arg,  argEnd);
-    KeystrokeDelay = KeystrokeDelay < 250 ? KeystrokeDelay : 250;
-    return false;
-}
-
 bool processSetDebounceDelayCommand(const char* arg, const char *argEnd)
 {
     uint16_t delay = parseNUM(arg,  argEnd);
@@ -1643,7 +1650,7 @@ bool processifKeyPendingAtCommand(bool negate, const char* arg1, const char* arg
 bool processifKeyActiveCommand(bool negate, const char* arg1, const char* argEnd) {
     uint16_t keyid = parseNUM(arg1, argEnd);
     key_state_t* key = Utils_KeyIdToKeyState(keyid);
-    return ACTIVE(key) != negate;
+    return KeyState_Active(key) != negate;
 }
 
 bool processifPendingKeyReleasedCommand(bool negate, const char* arg1, const char* argEnd) {
@@ -1663,8 +1670,8 @@ bool processifKeyDefinedCommand(bool negate, const char* arg1, const char* argEn
 bool processActivateKeyPostponedCommand(const char* arg1, const char* argEnd) {
     uint16_t keyid = parseNUM(arg1, argEnd);
     key_state_t* key = Utils_KeyIdToKeyState(keyid);
-    PostponerCore_TrackKey(key, true);
-    PostponerCore_TrackKey(key, false);
+    PostponerCore_TrackKeyEvent(key, true);
+    PostponerCore_TrackKeyEvent(key, false);
     return false;
 }
 
@@ -2188,15 +2195,6 @@ bool processCommand(const char* cmd, const char* cmdEnd)
             }
             else if(TokenMatches(cmd, cmdEnd, "setStickyModsEnabled")) {
                 return processSetStickyModsEnabledCommand(arg1, cmdEnd);
-            }
-            else if(TokenMatches(cmd, cmdEnd, "setActivateOnRelease")) {
-                return processSetActivateOnReleaseCommand(arg1, cmdEnd);
-            }
-            else if(TokenMatches(cmd, cmdEnd, "setSplitCompositeKeystroke")) {
-                return processSetSplitCompositeKeystrokeCommand(arg1, cmdEnd);
-            }
-            else if(TokenMatches(cmd, cmdEnd, "setKeystrokeDelay")) {
-                return processSetKeystrokeDelayCommand(arg1, cmdEnd);
             }
             else if(TokenMatches(cmd, cmdEnd, "setDebounceDelay")) {
                 return processSetDebounceDelayCommand(arg1, cmdEnd);

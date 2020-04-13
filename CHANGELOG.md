@@ -5,7 +5,49 @@ All notable changes to this project will be documented in this file.
 The format is loosely based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to the [UHK Versioning](VERSIONING.md) conventions.
 
-## [8.6.0] - 2018-08-23
+## [8.8.1] - 2020-02-20
+
+Device Protocol: 4.7.0 | Module Protocol: 4.1.0 | User Config: 4.1.1 | Hardware Config: 1.0.0
+
+- Make the empty characters of keymap abbreviations show up empty on the LED display.
+- Add touchpad module slave driver.
+- Enable the pull-up resistors for the GPIO pins of the hall sensors of the BlackBerry trackball. This makes the new sensors work correctly.
+
+## [8.8.0] - 2020-02-16
+
+Device Protocol: 4.**7.0** | Module Protocol: 4.1.0 | User Config: 4.1.1 | Hardware Config: 1.0.0
+
+- Prevent deadlocks and races in USB semaphores. If your UHK frooze every now and then, it shouldn't happen again.
+- Implement mouse buttons 4-8.
+- Make arrow scancodes stick their modifiers.
+- Implement functional trackpoint firmware.
+- Expose toggled layer via the GetKeyboardState USB command. `DEVICEPROTOCOL:MINOR`
+
+## [8.7.1] - 2020-01-07
+
+Device Protocol: 4.6.0 | Module Protocol: 4.1.0 | User Config: 4.1.1 | Hardware Config: 1.0.0
+
+- Don't make shortcuts sticky with the exception of Alt+Tab and Cmd+Tab.
+- Add extra USB reports for pressing and releasing the modifiers of shortcuts. This makes the firmware play nicer with Karabiner, RDP, and possibly some other applications.
+- Make scroll key actions always emit a USB scroll event, even when tapped momentarily.
+- When conflicting mouse keys are pressed at the same time, make the most recent key the dominant one.
+- Add key cluster, trackball, and trackpoint firmware images to the firmware tarball.
+- Set sensible default key actions for modules.
+- Make the key cluster scroll and the other modules move the pointer by default.
+- Move from .tar.bz2 to .tar.gz as the firmware release file format because the latter can be attached in GitHub issues.
+
+## [8.7.0] - 2019-12-03
+
+Device Protocol: 4.**6.0** | Module Protocol: 4.1.0 | User Config: 4.1.1 | Hardware Config: 1.0.0
+
+- Make the Agent icon of the LED display light up when Agent is running.
+- Fix debouncer related data races which slightly affect the left keyboard half.
+- When a dual-role key is held and the secondary role gets triggered by another key, don't debounce the latter key.
+- Set the key states of disconnected modules to unpressed.
+- Update module states upon disconnecting the left and right modules.
+- Expose the active layer via the GetDeviceState USB command. `DEVICEPROTOCOL:MINOR`
+
+## [8.6.0] - 2019-08-23
 
 Device Protocol: 4.5.0 | Module Protocol: 4.**1.0** | User Config: 4.1.**1** | Hardware Config: 1.0.0
 
@@ -13,7 +55,7 @@ Device Protocol: 4.5.0 | Module Protocol: 4.**1.0** | User Config: 4.1.**1** | H
 - Implement API for modules to send pointer movements to the master. `MODULEPROTOCOL:MINOR`
 - Fix empty macro playback.
 
-## [8.5.4] - 2018-01-05
+## [8.5.4] - 2019-01-05
 
 Device Protocol: 4.5.0 | Module Protocol: 4.0.0 | User Config: 4.1.0 | Hardware Config: 1.0.0
 

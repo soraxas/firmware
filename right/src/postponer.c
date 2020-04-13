@@ -4,7 +4,7 @@
 #include "timer.h"
 #include "utils.h"
 
-postponer_buffer_record_type_t buffer[POSTPONER_BUFFER_SIZE];
+struct postponer_buffer_record_type_t buffer[POSTPONER_BUFFER_SIZE];
 uint8_t buffer_size = 0;
 uint8_t buffer_position = 0;
 
@@ -49,33 +49,50 @@ static void consumeEvent(uint8_t count)
     Postponer_NextEventKey = buffer_size == 0 ? NULL : buffer[buffer_position].key;
 }
 
-static void postponeNCycles(uint8_t n) {
-    cycles_until_activation = MAX(n + 1, cycles_until_activation);
-}
 
 //######################
 //### Core Functions ###
 //######################
 
-bool PostponerCore_IsActive(void) {
+// Postpone keys for the next n cycles. If called by multiple callers, maximum of all the
+// requests is taken.
+//
+// 0 means "(rest of) this cycle"
+// 1 means "(rest of) this cycle and the next one"
+// ...
+//
+// E.g., if you want to stop key processing for longer time, you want to call
+// this with n=1 every update cycle for as long as you want. Once you stop postponing
+// the events, Postponer will start replaying them at a pace one every two cycles.
+//
+// If you just want to perform some action of known length without being disturbed
+// (e.g., activation of a key with extra usb reports takes 2 cycles), then you just
+// call this once with the required number.
+void PostponerCore_PostponeNCycles(uint8_t n)
+{
+    cycles_until_activation = MAX(n + 1, cycles_until_activation);
+}
+
+bool PostponerCore_IsActive(void)
+{
     return buffer_size > 0 || cycles_until_activation > 0;
 }
 
-void PostponerCore_PostponeNCycles(uint8_t n) {
-    postponeNCycles(n);
-}
 
-void PostponerCore_TrackKey(key_state_t *keyState, bool active)
+void PostponerCore_TrackKeyEvent(key_state_t *keyState, bool active)
 {
     uint8_t pos = POS(buffer_size);
-    buffer[pos].key = keyState;
-    buffer[pos].active = active;
+    buffer[pos] = (struct postponer_buffer_record_type_t) {
+            .key = keyState,
+            .active = active,
+    };
     buffer_size = buffer_size < POSTPONER_BUFFER_SIZE ? buffer_size + 1 : buffer_size;
-    postponeNCycles(POSTPONER_MIN_CYCLES_PER_ACTIVATION);
-    Postponer_NextEventKey = buffer_size == 1 ? buffer[buffer_position].key : Postponer_NextEventKey;
+    /*TODO: FORK ONLY!!!*/ //postponeNCycles(POSTPONER_MIN_CYCLES_PER_ACTIVATION);
+    /*TODO: FORK ONLY!!!*/ //Postponer_NextEventKey = buffer_size == 1 ? buffer[buffer_position].key : Postponer_NextEventKey;
     last_press_time = active ? CurrentTime : last_press_time;
 }
 
+/*
 bool PostponerCore_RunKey(key_state_t* key, bool active)
 {
     if (key == buffer[buffer_position].key) {
@@ -87,24 +104,17 @@ bool PostponerCore_RunKey(key_state_t* key, bool active)
         }
     }
     return active;
-}
+}*/
 
 //TODO: remove either this or RunKey
-void PostponerCore_RunPostponed(void)
+void PostponerCore_RunPostponedEvents(void)
 {
-    cycles_until_activation -= cycles_until_activation > 0 ? 1 : 0;
-
-    if (buffer_size == 0) {
-        return;
-    }
-
-    if (cycles_until_activation == 0 || buffer_size > POSTPONER_BUFFER_MAX_FILL) {
-        if (ACTIVATED_EARLIER(buffer[buffer_position].key) || DEACTIVATED_EARLIER(buffer[buffer_position].key)) {
-            buffer[buffer_position].key->current &= ~KeyState_Sw;
-            buffer[buffer_position].key->current |= (buffer[buffer_position].active ? KeyState_Sw : 0);
-            consumeEvent(1);
-            postponeNCycles(POSTPONER_MIN_CYCLES_PER_ACTIVATION);
-        }
+    // Process one event every two cycles. (Unless someone keeps Postponer active by touching cycles_until_activation.)
+    if (buffer_size != 0 && (cycles_until_activation == 0 || buffer_size > POSTPONER_BUFFER_MAX_FILL)) {
+        buffer[buffer_position].key->current = buffer[buffer_position].active;
+        consumeEvent(1);
+        // This gives the key two ticks (this and next) to get properly processed before execution of next queued event.
+        PostponerCore_PostponeNCycles(1);
     }
 }
 
@@ -121,7 +131,7 @@ void PostponerCore_FinishCycle(void)
 uint8_t PostponerQuery_PendingKeypressCount()
 {
     uint8_t cnt = 0;
-    for ( int i = 0; i < buffer_size; i++ ) {
+    for ( uint8_t i = 0; i < buffer_size; i++ ) {
         if (buffer[POS(i)].active) {
             cnt++;
         }
@@ -134,7 +144,7 @@ bool PostponerQuery_IsKeyReleased(key_state_t* key)
     if (key == NULL) {
         return false;
     }
-    for ( int i = 0; i < buffer_size; i++ ) {
+    for ( uint8_t i = 0; i < buffer_size; i++ ) {
         if (buffer[POS(i)].key == key && !buffer[POS(i)].active) {
             return true;
         }
@@ -146,7 +156,7 @@ bool PostponerQuery_IsKeyReleased(key_state_t* key)
 //### Extended Functions ###
 //##########################
 
-static void consumeOneKeypress(bool suppress)
+static void consumeOneKeypress()
 {
     uint8_t shifting_by = 0;
     key_state_t* removedKeypress = NULL;
@@ -163,10 +173,10 @@ static void consumeOneKeypress(bool suppress)
             shifting_by++;
             release_found = true;
         }
-    }
+    }/* TODO: remove this
     if (removedKeypress != NULL && !release_found && suppress) {
         removedKeypress->suppressed = true;
-    }
+    }*/
     buffer_size -= shifting_by;
     Postponer_NextEventKey = buffer_size == 0 ? NULL : buffer[buffer_position].key;
 }
@@ -201,13 +211,13 @@ bool PostponerExtended_IsPendingKeyReleased(uint8_t idx)
 
 void PostponerExtended_PrintContent()
 {
-    postponer_buffer_record_type_t* first = &buffer[POS(0)];
-    postponer_buffer_record_type_t* last = &buffer[POS(buffer_size-1)];
+    struct postponer_buffer_record_type_t* first = &buffer[POS(0)];
+    struct postponer_buffer_record_type_t* last = &buffer[POS(buffer_size-1)];
     Macros_SetStatusString("keyid/active, size = ", NULL);
     Macros_SetStatusNum(buffer_size);
     Macros_SetStatusString("\n", NULL);
     for (int i = 0; i < POSTPONER_BUFFER_SIZE; i++) {
-        postponer_buffer_record_type_t* ptr = &buffer[i];
+        struct postponer_buffer_record_type_t* ptr = &buffer[i];
         Macros_SetStatusNum(Utils_KeyStateToKeyId(ptr->key));
         Macros_SetStatusString("/", NULL);
         Macros_SetStatusNum(ptr->active);

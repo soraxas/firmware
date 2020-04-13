@@ -3,6 +3,7 @@
 
 // Includes:
 
+    #include "layer.h"
     #include "config_parser/parse_keymap.h"
     #include "key_states.h"
 
@@ -18,12 +19,6 @@
     #define USB_SEMAPHORE_TIMEOUT 100 // ms
 
 // Typedefs:
-
-    typedef enum {
-        SecondaryRoleState_Released,
-        SecondaryRoleState_Pressed,
-        SecondaryRoleState_Triggered,
-    } secondary_role_state_t;
 
     typedef enum {
         SecondaryRole_LeftCtrl = 1,
@@ -65,10 +60,13 @@
         float ySum;
         int16_t xOut;
         int16_t yOut;
+        int8_t verticalStateSign;
+        int8_t horizontalStateSign;
     } mouse_kinetic_state_t;
 
 // Variables:
 
+    extern layer_id_t PreviousLayer;
     extern uint16_t DoubleTapSwitchLayerTimeout;
     extern mouse_kinetic_state_t MouseMoveState;
     extern mouse_kinetic_state_t MouseScrollState;

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 const fs = require('fs');
+const path = require('path');
 require('shelljs/global');
 
 config.fatal = true;
@@ -11,15 +12,22 @@ const package = JSON.parse(fs.readFileSync(`${__dirname}/package.json`));
 const version = package.firmwareVersion;
 const releaseName = `uhk-firmware-${version}`;
 const releaseDir = `${__dirname}/${releaseName}`;
-const releaseFile = `${__dirname}/${releaseName}.tar.bz2`;
+const releaseFile = `${__dirname}/${releaseName}.tar.gz`;
 const agentDir = `${__dirname}/../lib/agent`;
 
 const deviceSourceFirmwares = package.devices.map(device => `${__dirname}/../${device.source}`);
 const moduleSourceFirmwares = package.modules.map(module => `${__dirname}/../${module.source}`);
 rm('-rf', releaseDir, releaseFile, deviceSourceFirmwares, moduleSourceFirmwares);
 
-exec(`cd ${__dirname}/../left; make clean; make -j8`);
-exec(`cd ${__dirname}/../right; make clean; make -j8`);
+const sourcePaths = [
+    ...package.devices.map(device => device.source),
+    ...package.modules.map(module => module.source),
+];
+for (sourcePath of sourcePaths) {
+    const buildDir = path.dirname(`${__dirname}/../${sourcePath}`);
+    mkdir('-p', buildDir);
+    exec(`cd ${buildDir}/..; make clean; make -j8`);
+}
 
 exec(`git pull origin master; git checkout master`, { cwd: agentDir });
 exec(`npm ci`, { cwd: agentDir });
@@ -42,4 +50,4 @@ for (const module of package.modules) {
 }
 
 cp(`${__dirname}/package.json`, releaseDir);
-exec(`tar -cvjSf ${releaseFile} -C ${releaseDir} .`);
+exec(`tar -czvf ${releaseFile} -C ${releaseDir} .`);
