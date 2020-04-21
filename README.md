@@ -97,6 +97,10 @@ Or with Mac (which requires prolonged press of caps lock):
     $delayUntil 400
     $releaseKey capsLock
 
+Enables and disables compensation of diagonal speed.
+
+    $ifShift setCompensateDiagonalSpeed 1
+    $ifNotShift setCompensateDiagonalSpeed 0
 
 Smart toggle (if tapped, locks layer; if used with a key, acts as a secondary role):
 
