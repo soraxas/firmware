@@ -248,7 +248,6 @@ The following grammar is supported:
     CONDITION = {ifRecording | ifNotRecording}
     CONDITION = {ifRecordingId | ifNotRecordingId} MACROID
     MODIFIER = suppressMods
-    MODIFIER = suppressKeys
     MODIFIER = postponeKeys
     MODIFIER = final
     IFSHORTCUTFLAGS = noConsume | transitive | timeoutIn <time in ms (NUMBER)> | cancelIn <time in ms(NUMBER)>
@@ -275,6 +274,12 @@ The following grammar is supported:
     COMMAND = switchLayer LAYERID
     COMMAND = switchKeymapLayer KEYMAPID LAYERID
     COMMAND = resolveNextKeyEq <queue position (NUMBER)> KEYID {<time in ms>|untilRelease} <action adr (ADDRESS)> <action adr (ADDRESS)>
+    ##########
+    #REMOVEWD#
+    ##########
+    COMMAND = setSplitCompositeKeystroke {0|1}
+    COMMAND = setKeystrokeDelay <time in ms, at most 250 (NUMBER)>
+    MODIFIER = suppressKeys
 
 - Uncategorized commands:
   - `setLedTxt <time> <custom text>` will set led display to supplemented text for the given time. (Blocks for the given time.)
@@ -381,7 +386,6 @@ The following grammar is supported:
   - `ifPrimary/ifSecondary` act as an abreviation for `resolveSecondary`. They use postponing mechanism and allow distinguishing between primary and secondary roles.
 - `MODIFIER`s modify behaviour of the rest of the keyboard while the rest of the command is active (e.g., a delay) is active.
   - `suppressMods` will supress any modifiers except those applied via macro engine. Can be used to remap shift and nonShift characters independently.
-  - `suppressKeys` will suppress all new key activations triggered while this modifier is active. 
   - `postponeKeys` will postpone all new key activations for as long as any instance of this modifier is active. See postponing mechanisms section.
   - `final` will end macro playback after the "modified" action is properly finished. Simplifies control flow. "Implicit break."
 - Runtime macros:

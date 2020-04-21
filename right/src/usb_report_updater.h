@@ -76,10 +76,8 @@
     extern uint8_t HardwareModifierState;
     extern uint8_t HardwareModifierStatePrevious;
     extern bool SuppressMods;
-    extern bool SuppressKeys;
     extern bool PostponeKeys;
     extern bool StickyModifiersEnabled;
-    extern bool SplitCompositeKeystroke;
     extern uint16_t KeystrokeDelay;
     extern bool PendingPostponedAndReleased;
     extern bool ActivateOnRelease;

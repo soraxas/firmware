@@ -521,8 +521,8 @@ bool dispatchText(const char* text, uint16_t textLen)
     uint8_t mods = 0;
 
     // Precompute modifiers and scancode.
-    if(s->dispatchTextIndex != s->currentMacroAction.text.textLen) {
-        character = s->currentMacroAction.text.text[s->dispatchTextIndex];
+    if(s->dispatchTextIndex != textLen) {
+        character = text[s->dispatchTextIndex];
         scancode = MacroShortcutParser_CharacterToScancode(character);
         mods = MacroShortcutParser_CharacterToShift(character) ? HID_KEYBOARD_MODIFIER_LEFTSHIFT : 0;
     }
@@ -530,19 +530,19 @@ bool dispatchText(const char* text, uint16_t textLen)
     // If required modifiers differ, first clear scancodes and send empty report
     // containing only old modifiers. Then set new modifiers and send that new report.
     // Just then continue.
-    if (mods != MacroBasicKeyboardReport.modifiers) {
+    if (mods != s->macroBasicKeyboardReport.modifiers) {
         if (s->dispatchReportIndex != 0) {
             s->dispatchReportIndex = 0;
             clearScancodes();
             return true;
         } else {
-            MacroBasicKeyboardReport.modifiers = mods;
+            s->macroBasicKeyboardReport.modifiers = mods;
             return true;
         }
     }
 
     // If all characters have been sent, finish.
-    if (s->dispatchTextIndex == s->currentMacroAction.text.textLen) {
+    if (s->dispatchTextIndex == textLen) {
         s->dispatchTextIndex = 0;
         s->dispatchReportIndex = max_keys;
         memset(&s->macroBasicKeyboardReport, 0, sizeof s->macroBasicKeyboardReport);
@@ -1313,12 +1313,6 @@ bool processWriteCommand(const char* arg, const char *argEnd)
 bool processSuppressModsCommand()
 {
     SuppressMods = true;
-    return false;
-}
-
-bool processSuppressKeysCommand()
-{
-    SuppressKeys = true;
     return false;
 }
 
@@ -2189,9 +2183,6 @@ bool processCommand(const char* cmd, const char* cmdEnd)
             }
             else if(TokenMatches(cmd, cmdEnd, "suppressMods")) {
                 processSuppressModsCommand();
-            }
-            else if(TokenMatches(cmd, cmdEnd, "suppressKeys")) {
-                processSuppressKeysCommand();
             }
             else if(TokenMatches(cmd, cmdEnd, "setStickyModsEnabled")) {
                 return processSetStickyModsEnabledCommand(arg1, cmdEnd);

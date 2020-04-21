@@ -39,7 +39,6 @@ uint8_t HardwareModifierState;
 uint8_t HardwareModifierStatePrevious;
 bool SuppressMods = false;
 bool SuppressKeys = false;
-bool SuppressingKeys = false; //TODO:remove this?
 bool StickyModifiersEnabled = true;//TODO: refactor this
 
 key_state_t* EmergencyKey = NULL;
@@ -497,6 +496,7 @@ static void applyKeyAction(key_state_t *keyState, key_action_t *action, uint8_t 
             if (KeyState_ActivatedNow(keyState)) {
                 stickyModifiers = 0;
                 SwitchKeymapById(action->switchKeymap.keymapId);
+                Macros_UpdateLayerStack();
             }
             break;
         case KeyActionType_PlayMacro:
@@ -585,7 +585,6 @@ static void updateActiveUsbReports(void)
     HardwareModifierStatePrevious = HardwareModifierState;
     HardwareModifierState = 0;
     SuppressMods = false;
-    SuppressKeys = false;
 
 
     if (MacroPlaying) {
