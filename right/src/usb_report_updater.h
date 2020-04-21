@@ -78,6 +78,7 @@
     extern bool SuppressMods;
     extern bool PostponeKeys;
     extern bool StickyModifiersEnabled;
+    extern bool CompensateDiagonalSpeed;
     extern uint16_t KeystrokeDelay;
     extern bool PendingPostponedAndReleased;
     extern bool ActivateOnRelease;

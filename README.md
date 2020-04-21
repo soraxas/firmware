@@ -225,7 +225,7 @@ The following grammar is supported:
     COMMAND = playMacro [<slot identifier (MACROID)>]
     COMMAND = {startMouse|stopMouse} {move DIRECTION|scroll DIRECTION|accelerate|decelerate}
     COMMAND = setStickyModsEnabled {0|1}
-    COMMAND = setActivateOnRelease {0|1}
+    COMMAND = setCompensateDiagonalSpeed {0|1}
     COMMAND = setDebounceDelay <time in ms, at most 250 (NUMBER)>
     COMMAND = setReg <register index (NUMBER)> <value (NUMBER)> 
     COMMAND = setEmergencyKey KEYID
@@ -279,6 +279,7 @@ The following grammar is supported:
     ##########
     COMMAND = setSplitCompositeKeystroke {0|1}
     COMMAND = setKeystrokeDelay <time in ms, at most 250 (NUMBER)>
+    COMMAND = setActivateOnRelease {0|1}
     MODIFIER = suppressKeys
 
 - Uncategorized commands:
@@ -403,8 +404,8 @@ The following grammar is supported:
   - Register values can also be used in place of all numeric arguments by prefixing register index by '#'. E.g., waiting until release or for amount of time defined by reg 1 can be achieved by `$delayUntilReleaseMax #1`
 - Global configuration options:
   - `setStickyModsEnabled` globally turns on or off sticky modifiers
+  - `setCompensateDiagonalSpeed` will divide diagonal mouse speed by sqrt(2) if enabled.
   - `setDebounceDelay <time in ms, at most 250>` prevents key state from changing for some time after every state change. This is needed because contacts of mechanical switches can bounce after contact and therefore change state multiple times in span of a few milliseconds. Official firmware debounce time is 50 ms for both press and release. Recommended value is 10-50, default is 50.
-  - `setActivateOnRelease {0|1}` **experimental** if turned on, key actions are activated just once upon key release. This is a highly experimental feature, not guaranteed to work properly with all features of the keyboard! Intended usecase - if you wish to see whether or not you release keys in proper order. 
 - Argument parsing rules:
   - `NUMBER` is parsed as a 32 bit signed integer and then assigned into the target variable. However, the target variable is often only 8 or 16 bit unsigned. If a number is prefixed with '#', it is interpretted as a register address (index). If a number is prefixed with '@', current macro index is added to the final value. `#key` returns activation key's hardware id. If prefixed with `%`, returns keyid of nth press event in the postponer queue (e.g., `%0` returns `KEYID` of first key which is postponed but not yet activated).
   - `KEYMAPID` - is assumed to be 3 characters long abbreviation of a keymap.

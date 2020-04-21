@@ -41,6 +41,8 @@ bool SuppressMods = false;
 bool SuppressKeys = false;
 bool StickyModifiersEnabled = true;//TODO: refactor this
 
+bool CompensateDiagonalSpeed = false;
+
 key_state_t* EmergencyKey = NULL;
 
 mouse_kinetic_state_t MouseMoveState = {
@@ -183,6 +185,9 @@ static void processMouseKineticState(mouse_kinetic_state_t *kineticState)
 
         updateDirectionSigns(kineticState);
 
+        if ( kineticState->horizontalStateSign != 0 && kineticState->verticalStateSign != 0 && CompensateDiagonalSpeed ) {
+            distance /= 1.41f;
+        }
         kineticState->xSum += distance * kineticState->horizontalStateSign;
         kineticState->ySum += distance * kineticState->verticalStateSign;
 

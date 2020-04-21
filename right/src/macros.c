@@ -1329,6 +1329,15 @@ bool processSetStickyModsEnabledCommand(const char* arg, const char *argEnd)
     return false;
 }
 
+
+
+bool processSetCompensateDiagonalSpeedCommand(const char* arg, const char *argEnd)
+{
+    uint8_t enabled = parseNUM(arg,  argEnd);
+    CompensateDiagonalSpeed = enabled;
+    return false;
+}
+
 bool processSetDebounceDelayCommand(const char* arg, const char *argEnd)
 {
     uint16_t delay = parseNUM(arg,  argEnd);
@@ -2186,6 +2195,9 @@ bool processCommand(const char* cmd, const char* cmdEnd)
             }
             else if(TokenMatches(cmd, cmdEnd, "setStickyModsEnabled")) {
                 return processSetStickyModsEnabledCommand(arg1, cmdEnd);
+            }
+            else if(TokenMatches(cmd, cmdEnd, "setCompensateDiagonalSpeed")) {
+                return processSetCompensateDiagonalSpeedCommand(arg1, cmdEnd);
             }
             else if(TokenMatches(cmd, cmdEnd, "setDebounceDelay")) {
                 return processSetDebounceDelayCommand(arg1, cmdEnd);
