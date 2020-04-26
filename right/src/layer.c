@@ -21,7 +21,8 @@ void updateLayerStates(void)
                 if (action.type == KeyActionType_SwitchLayer) {
                     if (action.switchLayer.mode != SwitchLayerMode_Toggle) {
                         heldLayers[action.switchLayer.layer] = true;
-                    } else if (KeyState_ActivatedNow(keyState)) {
+                    }
+                    if (action.switchLayer.mode == SwitchLayerMode_Toggle && KeyState_ActivatedNow(keyState)) {
                         toggledLayers[action.switchLayer.layer] = true;
                     }
                 }
@@ -40,10 +41,13 @@ layer_id_t GetActiveLayer()
     // Handle toggled layers
 
     for (layer_id_t layerId=LayerId_Mod; layerId<=LayerId_Mouse; layerId++) {
+        // Toggle for the layer is in ActivatedNow state
         if (toggledLayers[layerId]) {
+            // if toggled, untoggle
             if (ToggledLayer == layerId) {
                 ToggledLayer = LayerId_Base;
                 break;
+            // if not toggled, toggle it            // this part of condition is already implied by updateLayerStates
             } else if (ToggledLayer == LayerId_Base && toggledLayers[layerId] == SwitchLayerMode_Toggle) {
                 ToggledLayer = layerId;
                 break;

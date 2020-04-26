@@ -8,7 +8,7 @@ struct postponer_buffer_record_type_t buffer[POSTPONER_BUFFER_SIZE];
 uint8_t bufferSize = 0;
 uint8_t bufferPosition = 0;
 
-uint8_t cyclesUnitlActivation = 0;
+uint8_t cyclesUntilActivation = 0;
 key_state_t* Postponer_NextEventKey;
 uint32_t lastPressTime;
 
@@ -70,12 +70,12 @@ static void consumeEvent(uint8_t count)
 // call this once with the required number.
 void PostponerCore_PostponeNCycles(uint8_t n)
 {
-    cyclesUnitlActivation = MAX(n + 1, cyclesUnitlActivation);
+    cyclesUntilActivation = MAX(n + 1, cyclesUntilActivation);
 }
 
 bool PostponerCore_IsActive(void)
 {
-    return bufferSize > 0 || cyclesUnitlActivation > 0;
+    return bufferSize > 0 || cyclesUntilActivation > 0;
 }
 
 
@@ -110,7 +110,7 @@ bool PostponerCore_RunKey(key_state_t* key, bool active)
 void PostponerCore_RunPostponedEvents(void)
 {
     // Process one event every two cycles. (Unless someone keeps Postponer active by touching cycles_until_activation.)
-    if (bufferSize != 0 && (cyclesUnitlActivation == 0 || bufferSize > POSTPONER_BUFFER_MAX_FILL)) {
+    if (bufferSize != 0 && (cyclesUntilActivation == 0 || bufferSize > POSTPONER_BUFFER_MAX_FILL)) {
         buffer[bufferPosition].key->current = buffer[bufferPosition].active;
         consumeEvent(1);
         // This gives the key two ticks (this and next) to get properly processed before execution of next queued event.
@@ -120,7 +120,7 @@ void PostponerCore_RunPostponedEvents(void)
 
 void PostponerCore_FinishCycle(void)
 {
-    cyclesUnitlActivation -= cyclesUnitlActivation > 0 ? 1 : 0;
+    cyclesUntilActivation -= cyclesUntilActivation > 0 ? 1 : 0;
 }
 
 //#######################
@@ -183,7 +183,7 @@ static void consumeOneKeypress()
 
 void PostponerExtended_ResetPostponer(void)
 {
-    cyclesUnitlActivation = 0;
+    cyclesUntilActivation = 0;
     bufferSize = 0;
 }
 
