@@ -45,7 +45,7 @@ bool SwitchKeymapByAbbreviation(uint8_t length, const char *abbrev)
     uint8_t keymapId = FindKeymapByAbbreviation(length, abbrev);
 
     if (keymapId != 0xFF) {
-        SwitchKeymapById(i);
+        SwitchKeymapById(keymapId);
         return true;
     } else {
         return false;
