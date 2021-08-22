@@ -162,6 +162,11 @@ Similar command can be used to implement "loose gestures" - i.e., shortcuts wher
 
 In the above examples, `tapKey` can be (and probably should be) replaced by `holdKey`. "Hold" activates the scancode for as long as the key is pressed while "tap" activates it just for a fraction of a second. This distinction may seem unimportant, but just as long as you don't try to play some games with it.
 
+Complex key sequences can be achieved using `tapKeySeq`. For instance, following emoji macro (uses linux  Ctrl+U notation) - tap `thisMacro + s + h` (as shrug) to get shrugging person, or `thisMacro + s + w` to get sweaty smile.
+
+    $ifGesture 80 73 final tapKeySeq CS-u 1 f 6 0 5 space
+    $ifGesture 80 21 final tapKeySeq CS-u 1 f 9 3 7 space
+
 You can simplify writing macros by using `#` and `@` characters. The first resolves a number as an index of a register. The second interprets the number as a relative action index. For instance the following macro will write out five "a"s with 50 ms delays
     
     //you can comment your code via two slashes. 
@@ -251,7 +256,8 @@ The following grammar is supported:
     COMMAND = playMacro [<slot identifier (MACROID)>]
     COMMAND = {startMouse|stopMouse} {move DIRECTION|scroll DIRECTION|accelerate|decelerate}
     COMMAND = {setReg|addReg|subReg|mulReg} <register index (NUMBER)> <value (NUMBER)>
-    COMMAND = {pressKey|holdKey|tapKey|releaseKey} [sticky] SHORTCUT
+    COMMAND = {pressKey|holdKey|tapKey|releaseKey} SHORTCUT
+    COMMAND = tapKeySeq [SHORTCUT]+
     COMMAND = set module.MODULEID.navigationMode.LAYERID NAVIGATIONMODE
     COMMAND = set module.MODULEID.baseSpeed <speed multiplier part that always applies, 0-10.0 (FLOAT)>
     COMMAND = set module.MODULEID.speed <speed multiplier part that is affected by acceleration, 0-10.0 (FLOAT)>
@@ -270,8 +276,8 @@ The following grammar is supported:
     COMMAND = set debounceDelay <time in ms, at most 250 (NUMBER)>
     COMMAND = set keystrokeDelay <time in ms, at most 65535 (NUMBER)>
     COMMAND = set setEmergencyKey KEYID
-    CONDITION = {ifShortcut | ifNotShortcut} [IFSHORTCUTFLAGS]* [KEYID]*
-    CONDITION = {ifGesture | ifNotGesture} [IFSHORTCUTFLAGS]* [KEYID]*
+    CONDITION = {ifShortcut | ifNotShortcut} [IFSHORTCUTFLAGS]* [KEYID]+
+    CONDITION = {ifGesture | ifNotGesture} [IFSHORTCUTFLAGS]* [KEYID]+
     CONDITION = {ifPrimary | ifSecondary}
     CONDITION = {ifDoubletap | ifNotDoubletap}
     CONDITION = {ifInterrupted | ifNotInterrupted}
@@ -289,7 +295,7 @@ The following grammar is supported:
     MODIFIER = suppressMods
     MODIFIER = postponeKeys
     MODIFIER = final
-    IFSHORTCUTFLAGS = noConsume | transitive | timeoutIn <time in ms (NUMBER)> | cancelIn <time in ms(NUMBER)>
+    IFSHORTCUTFLAGS = noConsume | transitive | anyOrder | timeoutIn <time in ms (NUMBER)> | cancelIn <time in ms(NUMBER)>
     DIRECTION = {left|right|up|down}
     LAYERID = {fn|mouse|mod|base}|last|previous
     KEYMAPID = <abbrev>|last
@@ -299,8 +305,8 @@ The following grammar is supported:
     CHAR = <any nonwhite ascii char>
     KEYID = <id of hardware key obtained by resolveNextKeyId (NUMBER)>
     LABEL = <string identifier>
-    SHORTCUT = MODMASK-KEY | KEY
-    MODMASK = [MODMASK]+ | [L|R]{S|C|A|G}
+    SHORTCUT = MODMASK- | MODMASK-KEY | KEY
+    MODMASK = [MODMASK]+ | [L|R]{S|C|A|G} | {p|r|h|t} | s
     NAVIGATIONMODE = cursor | scroll | caret | media | none
     MODULEID = trackball | touchpad | trackpoint | keycluster
     KEY = CHAR|KEYABBREV
@@ -339,11 +345,19 @@ The following grammar is supported:
 - `write <custom text>` will type rest of the string. Same as the plain text command. This is just easier to use with conditionals... If you want to interpolate register values, use (e.g.) `$setStatus Register 0 contains #0; $printStatus`.
 - `writeExpr NUMBER` serves for writing out contents of registers or otherwise computed numbers. E.g., `$writeExpr #5` or `$writeExpr @-2`.
 - `startMouse/stopMouse` start/stop corresponding mouse action. E.g., `startMouse move left`
-- `pressKey|holdKey|tapKey|releaseKey` Presses/holds/taps/releases the provided scancode. E.g., `pressKey mouseBtnLeft`, `tapKey LC-v` (Left Control + (lowercase) v), `tapKey CS-f5` (Ctrl + Shift + F5).
+- `pressKey|holdKey|tapKey|releaseKey` Presses/holds/taps/releases the provided scancode. E.g., `pressKey mouseBtnLeft`, `tapKey LC-v` (Left Control + (lowercase) v), `tapKey CS-f5` (Ctrl + Shift + F5), `LS-` (just tap left Shift).
   - press means adding the scancode into a list of "active keys" and continuing the macro. The key is released once the macro ends. I.e., if the command is not followed by any sort of delay, the key will be released again almost immediately.
   - release means removing the scancode from the list of "active keys". I.e., it negates effect of `pressKey` within the same macro. This does not affect scancodes emited by different keyboard actions.
   - tap means pressing a key (more precisely, activating the scancode) and immediately releasing it again
   - hold means pressing the key, waiting until key which activated the macro is released and then releasing the key again. I.e., `$holdKey <x>` is equivalent to `$pressKey <x>; $delayUntilRelease; $releaseKey <x>`, while `$tapKey <x>` is equivalent to `$pressKey <x>; $releaseKey <x>`.
+  - tapKeySeq can be used for executing custom sequences. Default action for each shortcut in sequence is tap. Other actions can be specified using `MODMASK`. E.g.:
+    - `CS-u 1 2 3 space` - control shift U + number + space - linux shortcut for custom unicode character.
+    - `pA- tab tab rA-` - tap alt tab twice to bring forward second background window.
+  - `MODMASK` meaning:
+    - `{S|C|A|G}` - Shift Control Alt Gui
+    - `[L|R]` - Left Right (which hand side modifier should be used)
+    - `s` - sticky 
+    - `{p|r|h|t}` - press release hold tap - by default corresponds to the command used to invoke the sequence, but can be overriden for any.
 
 ### Control flow, macro execution (aka "functions"):
 
@@ -429,6 +443,7 @@ We allow postponing key activations in order to allow deciding between some scen
   - `IFSHORTCUTFLAGS`:
     - `noConsume` allows not consuming the keys. Useful if the next action is a standalone action, yet we want to branch behaviour of current action depending on it. 
     - `transitive` makes termination conditions relate to that key of the queue whose result is most permissive (normally, they always refer to the activation key) - e.g., in transitive mode with 3-key shortcut, first key can be released if second key is being held. Timers count time since last performed action in this mode. Both `timeoutIn` and `cancelIn` behave according to this flag. In non-transitive mode, timers are counted since activation key press - i.e., since macro start.
+    - `anyOrder` will check only presence of mentioned keyIds in postponer queue.
     - `timeoutIn <time (NUMBER)>` adds a timeout timer to both `Shortcut` and `Gesture` commands. If the timer times out (i.e., the condition does not suceed or fail earlier), the command continues as if matching KEYIDs failed. Can be used to shorten life of `Shortcut` resolution. 
     - `cancelIn <time (NUMBER)>` adds a timer to both commands. If this timer times out, all related keys are consumed and macro is broken. *"This action has never happened, lets not talk about it anymore."* (Note that this is an only condition which behaves same in both `if` and `ifNot` cases.)
 - DEPRECATED (use `ifShortcut/ifGesture` instead) `resolveNextKeyEq <queue idx> <key id> <timeout> <adr1> <adr2>` will wait for next (n) key press(es). When the key press happens, it will compare its id with the `<key id>` argument. If the id equals, it issues goto to adr1. Otherwise, to adr2. See examples. Implicitly applies `postponeKeys` modifier.
@@ -496,10 +511,11 @@ For the purpose of toggling functionality on and off, and for global constants m
     
 - `set stickyMods {0|never|smart|always|1}` globally turns on or off sticky modifiers. This affects only standard scancode actions. Macro actions (both gui and command ones) are always nonsticky, unless `sticky` flag is included in `tapKey|holdKey|pressKey` commands. Default value is `smart`, which is the official behaviour - i.e., `<alt/ctrl/gui> + <tab/arrows>` are sticky. Furthermore `0 == never` and `1 == always`.
 - `set compensateDiagonalSpeed {0|1}` will divide diagonal mouse speed by sqrt(2) if enabled.
-- `set chording {0|1}` If enabled, keyboard will delay *all* actions by 50ms. If another key is pressed during this time, pending key actions will be sorted according to their type:
+- `set chording {0|1}` If enabled, keyboard will delay *all* key actions by 50ms. If another key is pressed during this time, pending key actions will be sorted according to their type:
   1) Keymap/layer switches
   2) Macros
   3) Keystrokes and mouse actions
+  This allows the user to trigger chorded shortcuts in arbitrary ordrer (all at the "same" time).
 - `set debounceDelay <time in ms, at most 250>` prevents key state from changing for some time after every state change. This is needed because contacts of mechanical switches can bounce after contact and therefore change state multiple times in span of a few milliseconds. Official firmware debounce time is 50 ms for both press and release. Recommended value is 10-50, default is 50.
 - `set keystrokeDelay <time in ms, at most 65535>` allows slowing down keyboard output. This is handy for lousily written RDP clients and other software which just scans keys once a while and processes them in wrong order if multiple keys have been pressed inbetween. In more detail, this setting adds a delay whenever a basic usb report is sent. During this delay, key matrix is still scanned and keys are debounced, but instead of activating, the keys are added into a queue to be replayed later. Recommended value is 10 if you have issues with RDP missing modifier keys, 0 otherwise.
 - `set mouseKeys.{move|scroll}.{...} NUMBER` please refer to Agent for more details
@@ -508,12 +524,31 @@ For the purpose of toggling functionality on and off, and for global constants m
   - `deceleratedSpeed` - speed as affected by deceleration modifier
   - `acceleratedSpeed` - speed as affected by acceleration modifier
   - `axisSkew`
-- `set module.MODULEID.{baseSpeed|speed|acceleration}` modifies speed characteristics of right side modules. Simplified formula is `modifiedSpeed(normalizedSpeed) = baseSpeed*s + speed*(normalizedSpeed^acceleration)` where `normalizedSpeed = actualSpeed / midSpeed`. Therefore `appliedDistance(distance d, time t) = d*(baseSpeed*((d/t)/midSpeed) + speed*(((d/t)/midSpeed)^acceleration))`. (`d/t` is actual speed in px/s, `(d/t)/midSpeed` is normalizedSpeed which acts as base for the exponent)
+- `set module.MODULEID.{baseSpeed|speed|acceleration}` modifies speed characteristics of right side modules. Simplified formula is `speedMultiplier(normalizedSpeed) = baseSpeed + speed*(normalizedSpeed^acceleration)` where `normalizedSpeed = actualSpeed / midSpeed`. Therefore `appliedDistance(distance d, time t) = d*(baseSpeed*((d/t)/midSpeed) + d*speed*(((d/t)/midSpeed)^acceleration))`. (`d/t` is actual speed in px/s, `(d/t)/midSpeed` is normalizedSpeed which acts as base for the exponent)
   - `baseSpeed` is base speed multiplier which is not affected by acceleration. I.e., if `speed = 0`, then traveled distance is `reportedDistance*baseSpeed`
   - `speed` multiplies effect of acceleration expression. I.e., simply multiplies the reported distance when the actual speed equals `midSpeed`.
   - `acceleration` is exponent applied to the speed normalized w.r.t midSpeed. I.e., acceleration expression of the formula is `speed*(reportedSpeed/midSpeed)^(acceleration)`. I.e., no acceleration = 0, reasonable (square root) acceleration = 0.5. Highest recommended value is 1.0.
-  - `midSpeed` represents "middle" speed, where the user can easily imagine behaviour of the device (currently fixed 3000 px/s) and henceforth easily set the coefficient. At this speed, `modifiedSpeed = (baseSpeed + speed)*reportedSpeed` 
-  - Recommended settings - e.g. `0.0 1.0 0.5 3000` (square root multiplier, starting at 0 speed - allowing for very precise movement at low speed) or `0.5 0.5 1.0 3000` (linear speedup starting at 0.5 - providing more uniform acceleration).
+  - `midSpeed` represents "middle" speed, where the user can easily imagine behaviour of the device (currently fixed 3000 px/s) and henceforth easily set the coefficient. At this speed, acceleration formula yields `1.0`, i.e., `speedModifier = (baseSpeed + speed)`.
+  - (Mostly) reasonable examples (`baseSpeed speed acceleration baseSpeed`):
+    - `0.0 1.0 0.0 3000` (no acceleration)
+      - speed multiplier is always 1x at all speeds
+    - `0.0 1.0 0.5 3000` (square root multiplier)
+      - starts at 0x speed multiplier - allowing for very precise movement at low speed)
+      - at 3000 px/s, yields cursor speed equal to actually picked up movement
+      - at 12000 px/s, cursor speed is going to be twice the movement (because `sqrt(4) = 2`)
+    - `0.5 0.5 1.0 3000` (linear speedup starting at 0.5)
+      - starts at 0.5x speed multipier - meaning that resulting cursor speed is half the picked up movement at low speeds
+      - at 3000 px/s, speed multiplier is 1x
+      - at 12000 px/s, speed multiplier is 2.5x
+      - (notice that linear acceleration actually means quadratic overall curve)
+    - `1.0 1.0 1.0 3000`
+      - same as before, but resulting cursor speed is double. I.e., 1x at 0 speed, 2x at 3000 px/s, 5x at 12000 px/s
+    - `0.0 1.0 1.0 3000` (linear speedup starting at 0)
+      - again very precise at low speed
+      - at 3000 px/s, speed multiplier is 1x
+      - at 6000 px/s, speed multiplier is 4x
+      - not recommended - the curve will behave in very non-linear fashion.
+
 
 ### Argument parsing rules:
 

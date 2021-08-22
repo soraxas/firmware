@@ -140,6 +140,7 @@ uint8_t PostponerQuery_PendingKeypressCount()
     return cnt;
 }
 
+
 bool PostponerQuery_IsKeyReleased(key_state_t* key)
 {
     if (key == NULL) {
@@ -151,6 +152,19 @@ bool PostponerQuery_IsKeyReleased(key_state_t* key)
         }
     }
     return false;
+}
+
+bool PostponerQuery_IsActiveEventually(key_state_t* key)
+{
+    if (key == NULL) {
+        return false;
+    }
+    for ( int8_t i = bufferSize - 1; i >= 0; i-- ) {
+        if (buffer[POS(i)].key == key) {
+            return buffer[POS(i)].active;
+        }
+    }
+    return KeyState_Active(key);
 }
 
 //##########################
@@ -228,6 +242,22 @@ void PostponerExtended_PrintContent()
         Macros_SetStatusString("\n", NULL);
     }
 }
+
+bool PostponerQuery_ContainsKeyId(uint8_t keyid)
+{
+    key_state_t* key = Utils_KeyIdToKeyState(keyid);
+
+    if (key == NULL) {
+        return false;
+    }
+    for ( uint8_t i = 0; i < bufferSize; i++ ) {
+        if (buffer[POS(i)].key == key) {
+            return true;
+        }
+    }
+    return false;
+}
+
 
 //##########################
 //### Chording ###

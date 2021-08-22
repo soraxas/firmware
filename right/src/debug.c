@@ -6,13 +6,15 @@
 #include "timer.h"
 #include "key_states.h"
 #include <limits.h>
+#include "usb_interfaces/usb_interface_basic_keyboard.h"
+#include "macros.h"
 
 uint8_t CurrentWatch = 0;
 
 static uint32_t lastWatch = 0;
 static uint32_t watchInterval = 500;
 
-static void printReport(usb_basic_keyboard_report_t *report)
+void AddReportToStatusBuffer(usb_basic_keyboard_report_t *report)
 {
     Macros_SetStatusNum(report->modifiers);
     for (int i = 0; i < 6; i++) {
@@ -81,6 +83,17 @@ void WatchString(char const *v, uint8_t n)
         lastWatch = CurrentTime;
     }
 }
+
+void ShowString(char const *v, uint8_t n)
+{
+    LedDisplay_SetText(strlen(v), v);
+}
+
+void ShowValue(int v, uint8_t n)
+{
+    ShowNumberExp(v);
+}
+
 
 void WatchValueMin(int v, uint8_t n)
 {

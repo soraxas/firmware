@@ -19,10 +19,6 @@
 macro_reference_t AllMacros[MAX_MACRO_NUM];
 uint8_t AllMacrosCount;
 bool MacroPlaying = false;
-usb_mouse_report_t MacroMouseReport;
-usb_basic_keyboard_report_t MacroBasicKeyboardReport;
-usb_media_keyboard_report_t MacroMediaKeyboardReport;
-usb_system_keyboard_report_t MacroSystemKeyboardReport;
 
 uint8_t MacroBasicScancodeIndex = 0;
 uint8_t MacroMediaScancodeIndex = 0;
@@ -528,9 +524,9 @@ void Macros_ReportErrorNum(const char* err, uint32_t num)
 
 static void clearScancodes()
 {
-    uint8_t oldMods = MacroBasicKeyboardReport.modifiers;
-    memset(&MacroBasicKeyboardReport, 0, sizeof MacroBasicKeyboardReport);
-    MacroBasicKeyboardReport.modifiers = oldMods;
+    uint8_t oldMods = s->ms.macroBasicKeyboardReport.modifiers;
+    memset(&s->ms.macroBasicKeyboardReport, 0, sizeof s->ms.macroBasicKeyboardReport);
+    s->ms.macroBasicKeyboardReport.modifiers = oldMods;
 }
 
 static bool dispatchText(const char* text, uint16_t textLen)
@@ -582,6 +578,7 @@ static bool dispatchText(const char* text, uint16_t textLen)
     // Whenever the report is full, we clear the report and send it empty before continuing.
     if (s->as.dispatchData.reportIdx == max_keys) {
         s->as.dispatchData.reportIdx = 0;
+
         memset(&s->ms.macroBasicKeyboardReport, 0, sizeof s->ms.macroBasicKeyboardReport);
         return true;
     }
@@ -604,7 +601,6 @@ static bool dispatchText(const char* text, uint16_t textLen)
 
 static bool processTextAction(void)
 {
-#ifdef EXTENDED_MACROS
     if (s->ms.currentMacroAction.text.text[0] == '$') {
         bool actionInProgress = processCommandAction();
         s->as.currentConditionPassed = actionInProgress;
@@ -614,7 +610,6 @@ static bool processTextAction(void)
     } else if (s->ms.currentMacroAction.text.text[0] == '/' && s->ms.currentMacroAction.text.text[1] == '/') {
         return false;
     }
-#endif
 
     return dispatchText(s->ms.currentMacroAction.text.text, s->ms.currentMacroAction.text.textLen);
 }
@@ -1547,26 +1542,15 @@ conditionPassed:
     return processCommand(arg, argEnd);
 }
 
-static macro_action_t decodeKey(const char* arg1, const char* argEnd)
+static macro_action_t decodeKey(const char* arg1, const char* argEnd, macro_sub_action_t defaultSubAction)
 {
-    macro_action_t action = MacroShortcutParser_Parse(arg1, TokEnd(arg1, argEnd));
+    macro_action_t action = MacroShortcutParser_Parse(arg1, TokEnd(arg1, argEnd), defaultSubAction);
     return action;
 }
 
 static bool processKeyCommand(macro_sub_action_t type, const char* arg1, const char* argEnd)
 {
-    bool isSticky = false;
-    if (TokenMatches(arg1, argEnd, "sticky")) {
-        isSticky = true;
-        arg1 = NextTok(arg1, argEnd);
-    }
-
-    macro_action_t action = decodeKey(arg1, argEnd);
-    action.key.action = type;
-
-    if (action.type == MacroActionType_Key) {
-        action.key.sticky = isSticky;
-    }
+    macro_action_t action = decodeKey(arg1, argEnd, type);
 
     switch (action.type) {
         case MacroActionType_Key:
@@ -1576,6 +1560,24 @@ static bool processKeyCommand(macro_sub_action_t type, const char* arg1, const c
         default:
             return false;
     }
+}
+
+static bool processTapKeySeqCommand(const char* arg1, const char* argEnd)
+{
+    for(uint8_t i = 0; i < s->as.keySeqData.atKeyIdx; i++) {
+        arg1 = NextTok(arg1, argEnd);
+
+        if(arg1 == argEnd) {
+            s->as.keySeqData.atKeyIdx = 0;
+            return false;
+        };
+    }
+
+    if(!processKeyCommand(MacroSubAction_Tap, arg1, argEnd)) {
+        s->as.keySeqData.atKeyIdx++;
+    }
+
+    return true;
 }
 
 static bool processResolveNextKeyIdCommand()
@@ -1634,6 +1636,7 @@ static bool processIfShortcutCommand(bool negate, const char* arg, const char* a
     //parse optional flags
     bool consume = true;
     bool transitive = false;
+    bool fixedOrder = true;
     uint16_t cancelIn = 0;
     uint16_t timeoutIn= 0;
     while(arg < argEnd && !isNUM(arg, argEnd)) {
@@ -1651,6 +1654,9 @@ static bool processIfShortcutCommand(bool negate, const char* arg, const char* a
             arg = NextTok(arg, argEnd);
             cancelIn = parseNUM(arg, argEnd);
             arg = NextTok(arg, argEnd);
+        } else if (TokenMatches(arg, argEnd, "anyOrder")) {
+            arg = NextTok(arg, argEnd);
+            fixedOrder = false;
         } else {
             Macros_ReportError("Unrecognized option", arg, argEnd);
             arg = NextTok(arg, argEnd);
@@ -1699,7 +1705,14 @@ static bool processIfShortcutCommand(bool negate, const char* arg, const char* a
                 }
             }
         }
-        else if (PostponerExtended_PendingId(numArgs - 1) != argKeyid) {
+        else if (fixedOrder && PostponerExtended_PendingId(numArgs - 1) != argKeyid) {
+            if (negate) {
+                goto conditionPassed;
+            } else {
+                return false;
+            }
+        }
+        else if (!fixedOrder && !PostponerQuery_ContainsKeyId(argKeyid)) {
             if (negate) {
                 goto conditionPassed;
             } else {
@@ -1767,8 +1780,13 @@ static bool processActivateKeyPostponedCommand(const char* arg1, const char* arg
 {
     uint16_t keyid = parseNUM(arg1, argEnd);
     key_state_t* key = Utils_KeyIdToKeyState(keyid);
-    PostponerCore_TrackKeyEvent(key, true);
-    PostponerCore_TrackKeyEvent(key, false);
+    if(PostponerQuery_IsActiveEventually(key)) {
+        PostponerCore_TrackKeyEvent(key, false);
+        PostponerCore_TrackKeyEvent(key, true);
+    } else {
+        PostponerCore_TrackKeyEvent(key, true);
+        PostponerCore_TrackKeyEvent(key, false);
+    }
     return false;
 }
 
@@ -2313,6 +2331,9 @@ static bool processCommand(const char* cmd, const char* cmdEnd)
             else if (TokenMatches(cmd, cmdEnd, "tapKey")) {
                 return processKeyCommand(MacroSubAction_Tap, arg1, cmdEnd);
             }
+            else if (TokenMatches(cmd, cmdEnd, "tapKeySeq")) {
+                return processTapKeySeqCommand(arg1, cmdEnd);
+            }
             else {
                 goto failed;
             }
@@ -2347,6 +2368,8 @@ static bool processCommand(const char* cmd, const char* cmdEnd)
     return false;
 }
 
+//TODO: removethis
+/*
 static bool processStockCommandAction(const char* cmd, const char* cmdEnd)
 {
     const char* cmdTokEnd = TokEnd(cmd, cmdEnd);
@@ -2393,6 +2416,7 @@ static bool processStockCommandAction(const char* cmd, const char* cmdEnd)
     }
     return false;
 }
+*/
 
 
 static bool processCommandAction(void)
@@ -2409,11 +2433,7 @@ static bool processCommandAction(void)
         return false;
     }
 
-#ifdef EXTENDED_MACROS
     return processCommand(cmd, cmdEnd);
-#else
-    return processStockCommandAction(cmd, cmdEnd);
-#endif
 }
 
 static bool processCurrentMacroAction(void)
