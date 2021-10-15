@@ -409,6 +409,7 @@ uint32_t UsbReportUpdateCounter;
 
 void UpdateUsbReports(void)
 {
+    WatchTimeMicros(1);
     static uint32_t lastUpdateTime;
     static uint32_t lastReportTime;
 
