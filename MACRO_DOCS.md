@@ -390,7 +390,7 @@ The following grammar is supported:
 - `break` will end playback of the current macro
 - `noOp` does nothing - i.e., stops macro for exactly one update cycle and then continues.
 - `exec MACRONAME` will execute different macro in current state slot. I.e., the macro will be executed in current context and will *not* return. First action of the called macro is executed within the same eventloop cycle.
-- `call MACRONAME` will execute another macro in a new state slot. After the called macro finishes, the control returns to the caller macro. First action of the called macro is executed within the same eventloop cycle. The called macro has its own context (e.g., its own ifInterrupted flag, its own postponing counter and flags etc.) Beware, the state pool is small - do not use deep call trees!
+- `call [background] MACRONAME` will execute another macro in a new state slot. After the called macro finishes, the control returns to the caller macro. If the `background` flag is given, the caller macro will not wait for the called macro to finish (i.e. the called macro will be detached from the caller, and they will run simultaneously in the same eventloop). First action of the called macro is executed within the same eventloop cycle. The called macro has its own context (e.g., its own ifInterrupted flag, its own postponing counter and flags etc.) Beware, the state pool is small - do not use deep call trees!
 - `stopAllMacros` interrupts all macros. 
 
 ### Status buffer/Debugging tools

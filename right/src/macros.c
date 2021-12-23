@@ -54,7 +54,7 @@ static bool processCommand(const char* cmd, const char* cmdEnd);
 static bool processCommandAction(void);
 static bool continueMacro(void);
 static bool execMacro(uint8_t macroIndex);
-static bool callMacro(uint8_t macroIndex);
+static bool callMacro(uint8_t macroIndex, bool background);
 
 bool Macros_ClaimReports()
 {
@@ -1829,8 +1829,23 @@ static bool processExecCommand(const char* arg1, const char* cmdEnd)
 
 static bool processCallCommand(const char* arg1, const char* cmdEnd)
 {
-    uint8_t macroIndex = FindMacroIndexByName(arg1, TokEnd(arg1, cmdEnd), true);
-    return callMacro(macroIndex);
+    bool background = false;
+
+    const char* argEnd = NextTok(arg1, cmdEnd);
+    while(argEnd < cmdEnd) {
+        if (TokenMatches(arg1, cmdEnd, "background")) {
+            background = true;
+        } else {
+            Macros_ReportError("Unrecognized option", arg1, cmdEnd);
+        }
+        arg1 = argEnd;
+        argEnd = NextTok(argEnd, cmdEnd);
+    }
+    // the last unprocessed arg is the macro name
+    const char* macroName = arg1;
+
+    uint8_t macroIndex = FindMacroIndexByName(macroName, argEnd, true);
+    return callMacro(macroIndex, background);
 }
 
 static bool processCommand(const char* cmd, const char* cmdEnd)
@@ -2510,12 +2525,15 @@ static bool execMacro(uint8_t index)
     }
 }
 
-static bool callMacro(uint8_t macroIndex)
+static bool callMacro(uint8_t macroIndex, bool background)
 {
-    s->ms.macroSleeping = true;
-    uint32_t ptr1 = (uint32_t)(macro_state_t*)s;
-    uint32_t ptr2 = (uint32_t)(macro_state_t*)&(MacroState[0]);
-    uint32_t slotIndex = (ptr1 - ptr2) / sizeof(macro_state_t);
+    uint32_t slotIndex = 255;
+    if (!background) {
+        s->ms.macroSleeping = true;
+        uint32_t ptr1 = (uint32_t)(macro_state_t*)s;
+        uint32_t ptr2 = (uint32_t)(macro_state_t*)&(MacroState[0]);
+        slotIndex = (ptr1 - ptr2) / sizeof(macro_state_t);
+    }
     Macros_StartMacro(macroIndex, s->ms.currentMacroKey, slotIndex);
     return false;
 }
