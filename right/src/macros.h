@@ -74,6 +74,13 @@
         MacroResult_JumpedBackward = MacroResult_DoneFlag | MacroResult_YieldFlag,
     } macro_result_t;
 
+    typedef enum {
+        MacroHookState_Unregister,
+        MacroHookState_Registered,
+        MacroHookState_InProgress,
+        MacroHookState_Fired
+    } macro_hook_state_t;
+
     typedef struct {
         union {
             struct {
@@ -124,6 +131,7 @@
         struct {
             macro_action_t currentMacroAction;
             key_state_t *currentMacroKey;
+            macro_hook_state_t onExitHookState;
             uint32_t currentMacroStartTime;
             uint16_t currentMacroActionIndex;
             uint16_t bufferOffset;
@@ -133,6 +141,7 @@
             uint8_t currentMacroIndex;
             uint8_t postponeNextNCommands;
             uint8_t commandAddress;
+            uint8_t onExitAddress;
             uint8_t nextSlot;
             bool macroInterrupted : 1;
             bool macroSleeping : 1;

@@ -1600,6 +1600,24 @@ static macro_result_t processNoOpCommand()
     return MacroResult_Blocking;
 }
 
+static macro_result_t processOnExitHookCommand(const char* arg, const char* argEnd)
+{
+    switch (s->ms.onExitHookState) {
+    case MacroHookState_Fired:
+    case MacroHookState_InProgress:
+        // forward this command
+        return processCommand(arg, argEnd);
+    case MacroHookState_Unregister:
+    case MacroHookState_Registered:  //allow rebinding even after 1st register
+        // register onExit hook
+        s->ms.onExitAddress = s->ms.commandAddress;
+        s->ms.onExitHookState = MacroHookState_Registered;
+        // fall-through
+    default:
+    }
+    return MacroResult_Finished;
+}
+
 #define RESOLVESEC_RESULT_DONTKNOWYET 0
 #define RESOLVESEC_RESULT_PRIMARY 1
 #define RESOLVESEC_RESULT_SECONDARY 2
@@ -2039,6 +2057,15 @@ static macro_result_t processCommand(const char* cmd, const char* cmdEnd)
             return MacroResult_Finished;
         }
     }
+    if (s->ms.onExitHookState == MacroHookState_InProgress) {
+        // go to the onExit token
+        if (s->ms.onExitAddress == s->ms.commandAddress) {
+            while(cmd < cmdEnd && !TokenMatches(cmd, cmdEnd, "onExit")) {
+                cmd = NextTok(cmd, cmdEnd);
+            }
+            s->ms.onExitHookState = MacroHookState_Fired;
+        }
+    }
     while(*cmd && cmd < cmdEnd) {
         const char* arg1 = NextTok(cmd, cmdEnd);
         switch(*cmd) {
@@ -2383,6 +2410,14 @@ static macro_result_t processCommand(const char* cmd, const char* cmdEnd)
         case 'n':
             if (TokenMatches(cmd, cmdEnd, "noOp")) {
                 return processNoOpCommand();
+            }
+            else {
+                goto failed;
+            }
+            break;
+        case 'o':
+            if (TokenMatches(cmd, cmdEnd, "onExit")) {
+                return processOnExitHookCommand(arg1, cmdEnd);
             }
             else {
                 goto failed;
@@ -2806,6 +2841,7 @@ uint8_t initMacro(uint8_t index, key_state_t *keyState, uint8_t parentMacroSlot)
     s->ms.currentMacroKey = keyState;
     s->ms.currentMacroStartTime = CurrentTime;
     s->ms.parentMacroSlot = parentMacroSlot;
+    s->ms.onExitHookState = MacroHookState_Unregister;
 
     //this loads the first action and resets all adresses
     resetToAddressZero(index);
@@ -2887,7 +2923,13 @@ macro_result_t continueMacro(void)
 
     if ((s->ms.macroBroken) || (!loadNextCommand() && !loadNextAction())) {
         //macro was ended either because it was broken or because we are out of actions to perform.
-        return endMacro() | res;
+        if (s->ms.onExitHookState == MacroHookState_Registered) {
+            s->ms.onExitHookState = MacroHookState_InProgress;
+            return goToAddress(s->ms.onExitAddress);
+
+        } else {
+            return endMacro() | res;
+        }
     } else {
         //we are still running - return last action's return value
         return res;

@@ -499,6 +499,23 @@ We allow postponing key activations in order to allow deciding between some scen
   - `arg4 - adr1` index of macro action to go to if the `arg1`th next key's hardware identifier equals `arg2`.
   - `arg5 - adr2` index of macro action to go to otherwise.
 - `resolveNextKeyId` will wait for next key press. When the next key is pressed, it will type a unique identifier identifying the pressed hardware key. 
+- `onExit` will register a hook at the current command token, and will skip the execution of the subsequent actions on the same line (similar to `noOp`). When the macro exits, the macro will jumps to the registered hook location and resume execution. Once a `onExit` hook is fired, it will not be fire again even if other `onExit` token is encountered again. Using `final` modifier can ensure that only the `onExit` line will runs. At the moment, if a macro is broken (either due to parsing error, non-existing label, `final` or `break` command) the hook won't fires.
+  - Usage (`;` denotes newline)
+    - `onExit write hello; write bye` will results in *byehellobye*
+    - `onExit final write hello; write bye` will results in *byehello*
+    - `onExit` will overwrite any old hooks. For example, `onExit final write foo; onExit final write bar` will results in writing *bar*.
+    - Unlike label, `onExit` uses runtime information to register jump. For example,
+      ```
+      setReg 1 3
+      ifRegEq 1 1 onExit final setLedTxt 2000 ONE
+      ifRegEq 1 2 onExit final setLedTxt 2000 TWO
+      ifRegEq 1 3 onExit final setLedTxt 2000 TRE
+      ifRegEq 1 4 onExit final setLedTxt 2000 FOU
+      ifRegEq 1 5 onExit final setLedTxt 2000 FIV
+      setReg 1 5
+      ```
+      will ended up displaying "TRE" in the led.
+
 
 ### Conditions 
 
