@@ -82,6 +82,7 @@ static void resetToAddressZero(uint8_t macroIndex);
 static uint8_t currentActionCmdCount();
 static macro_result_t sleepTillTime(uint32_t time);
 static macro_result_t sleepTillKeystateChange();
+static bool isNUM(const char *a, const char *aEnd);
 
 /**
  * This ensures integration/interface between macro layer mechanism
@@ -661,13 +662,66 @@ static macro_result_t processTextAction(void)
     return dispatchText(s->ms.currentMacroAction.text.text, s->ms.currentMacroAction.text.textLen);
 }
 
-static bool validReg(uint8_t idx)
+static int32_t* getReg(const char* arg, const char *argEnd, const char* *parsedTill)
 {
+    // Returns pointer to the address of the register, by index or by name
+    // Returns nullptr if invalid
+    uint8_t idx;
+    if (isNUM(arg, argEnd)) {
+        idx = ParseInt32_2(arg, argEnd, parsedTill);
+    } else {
+        const char *str = "$confRegMappings";
+        uint8_t macro_idx = FindMacroIndexByName(str, str + strlen(str), false);
+        if (macro_idx == 255) {
+            Macros_ReportError("Named register is used, but no register mapping ($confRegMappings) defined.", NULL, NULL);
+            return NULL;
+        }
+
+        // search through all named register inside this macro
+        macro_action_t action;
+        ValidatedUserConfigBuffer.offset = AllMacros[macro_idx].firstMacroActionOffset;
+        ParseMacroAction(&ValidatedUserConfigBuffer, &action);
+        if (action.type != MacroActionType_Command) {
+            Macros_ReportError("$confRegMappings contains invalid macro action type. Must only contain command macro at first slot.", NULL, NULL);
+            return NULL;
+        }
+        // taken from loadAction
+        const char *cmd = action.cmd.text;
+        const char *actionEnd = action.cmd.text + action.cmd.textLen;
+        while (*cmd <= 32 && cmd < actionEnd) {
+            cmd++;
+        }
+
+        const char *cmdBegin = cmd;
+        const char *cmdEnd = NextCmd(cmd, actionEnd);
+
+        while (true) {
+            const char *token1 = cmdBegin;
+
+            if (TokenMatches(token1, cmdEnd, "declareReg")) {
+                const char* token2 = NextTok(token1, cmdEnd);
+                if (TokenMatches2(token2, cmdEnd, arg, argEnd)){
+                    const char *token3 = NextTok(token2, cmdEnd);
+                    idx = ParseInt32_2(token3, argEnd, NULL);
+                    break;
+                }
+            }
+
+            if (cmdEnd >= actionEnd) {
+                Macros_ReportError("Named register was not found:", arg, NextTok(arg, argEnd));
+                return NULL;
+            }
+
+            cmdBegin = cmdEnd;
+            cmdEnd = NextCmd(cmdEnd, actionEnd);
+        }
+
+    }
     if (idx >= MAX_REG_COUNT) {
         Macros_ReportErrorNum("Invalid register index:", idx);
-        return false;
+        return NULL;
     }
-    return true;
+    return &regs[idx];
 }
 
 static macro_result_t writeNum(uint32_t a)
@@ -713,9 +767,9 @@ int32_t Macros_ParseInt(const char *a, const char *aEnd, const char* *parsedTill
             }
             return Utils_KeyStateToKeyId(s->ms.currentMacroKey);
         }
-        uint8_t adr = Macros_ParseInt(a, aEnd, parsedTill);
-        if (validReg(adr)) {
-            return regs[adr];
+        int32_t *adr = getReg(a, aEnd, parsedTill);
+        if (adr) {
+            return *adr;
         } else {
             return 0;
         }
@@ -1310,10 +1364,10 @@ static bool processIfReleasedCommand(bool negate)
 
 static bool processIfRegEqCommand(bool negate, const char* arg1, const char *argEnd)
 {
-    uint8_t address = parseNUM(arg1, argEnd);
+    int32_t *address = getReg(arg1, argEnd, NULL);
     uint8_t param = parseNUM(NextTok(arg1, argEnd), argEnd);
-    if (validReg(address)) {
-        bool res = regs[address] == param;
+    if (address) {
+        bool res = *address == param;
         return res != negate;
     } else {
         return false;
@@ -1375,23 +1429,23 @@ static macro_result_t processSetLedTxtCommand(const char* arg1, const char *argE
 
 static macro_result_t processSetRegCommand(const char* arg1, const char *argEnd)
 {
-    uint8_t address = parseNUM(arg1, argEnd);
+    int32_t *address = getReg(arg1, argEnd, NULL);
     int32_t param = parseNUM(NextTok(arg1, argEnd), argEnd);
-    if (validReg(address)) {
-        regs[address] = param;
+    if (address) {
+        *address = param;
     }
     return MacroResult_Finished;
 }
 
 static macro_result_t processRegAddCommand(const char* arg1, const char *argEnd, bool invert)
 {
-    uint8_t address = parseNUM(arg1, argEnd);
+    int32_t *address = getReg(arg1, argEnd, NULL);
     int32_t param = parseNUM(NextTok(arg1, argEnd), argEnd);
-    if (validReg(address)) {
+    if (address) {
         if (invert) {
-            regs[address] = regs[address] - param;
+            *address = (*address) - param;
         } else {
-            regs[address] = regs[address] + param;
+            *address = (*address) + param;
         }
     }
     return MacroResult_Finished;
@@ -1399,10 +1453,10 @@ static macro_result_t processRegAddCommand(const char* arg1, const char *argEnd,
 
 static macro_result_t processRegMulCommand(const char* arg1, const char *argEnd)
 {
-    uint8_t address = parseNUM(arg1, argEnd);
+    int32_t *address = getReg(arg1, argEnd, NULL);
     int32_t param = parseNUM(NextTok(arg1, argEnd), argEnd);
-    if (validReg(address)) {
-        regs[address] = regs[address]*param;
+    if (address) {
+        *address = (*address)*param;
     }
     return MacroResult_Finished;
 }
@@ -2031,12 +2085,12 @@ static macro_result_t processPostponeNextNCommand(const char* arg1, const char* 
 
 static macro_result_t processRepeatForCommand(const char* arg1, const char* argEnd)
 {
-    uint8_t idx = parseNUM(arg1, argEnd);
+    int32_t *address = getReg(arg1, argEnd, NULL);
     const char* adr = NextTok(arg1, argEnd);
-    if (validReg(idx)) {
-        if (regs[idx] > 0) {
-            regs[idx]--;
-            if (regs[idx] > 0) {
+    if (address) {
+        if ((*address) > 0) {
+            (*address)--;
+            if ((*address) > 0) {
                 return goTo(adr, argEnd);
             }
         }
@@ -2124,6 +2178,10 @@ static macro_result_t processCommand(const char* cmd, const char* cmdEnd)
             }
             else if (TokenMatches(cmd, cmdEnd, "diagnose")) {
                 return processDiagnoseCommand();
+            }
+            else if (TokenMatches(cmd, cmdEnd, "declareReg")) {
+                Macros_ReportError("declareReg can only be used in $confRegMappings as standalone declaration", NULL, NULL);
+                goto failed;
             }
             else {
                 goto failed;
