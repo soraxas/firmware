@@ -490,13 +490,13 @@ macro_action_t MacroShortcutParser_Parse(const char* str, const char* strEnd, ma
 {
     macro_action_t action;
 
-    if (FindChar('-', str, strEnd) == strEnd) {
+    const char* delim = FindChar('-', str, strEnd);
+    if (delim == strEnd) {
         //"-" notation not used
         action = parseAbbrev(str, strEnd);
         action.key.action = type;
     }
     else {
-        const char* delim = FindChar('-', str, strEnd);
         action = parseAbbrev(delim+1, strEnd);
         action.key.action = type;
 
